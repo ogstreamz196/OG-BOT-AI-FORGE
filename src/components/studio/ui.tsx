@@ -3,9 +3,9 @@ import { cn } from "@/lib/utils";
 
 export function Panel({ title, right, children, className }: { title: string; right?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={cn("flex flex-col rounded-md border border-border bg-panel/90", className)}>
+    <section className={cn("flex flex-col rounded-2xl border border-border bg-panel/80 backdrop-blur", className)}>
       <header className="flex items-center justify-between border-b border-border px-3 py-2">
-        <h3 className="font-mono text-xs uppercase tracking-widest text-primary">▸ {title}</h3>
+        <h3 className="font-display text-base uppercase text-foreground">{title}</h3>
         {right}
       </header>
       <div className="flex-1 min-h-0 p-3">{children}</div>
@@ -21,7 +21,7 @@ export function Btn({ children, onClick, variant = "primary", disabled, classNam
     danger: "bg-destructive text-destructive-foreground",
   }[variant];
   return (
-    <button disabled={disabled} onClick={onClick} className={cn("rounded px-3 py-1.5 font-mono text-xs font-semibold uppercase tracking-wide transition disabled:opacity-40", v, className)}>
+    <button disabled={disabled} onClick={onClick} className={cn("rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-wide transition disabled:opacity-40", v, className)}>
       {children}
     </button>
   );
@@ -38,9 +38,9 @@ export function Bar({ value, tone = "primary" }: { value: number; tone?: "primar
 
 export function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded border border-border bg-card p-3">
+    <div className="rounded-xl border border-border bg-card p-3">
       <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
-      <div className="mt-1 text-xl font-bold text-primary text-glow">{value}</div>
+      <div className="mt-1 font-display text-2xl text-foreground">{value}</div>
       {sub && <div className="text-xs text-muted-foreground">{sub}</div>}
     </div>
   );

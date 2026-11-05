@@ -10,6 +10,7 @@ import { Sentinel } from "@/components/studio/Sentinel";
 import { Hardware } from "@/components/studio/Hardware";
 import { Database } from "@/components/studio/Database";
 import { cn } from "@/lib/utils";
+import logo from "@/assets/og-bot-logo.webp";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -40,9 +41,12 @@ function Studio() {
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       <aside className="border-b border-border bg-panel/95 md:w-56 md:border-b-0 md:border-r">
-        <div className="px-4 py-4">
-          <div className="text-xl font-bold tracking-tight text-primary text-glow">OG-BOT</div>
-          <div className="font-mono text-[10px] uppercase tracking-widest text-secondary">Offline AI Studio</div>
+        <div className="flex items-center gap-3 px-4 py-4">
+          <img src={logo} alt="OG BOT mascot logo" className="h-12 w-12 object-contain" />
+          <div>
+            <div className="font-display text-2xl leading-none text-foreground">OG BOT</div>
+            <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-muted-foreground">Offline AI Studio</div>
+          </div>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-col">
           {TABS.map(({ id, label, icon: I }) => (
@@ -54,8 +58,8 @@ function Studio() {
       </aside>
       <main className="flex flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-border px-4 py-2">
-          <h1 className="font-mono text-sm uppercase tracking-widest">{TABS.find((t) => t.id === tab)!.label}</h1>
-          <span className="flex items-center gap-1 rounded border border-primary/50 px-2 py-0.5 font-mono text-[10px] text-primary"><WifiOff className="h-3 w-3" />AIR-GAPPED</span>
+          <h1 className="font-display text-xl uppercase">{TABS.find((t) => t.id === tab)!.label}</h1>
+          <span className="flex items-center gap-1 rounded border border-secondary/60 px-2 py-0.5 text-[10px] font-semibold tracking-widest text-secondary"><span className="h-1.5 w-1.5 rounded-full bg-secondary" /><WifiOff className="h-3 w-3" />AIR-GAPPED</span>
         </header>
         <div className="flex-1 p-4"><Active /></div>
       </main>
