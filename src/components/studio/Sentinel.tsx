@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Usb, ShieldCheck, ShieldAlert } from "lucide-react";
 import { Panel, Btn, inputCls } from "./ui";
 
+const MODULES = ["ai-coder", "image-engine", "music-forge", "connectors", "mobile-sdk", "developer-dashboard"];
+
 export function Sentinel() {
   const [plugged, setPlugged] = useState(true);
   const [key, setKey] = useState("OGB-7F3A-91C2-XQ8D");
@@ -17,6 +19,16 @@ export function Sentinel() {
     const ok = /^OGB(-[A-Z0-9]{4}){3}$/.test(key.trim());
     setLicensed(ok);
     add(ok ? `License ${key} activated` : `Invalid license key "${key}"`);
+  };
+  const [slots, setSlots] = useState<{ slot: number; label: string; mac: string | null }[]>([
+    { slot: 1, label: "Primary Rig (RTX 5080)", mac: "C8:7F:54:1A:22:9E" },
+    { slot: 2, label: "Laptop", mac: null },
+    { slot: 3, label: "Spare / Testing", mac: null },
+  ]);
+  const toggleSlot = (n: number) => {
+    const mac = Array.from({ length: 6 }, () => Math.floor(Math.random() * 256).toString(16).padStart(2, "0").toUpperCase()).join(":");
+    setSlots((ss) => ss.map((s) => (s.slot === n ? { ...s, mac: s.mac ? null : mac } : s)));
+    add(`Slot ${n} ${slots.find((s) => s.slot === n)?.mac ? "revoked" : `bound to ${mac}`}`);
   };
   const ok = plugged && licensed;
 
@@ -38,10 +50,24 @@ export function Sentinel() {
         <div className="space-y-3">
           <label className="block text-xs text-muted-foreground">License key (format OGB-XXXX-XXXX-XXXX)<input className={inputCls} value={key} onChange={(e) => setKey(e.target.value.toUpperCase())} /></label>
           <Btn onClick={activate}>Activate offline</Btn>
-          <div className="text-xs">Status: <span className={licensed ? "text-primary" : "text-destructive"}>{licensed ? "Pro · Perpetual · 3 seats" : "Unlicensed"}</span></div>
+          <div className="text-xs">Status: <span className={licensed ? "text-primary" : "text-destructive"}>{licensed ? "Enterprise · expires 2027-11-01 · 30-day offline grace" : "Unlicensed"}</span></div>
           <div className="max-h-40 overflow-auto rounded border border-border bg-background p-2 font-mono text-[11px] text-muted-foreground">
             {log.map((l, i) => <div key={i}>{l}</div>)}
           </div>
+        </div>
+      </Panel>
+      <Panel title="Device Slots (3 per licence)" className="lg:col-span-2">
+        <ul className="grid gap-2 md:grid-cols-3">
+          {slots.map((s) => (
+            <li key={s.slot} className="rounded border border-border bg-card p-3 font-mono text-xs">
+              <div className="mb-1 text-muted-foreground">SLOT {s.slot} · {s.label}</div>
+              <div className={s.mac ? "text-primary" : "text-muted-foreground"}>{s.mac ?? "— unbound —"}</div>
+              <Btn variant="ghost" className="mt-2" onClick={() => toggleSlot(s.slot)}>{s.mac ? "Revoke" : "Bind this device"}</Btn>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-3 flex flex-wrap gap-1">
+          {MODULES.map((m) => <span key={m} className="rounded bg-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground">{m}</span>)}
         </div>
       </Panel>
     </div>
