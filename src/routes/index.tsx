@@ -10,7 +10,18 @@ import { Sentinel } from "@/components/studio/Sentinel";
 import { Hardware } from "@/components/studio/Hardware";
 import { Database } from "@/components/studio/Database";
 import { cn } from "@/lib/utils";
-import logo from "@/assets/og-bot-logo.webp";
+import logoAsset from "@/assets/og-bot-logo.webp.asset.json";
+import battleAsset from "@/assets/og-bot-battle-zone.webp.asset.json";
+import trackAsset from "@/assets/og-bot-create-track.webp.asset.json";
+import signalsAsset from "@/assets/og-signals.webp.asset.json";
+import keysAsset from "@/assets/og-keys.webp.asset.json";
+const logo = logoAsset.url;
+const BADGES: Record<string, { src: string; alt: string }> = {
+  agent: { src: battleAsset.url, alt: "OG BOT Battle Zone badge" },
+  music: { src: trackAsset.url, alt: "OG BOT Make a Track badge" },
+  hw: { src: signalsAsset.url, alt: "OG Signals badge" },
+  sentinel: { src: keysAsset.url, alt: "OG Keys badge" },
+};
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -58,7 +69,7 @@ function Studio() {
       </aside>
       <main className="flex flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-border px-4 py-2">
-          <h1 className="font-display text-xl uppercase">{TABS.find((t) => t.id === tab)!.label}</h1>
+          <h1 className="flex items-center gap-2 font-display text-xl uppercase">{BADGES[tab] && <img src={BADGES[tab].src} alt={BADGES[tab].alt} className="h-9 w-9 rounded-md object-cover" />}{TABS.find((t) => t.id === tab)!.label}</h1>
           <span className="flex items-center gap-1 rounded border border-secondary/60 px-2 py-0.5 text-[10px] font-semibold tracking-widest text-secondary"><span className="h-1.5 w-1.5 rounded-full bg-secondary" /><WifiOff className="h-3 w-3" />AIR-GAPPED</span>
         </header>
         <div className="flex-1 p-4"><Active /></div>
