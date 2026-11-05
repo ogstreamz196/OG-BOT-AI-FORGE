@@ -2,31 +2,65 @@ import { useState } from "react";
 import { Monitor, Tablet, Smartphone } from "lucide-react";
 import { Panel, Btn } from "./ui";
 import { cn } from "@/lib/utils";
+import hubHtml from "@/projects/og-bot-hub-starter/index.html?raw";
+import hubCss from "@/projects/og-bot-hub-starter/styles.css?raw";
+import hubJs from "@/projects/og-bot-hub-starter/app.js?raw";
 
-const FILES: Record<string, string> = {
+type Files = Record<string, string>;
+
+const BLANK: Files = {
   "index.html": `<div class="app">
   <h1>Hello from OG-BOT</h1>
   <p>Edit the code — the preview updates live.</p>
   <button onclick="this.textContent='Clicked ✓'">Tap me</button>
 </div>`,
-  "style.css": `body{margin:0;font-family:system-ui;background:#0b0f1e;color:#e6e9f5}
+  "styles.css": `body{margin:0;font-family:system-ui;background:#0b0f1e;color:#e6e9f5}
 .app{padding:32px;text-align:center}
 h1{color:#fff;letter-spacing:.02em}
 button{background:#3d5afe;color:#fff;border:0;padding:12px 20px;border-radius:6px;font-size:16px}`,
   "app.js": `console.log("OG-BOT preview ready");`,
 };
 
+const PROJECTS = {
+  "og-bot-hub-starter": { "index.html": hubHtml, "styles.css": hubCss, "app.js": hubJs },
+  "blank-app": BLANK,
+} as Record<string, Files>;
+
 const SIZES = { desktop: "100%", tablet: "768px", mobile: "375px" } as const;
 
+function buildDoc(f: Files) {
+  const html = f["index.html"] ?? "";
+  if (/<html/i.test(html)) {
+    return html
+      .replace(/<link[^>]*href=["']styles\.css["'][^>]*>/i, `<style>${f["styles.css"] ?? ""}</style>`)
+      .replace(/<script[^>]*src=["']app\.js["'][^>]*><\/script>/i, `<script>${f["app.js"] ?? ""}<\/script>`);
+  }
+  return `<!doctype html><html><head><style>${f["styles.css"] ?? ""}</style></head><body>${html}<script>${f["app.js"] ?? ""}<\/script></body></html>`;
+}
+
 export function Workbench() {
-  const [files, setFiles] = useState(FILES);
+  const [project, setProject] = useState("og-bot-hub-starter");
+  const [files, setFiles] = useState<Files>(PROJECTS[project]!);
   const [active, setActive] = useState("index.html");
   const [device, setDevice] = useState<keyof typeof SIZES>("desktop");
-  const doc = `<!doctype html><html><head><style>${files["style.css"]}</style></head><body>${files["index.html"]}<script>${files["app.js"]}<\/script></body></html>`;
+  const [nonce, setNonce] = useState(0);
+
+  const pick = (p: string) => { setProject(p); setFiles(PROJECTS[p]!); setActive("index.html"); };
 
   return (
     <div className="grid h-full gap-3 lg:grid-cols-2">
-      <Panel title="Code Editor" className="min-h-[520px]" right={<Btn variant="ghost" onClick={() => setFiles(FILES)}>Reset</Btn>}>
+      <Panel
+        title="Code Editor"
+        className="min-h-[520px]"
+        right={
+          <div className="flex items-center gap-2">
+            <select aria-label="Project" value={project} onChange={(e) => pick(e.target.value)} className="rounded border border-border bg-background px-2 py-1 font-mono text-xs text-foreground">
+              {Object.keys(PROJECTS).map((p) => <option key={p}>{p}</option>)}
+            </select>
+            <Btn variant="ghost" onClick={() => setFiles(PROJECTS[project]!)}>Reset</Btn>
+          </div>
+        }
+      >
         <div className="flex h-full flex-col">
           <div className="mb-2 flex gap-1">
             {Object.keys(files).map((f) => (
@@ -51,11 +85,12 @@ export function Workbench() {
                 <Icon className="h-4 w-4" />
               </button>
             ))}
+            <Btn variant="ghost" onClick={() => setNonce((n) => n + 1)}>Reload</Btn>
           </div>
         }
       >
         <div className="flex h-full justify-center overflow-auto rounded bg-muted/40 p-2">
-          <iframe title="preview" sandbox="allow-scripts" srcDoc={doc} style={{ width: SIZES[device] }} className="h-full min-h-[440px] max-w-full rounded border border-border bg-background transition-all" />
+          <iframe key={nonce} title="preview" sandbox="allow-scripts" srcDoc={buildDoc(files)} style={{ width: SIZES[device] }} className="h-full min-h-[440px] max-w-full rounded border border-border bg-background transition-all" />
         </div>
       </Panel>
     </div>

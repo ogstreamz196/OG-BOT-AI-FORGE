@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>OG-BOT HUB // Offline AI & Music Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="og-theme-body">
+  <div class="og-app-shell">
+    <!-- Top Navigation / Header -->
+    <header class="og-header">
+      <div class="og-brand">
+        <div class="og-logo-icon">⚡</div>
+        <div class="og-brand-text">
+          <span class="og-title">OG-BOT <span class="og-badge">HUB v3</span></span>
+          <span class="og-subtitle">OFFLINE AI & SYNTHWAVE STUDIO</span>
+        </div>
+      </div>
+
+      <div class="og-header-actions">
+        <div class="og-coin-pill">
+          <span class="coin-icon">🪙</span>
+          <span class="coin-label">COINS</span>
+          <span class="coin-value" id="userCoins">100</span>
+        </div>
+
+        <div class="og-network-status" id="networkStatus">
+          <span class="pulse-dot"></span>
+          <span class="status-label">AIR-GAPPED OFFLINE</span>
+        </div>
+
+        <button class="og-btn og-btn-sm" id="btnSync">SYNC CLOUD</button>
+      </div>
+    </header>
+
+    <!-- Main Workspace Layout -->
+    <div class="og-layout-body">
+      <!-- Sidebar Navigation -->
+      <aside class="og-sidebar">
+        <nav class="og-nav">
+          <a href="#studio" class="og-nav-item active" data-tab="studio">
+            <span class="nav-icon">🎛️</span>
+            <span class="nav-text">AI Studio</span>
+          </a>
+          <a href="#library" class="og-nav-item" data-tab="library">
+            <span class="nav-icon">🎵</span>
+            <span class="nav-text">Track Library</span>
+          </a>
+          <a href="#store" class="og-nav-item" data-tab="store">
+            <span class="nav-icon">💎</span>
+            <span class="nav-text">Buy Coins</span>
+          </a>
+          <a href="#database" class="og-nav-item" data-tab="database">
+            <span class="nav-icon">🗄️</span>
+            <span class="nav-text">Supabase DB</span>
+          </a>
+          <a href="#mobile" class="og-nav-item" data-tab="mobile">
+            <span class="nav-icon">📱</span>
+            <span class="nav-text">APK Forge</span>
+          </a>
+        </nav>
+
+        <div class="og-sidebar-footer">
+          <div class="device-slot-badge">
+            <span>SLOT 1/3 (HARDWARE LOCKED)</span>
+          </div>
+          <div class="vram-meter">
+            <div class="vram-labels">
+              <span>RTX 5080 VRAM</span>
+              <span id="vramPct">4.2 / 16 GB</span>
+            </div>
+            <div class="vram-bar"><div class="vram-fill" style="width: 26%;"></div></div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Content Container -->
+      <main class="og-main-content">
+        <!-- STUDIO TAB -->
+        <section id="tab-studio" class="og-tab-pane active">
+          <div class="og-hero-card">
+            <div class="og-hero-header">
+              <h2>LOCAL NEURAL SOUND & APP FORGE</h2>
+              <p>Uncensored, zero-cloud music & code synthesis running directly on your portable NVMe & RTX 5080.</p>
+            </div>
+
+            <div class="og-prompt-box">
+              <label for="promptInput">DESCRIBE TRACK OR APP SPECIFICATION:</label>
+              <textarea id="promptInput" rows="3" placeholder="e.g. Cyberpunk dark synthwave instrumental, 128 BPM, aggressive bassline, analog Moog leads, driving arpeggiated percussion..."></textarea>
+
+              <div class="og-prompt-controls">
+                <div class="prompt-tags">
+                  <span class="tag-chip active">Synthwave</span>
+                  <span class="tag-chip">Cyberpunk</span>
+                  <span class="tag-chip">Dark Techno</span>
+                  <span class="tag-chip">Chiptune</span>
+                  <span class="tag-chip">Web App</span>
+                </div>
+
+                <div class="prompt-action-group">
+                  <div class="cost-estimate">COST: <span class="cost-val">2 COINS</span></div>
+                  <button class="og-btn og-btn-primary" id="btnGenerate">
+                    <span class="btn-icon">⚡</span> GENERATE TRACK
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Active Generation / Player Card -->
+          <div class="og-card og-player-card">
+            <div class="player-header">
+              <div class="now-playing-badge">
+                <span class="equalizer-bar"></span>
+                <span class="equalizer-bar"></span>
+                <span class="equalizer-bar"></span>
+                <span id="trackTitle">SONIX-01: CYBER_OVERDRIVE.MP3</span>
+              </div>
+              <span class="track-tag">OFFLINE SYNTH</span>
+            </div>
+
+            <div class="waveform-container">
+              <div class="waveform-mock" id="waveform"></div>
+              <div class="time-readout">
+                <span id="currentTime">00:18</span> / <span id="totalTime">02:45</span>
+              </div>
+            </div>
+
+            <div class="player-controls">
+              <button class="ctrl-btn" id="btnPrev">⏮️</button>
+              <button class="ctrl-btn ctrl-play" id="btnPlay">▶️ PLAY</button>
+              <button class="ctrl-btn" id="btnNext">⏭️</button>
+              <button class="og-btn og-btn-secondary og-btn-sm" id="btnExportWav">💾 EXPORT HIGH-RES WAV</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- LIBRARY TAB -->
+        <section id="tab-library" class="og-tab-pane">
+          <div class="pane-header">
+            <h3>OFFLINE GENERATED STEMS & TRACKS</h3>
+            <button class="og-btn og-btn-sm" id="btnRefreshTracks">REFRESH</button>
+          </div>
+          <div class="track-grid" id="trackList">
+            <!-- Dynamically populated -->
+          </div>
+        </section>
+
+        <!-- STORE TAB -->
+        <section id="tab-store" class="og-tab-pane">
+          <div class="pane-header">
+            <h3>COIN VAULT (OFFLINE LOCAL LEDGER)</h3>
+          </div>
+          <div class="pricing-grid">
+            <div class="pricing-card">
+              <div class="tier-title">STARTER PACK</div>
+              <div class="tier-coins">50 COINS</div>
+              <p class="tier-desc">Ideal for testing local models & fast renders.</p>
+              <button class="og-btn og-btn-secondary" onclick="addCoins(50)">CLAIM TO LOCAL LEDGER</button>
+            </div>
+            <div class="pricing-card featured">
+              <div class="featured-badge">MOST POPULAR</div>
+              <div class="tier-title">PRO CREATOR</div>
+              <div class="tier-coins">250 COINS</div>
+              <p class="tier-desc">Unlimited stems, full audio mastering, and APK builds.</p>
+              <button class="og-btn og-btn-primary" onclick="addCoins(250)">CLAIM TO LOCAL LEDGER</button>
+            </div>
+            <div class="pricing-card">
+              <div class="tier-title">STUDIO UNLIMITED</div>
+              <div class="tier-coins">1,000 COINS</div>
+              <p class="tier-desc">High-speed batch generations with zero rate limits.</p>
+              <button class="og-btn og-btn-secondary" onclick="addCoins(1000)">CLAIM TO LOCAL LEDGER</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- DATABASE TAB -->
+        <section id="tab-database" class="og-tab-pane">
+          <div class="pane-header">
+            <h3>SUPABASE BRIDGE & ATOMIC LOCAL DB</h3>
+            <span class="db-mode-badge" id="dbModeBadge">MODE: LOCAL SQLITE ENGINE</span>
+          </div>
+          <div class="og-card">
+            <div class="db-query-bar">
+              <input type="text" id="dbQueryInput" value="SELECT * FROM songs ORDER BY created_at DESC" placeholder="Enter query...">
+              <button class="og-btn og-btn-primary" id="btnRunQuery">EXECUTE</button>
+            </div>
+            <div class="db-results-table">
+              <table id="dbTable">
+                <thead>
+                  <tr><th>ID</th><th>TITLE</th><th>GENRE</th><th>COIN COST</th><th>CREATED</th></tr>
+                </thead>
+                <tbody id="dbTableBody">
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- MOBILE APK TAB -->
+        <section id="tab-mobile" class="og-tab-pane">
+          <div class="pane-header">
+            <h3>CAPACITOR ANDROID APK BUILDER</h3>
+          </div>
+          <div class="og-card">
+            <p>One-click packaging from this web app directly into a native Android APK (debug signed).</p>
+            <div class="apk-action-box">
+              <div class="apk-info">
+                <div><strong>PACKAGE ID:</strong> com.ogstreamz.ogbothub</div>
+                <div><strong>OUTPUT:</strong> projects/og-bot-hub-starter/bin/og-bot-hub-debug.apk</div>
+              </div>
+              <button class="og-btn og-btn-primary" id="btnBuildApk">⚡ COMPILE OFFLINE APK</button>
+            </div>
+            <div class="console-box" id="apkConsole">// APK compiler idle. Click compile to trigger build-apk.ps1...</div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

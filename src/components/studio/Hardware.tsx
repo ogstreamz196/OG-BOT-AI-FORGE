@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
 import { Panel, Bar, Stat } from "./ui";
 
-const MODELS = [
-  { name: "og-coder-7b Q4", vram: 5.2 },
-  { name: "og-coder-14b Q4", vram: 9.8 },
-  { name: "og-diffusion-xl-lite", vram: 6.5 },
-  { name: "og-music-small", vram: 3.1 },
-  { name: "og-coder-34b Q4", vram: 21 },
+// Mirrors MODEL_MATRIX in the repo's dashboard/compatibility-checker.js
+export const MODELS = [
+  { name: "Qwen 2.5 Coder 32B (Q4_K_M)", vram: 12, ram: 16, fallback: "qwen2.5-coder:14b" },
+  { name: "DeepSeek R1 32B Reasoning", vram: 14, ram: 32, fallback: "deepseek-r1:14b" },
+  { name: "Qwen 2.5 Coder 14B", vram: 8, ram: 16, fallback: "qwen2.5-coder:7b" },
+  { name: "Qwen 2.5 Coder 7B", vram: 5, ram: 8, fallback: "qwen2.5-coder:1.5b" },
+  { name: "Qwen 2.5 Coder 1.5B (Autocomplete)", vram: 1.5, ram: 4, fallback: null },
+  { name: "SDXL Turbo Image Checkpoint", vram: 8, ram: 16, fallback: "sd-1.5" },
+  { name: "AudioCraft MusicGen Medium", vram: 6, ram: 16, fallback: "musicgen-small" },
 ];
-const TOTAL = 12;
+const TOTAL = 16;
 
 export function Hardware() {
   const [s, setS] = useState({ gpu: 34, vram: 6.1, cpu: 22, ram: 41, temp: 58 });

@@ -9,7 +9,7 @@ type Commit = { hash: string; msg: string; author: string; time: string; pushed:
 const hash = () => Math.random().toString(16).slice(2, 9);
 
 export function GitSync() {
-  const [remote, setRemote] = useState("https://github.com/ogbot/og-bot-studio.git");
+  const [remote, setRemote] = useState("https://github.com/ogstreamz196/OG-BOT-OFFLINE-AI.git");
   const [connected, setConnected] = useState(true);
   const [branch, setBranch] = useState("main");
   const [branches, setBranches] = useState(["main", "dev", "feature/apk-forge"]);
