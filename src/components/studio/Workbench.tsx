@@ -21,31 +21,31 @@ button{background:#3d5afe;color:#fff;border:0;padding:12px 20px;border-radius:6p
   "app.js": `console.log("OG-BOT preview ready");`,
 };
 
-const PROJECTS: Record<string, Files> = {
+const PROJECTS = {
   "og-bot-hub-starter": { "index.html": hubHtml, "styles.css": hubCss, "app.js": hubJs },
   "blank-app": BLANK,
-};
+} as Record<string, Files>;
 
 const SIZES = { desktop: "100%", tablet: "768px", mobile: "375px" } as const;
 
 function buildDoc(f: Files) {
-  const html = f["index.html"];
+  const html = f["index.html"] ?? "";
   if (/<html/i.test(html)) {
     return html
-      .replace(/<link[^>]*href=["']styles\.css["'][^>]*>/i, `<style>${f["styles.css"]}</style>`)
-      .replace(/<script[^>]*src=["']app\.js["'][^>]*><\/script>/i, `<script>${f["app.js"]}<\/script>`);
+      .replace(/<link[^>]*href=["']styles\.css["'][^>]*>/i, `<style>${f["styles.css"] ?? ""}</style>`)
+      .replace(/<script[^>]*src=["']app\.js["'][^>]*><\/script>/i, `<script>${f["app.js"] ?? ""}<\/script>`);
   }
-  return `<!doctype html><html><head><style>${f["styles.css"]}</style></head><body>${html}<script>${f["app.js"]}<\/script></body></html>`;
+  return `<!doctype html><html><head><style>${f["styles.css"] ?? ""}</style></head><body>${html}<script>${f["app.js"] ?? ""}<\/script></body></html>`;
 }
 
 export function Workbench() {
   const [project, setProject] = useState("og-bot-hub-starter");
-  const [files, setFiles] = useState<Files>(PROJECTS[project]);
+  const [files, setFiles] = useState<Files>(PROJECTS[project]!);
   const [active, setActive] = useState("index.html");
   const [device, setDevice] = useState<keyof typeof SIZES>("desktop");
   const [nonce, setNonce] = useState(0);
 
-  const pick = (p: string) => { setProject(p); setFiles(PROJECTS[p]); setActive("index.html"); };
+  const pick = (p: string) => { setProject(p); setFiles(PROJECTS[p]!); setActive("index.html"); };
 
   return (
     <div className="grid h-full gap-3 lg:grid-cols-2">
@@ -57,7 +57,7 @@ export function Workbench() {
             <select aria-label="Project" value={project} onChange={(e) => pick(e.target.value)} className="rounded border border-border bg-background px-2 py-1 font-mono text-xs text-foreground">
               {Object.keys(PROJECTS).map((p) => <option key={p}>{p}</option>)}
             </select>
-            <Btn variant="ghost" onClick={() => setFiles(PROJECTS[project])}>Reset</Btn>
+            <Btn variant="ghost" onClick={() => setFiles(PROJECTS[project]!)}>Reset</Btn>
           </div>
         }
       >
