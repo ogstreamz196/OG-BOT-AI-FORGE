@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Code2, Bot, Package, Music2, Image, ShieldCheck, Cpu, Database as DbIcon, WifiOff } from "lucide-react";
+import { Code2, Bot, Package, Music2, Image, ShieldCheck, Cpu, Database as DbIcon, WifiOff, Github } from "lucide-react";
 import { Workbench } from "@/components/studio/Workbench";
 import { Agent } from "@/components/studio/Agent";
 import { Forge } from "@/components/studio/Forge";
@@ -9,6 +9,7 @@ import { ImageGen } from "@/components/studio/ImageGen";
 import { Sentinel } from "@/components/studio/Sentinel";
 import { Hardware } from "@/components/studio/Hardware";
 import { Database } from "@/components/studio/Database";
+import { GitSync } from "@/components/studio/GitSync";
 import { cn } from "@/lib/utils";
 import logoAsset from "@/assets/og-bot-logo.webp.asset.json";
 import battleAsset from "@/assets/og-bot-battle-zone.webp.asset.json";
@@ -44,6 +45,7 @@ const TABS = [
   { id: "sentinel", label: "Sentinel", icon: ShieldCheck, C: Sentinel },
   { id: "hw", label: "Hardware", icon: Cpu, C: Hardware },
   { id: "db", label: "Database", icon: DbIcon, C: Database },
+  { id: "git", label: "GitHub Sync", icon: Github, C: GitSync },
 ];
 
 function Studio() {
