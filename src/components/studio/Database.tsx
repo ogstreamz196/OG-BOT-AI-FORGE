@@ -20,16 +20,16 @@ export function Database() {
   const [table, setTable] = useState("projects");
   const [query, setQuery] = useState("SELECT * FROM projects");
   const [result, setResult] = useState<Row[] | string>(INIT["projects"] ?? []);
-  const [draft, setDraft] = useState<Row>({});
+  const [draft, setDraft] = useState<Record<string, string | number>>({});
 
   const rows = db[table] ?? [];
   const cols = rows[0] ? Object.keys(rows[0]) : ["id"];
 
   const exec = () => {
     const m = query.trim().match(/^select\s+\*\s+from\s+(\w+)(?:\s+where\s+(\w+)\s*=\s*'?([^']+?)'?)?;?$/i);
-    if (!m || !db[m[1]]) return setResult("Error: supported syntax — SELECT * FROM <table> [WHERE col = value]");
+    if (!m || !db[m[1] ?? ""]) return setResult("Error: supported syntax — SELECT * FROM <table> [WHERE col = value]");
     const [, t, col, val] = m as unknown as string[];
-    let r: Row[] = db[t] ?? [];
+    let r: Row[] = db[t ?? ""] ?? [];
     if (col) r = r.filter((x) => String(x[col]) === val);
     setResult(r);
   };
