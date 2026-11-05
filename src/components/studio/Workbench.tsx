@@ -58,6 +58,12 @@ export function Workbench() {
               {Object.keys(PROJECTS).map((p) => <option key={p}>{p}</option>)}
             </select>
             <Btn variant="ghost" onClick={() => setFiles(PROJECTS[project]!)}>Reset</Btn>
+            <Btn variant="ghost" onClick={() => {
+              const url = URL.createObjectURL(new Blob([buildDoc(files)], { type: "text/html" }));
+              const a = document.createElement("a"); a.href = url; a.download = `${project}.html`;
+              document.body.appendChild(a); a.click(); a.remove();
+              setTimeout(() => URL.revokeObjectURL(url), 30000);
+            }}>Export</Btn>
           </div>
         }
       >
