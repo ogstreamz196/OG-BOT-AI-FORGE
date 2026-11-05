@@ -17,6 +17,18 @@ import trackAsset from "@/assets/og-bot-create-track.webp.asset.json";
 import signalsAsset from "@/assets/og-signals.webp.asset.json";
 import keysAsset from "@/assets/og-keys.webp.asset.json";
 const logo = logoAsset.url;
+const DESC: Record<string, string> = {
+  code: "Edit your app's code on the left and see it live on the right, on desktop, tablet or phone sizes.",
+  agent: "Chat with the offline AI helper. Ask for changes or use quick commands like /scaffold or /export-apk.",
+  forge: "Package your app into an Android (APK/AAB) or iPhone (IPA) file ready to install.",
+  music: "Pick a style and generate a short music track, then play it back right here.",
+  image: "Type a description and generate artwork without needing the internet.",
+  sentinel: "Manage your USB licence key, activate licences and choose which devices can use them.",
+  hw: "Watch your graphics card, memory and temperature live, and see which AI models your machine can run.",
+  db: "Browse and edit your saved data tables, or run simple search queries.",
+  git: "Link your GitHub project, save changes with a note, and push or pull updates.",
+};
+
 const BADGES: Record<string, { src: string; alt: string }> = {
   agent: { src: battleAsset.url, alt: "OG BOT Battle Zone badge" },
   music: { src: trackAsset.url, alt: "OG BOT Make a Track badge" },
@@ -74,6 +86,7 @@ function Studio() {
           <h1 className="flex items-center gap-2 font-display text-xl uppercase">{BADGES[tab] && <img src={BADGES[tab].src} alt={BADGES[tab].alt} className="h-9 w-9 rounded-md object-cover" />}{TABS.find((t) => t.id === tab)!.label}</h1>
           <span className="flex items-center gap-1 rounded border border-secondary/60 px-2 py-0.5 text-[10px] font-semibold tracking-widest text-secondary"><span className="h-1.5 w-1.5 rounded-full bg-secondary" /><WifiOff className="h-3 w-3" />AIR-GAPPED</span>
         </header>
+        <p className="border-b border-border px-4 py-2 text-xs text-muted-foreground">{DESC[tab]}</p>
         <div className="flex-1 p-4"><Active /></div>
       </main>
     </div>
