@@ -9,10 +9,10 @@ const FILES: Record<string, string> = {
   <p>Edit the code — the preview updates live.</p>
   <button onclick="this.textContent='Clicked ✓'">Tap me</button>
 </div>`,
-  "style.css": `body{margin:0;font-family:system-ui;background:#0a0e17;color:#e6f7f1}
+  "style.css": `body{margin:0;font-family:system-ui;background:#0b0f1e;color:#e6e9f5}
 .app{padding:32px;text-align:center}
-h1{color:#00f59b}
-button{background:#3b82f6;color:#fff;border:0;padding:12px 20px;border-radius:6px;font-size:16px}`,
+h1{color:#fff;letter-spacing:.02em}
+button{background:#3d5afe;color:#fff;border:0;padding:12px 20px;border-radius:6px;font-size:16px}`,
   "app.js": `console.log("OG-BOT preview ready");`,
 };
 
@@ -37,7 +37,7 @@ export function Workbench() {
             spellCheck={false}
             value={files[active]}
             onChange={(e) => setFiles({ ...files, [active]: e.target.value })}
-            className="flex-1 min-h-[440px] resize-none rounded border border-border bg-background p-3 font-mono text-xs leading-relaxed text-primary outline-none focus:border-primary"
+            className="flex-1 min-h-[440px] resize-none rounded border border-border bg-background p-3 font-mono text-xs leading-relaxed text-foreground outline-none focus:border-primary"
           />
         </div>
       </Panel>
