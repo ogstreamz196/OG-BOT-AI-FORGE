@@ -19,7 +19,7 @@ export function Hardware() {
     }, 1000);
     return () => clearInterval(id);
   }, []);
-  const tone = (v: number) => (v > 85 ? "destructive" : v > 65 ? "warning" : "primary") as const;
+  const tone = (v: number): "destructive" | "warning" | "primary" => (v > 85 ? "destructive" : v > 65 ? "warning" : "primary");
 
   return (
     <div className="space-y-3">

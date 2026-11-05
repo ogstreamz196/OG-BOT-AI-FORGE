@@ -18,8 +18,8 @@ export function Music() {
   const stopT = useRef<number | null>(null);
 
   const gen = () => {
-    const s = SCALES[style];
-    const notes = Array.from({ length: 32 }, () => s[Math.floor(Math.random() * s.length)]);
+    const s = SCALES[style] ?? [220];
+    const notes = Array.from({ length: 32 }, () => s[Math.floor(Math.random() * s.length)] ?? 220);
     setTracks((t) => [{ name: `${prompt} (${style})`, notes, bpm: 100 + Math.floor(Math.random() * 40) }, ...t]);
   };
 
@@ -35,6 +35,7 @@ export function Music() {
     const ac = new AudioContext();
     ctx.current = ac;
     const tr = tracks[i];
+    if (!tr) return;
     const step = 60 / tr.bpm / 2;
     tr.notes.forEach((f, n) => {
       const o = ac.createOscillator();

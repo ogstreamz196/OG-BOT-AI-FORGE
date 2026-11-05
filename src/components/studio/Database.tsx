@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Panel, Btn, inputCls } from "./ui";
 import { cn } from "@/lib/utils";
 
-type Row = Record<string, string | number>;
+type Row = { id: number } & Record<string, string | number>;
 const INIT: Record<string, Row[]> = {
   projects: [
     { id: 1, name: "Neon Notes", platform: "android", status: "built" },
@@ -19,29 +19,30 @@ export function Database() {
   const [db, setDb] = useState(INIT);
   const [table, setTable] = useState("projects");
   const [query, setQuery] = useState("SELECT * FROM projects");
-  const [result, setResult] = useState<Row[] | string>(INIT.projects);
+  const [result, setResult] = useState<Row[] | string>(INIT["projects"] ?? []);
   const [draft, setDraft] = useState<Row>({});
 
-  const rows = db[table];
+  const rows = db[table] ?? [];
   const cols = rows[0] ? Object.keys(rows[0]) : ["id"];
 
   const exec = () => {
     const m = query.trim().match(/^select\s+\*\s+from\s+(\w+)(?:\s+where\s+(\w+)\s*=\s*'?([^']+?)'?)?;?$/i);
     if (!m || !db[m[1]]) return setResult("Error: supported syntax — SELECT * FROM <table> [WHERE col = value]");
-    let r = db[m[1]];
-    if (m[2]) r = r.filter((x) => String(x[m[2]]) === m[3]);
+    const [, t, col, val] = m as unknown as string[];
+    let r: Row[] = db[t] ?? [];
+    if (col) r = r.filter((x) => String(x[col]) === val);
     setResult(r);
   };
   const addRow = () => {
     const id = Math.max(0, ...rows.map((r) => Number(r.id))) + 1;
-    const row: Row = { id };
+    const row = { id } as Row;
     cols.filter((c) => c !== "id").forEach((c) => (row[c] = draft[c] ?? ""));
     setDb({ ...db, [table]: [...rows, row] });
     setDraft({});
   };
-  const del = (id: Row["id"]) => setDb({ ...db, [table]: rows.filter((r) => r.id !== id) });
+  const del = (id: number) => setDb({ ...db, [table]: rows.filter((r) => r.id !== id) });
 
-  const Table = ({ data, onDel }: { data: Row[]; onDel?: (id: Row["id"]) => void }) => (
+  const Table = ({ data, onDel }: { data: Row[]; onDel?: (id: number) => void }) => (
     <div className="overflow-auto">
       <table className="w-full font-mono text-xs">
         <thead><tr>{(data[0] ? Object.keys(data[0]) : cols).map((c) => <th key={c} className="border-b border-border px-2 py-1 text-left text-primary">{c}</th>)}{onDel && <th />}</tr></thead>
@@ -62,7 +63,7 @@ export function Database() {
       <Panel title="Tables">
         <ul className="space-y-1">
           {Object.keys(db).map((t) => (
-            <li key={t}><button onClick={() => setTable(t)} className={cn("w-full rounded px-2 py-1 text-left font-mono text-xs", table === t ? "bg-primary text-primary-foreground" : "hover:bg-accent")}>{t} <span className="opacity-60">({db[t].length})</span></button></li>
+            <li key={t}><button onClick={() => setTable(t)} className={cn("w-full rounded px-2 py-1 text-left font-mono text-xs", table === t ? "bg-primary text-primary-foreground" : "hover:bg-accent")}>{t} <span className="opacity-60">({db[t]?.length ?? 0})</span></button></li>
           ))}
         </ul>
       </Panel>
@@ -78,7 +79,7 @@ export function Database() {
         </Panel>
         <Panel title="SQL Console">
           <div className="flex gap-2"><input className={inputCls} value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && exec()} /><Btn variant="blue" onClick={exec}>Execute</Btn></div>
-          <div className="mt-3">{typeof result === "string" ? <p className="font-mono text-xs text-destructive">{result}</p> : <Table data={result} />}</div>
+          <div className="mt-3">{typeof result === "string" ? <p className="font-mono text-xs text-destructive">{result}</p> : <Table data={result as Row[]} />}</div>
         </Panel>
       </div>
     </div>
