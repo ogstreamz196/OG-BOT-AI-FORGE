@@ -1,14 +1,18 @@
 import { useSyncExternalStore } from "react";
+import { supabase } from "./supabase";
 
 /**
  * Licensing + feature-gating store: the single source of truth for the
  * customer's tier, per-feature permission overrides, device identity
  * (device key / MAC), offline grace period and bound device slots.
  *
- * Both the Developer Dashboard and the Sentinel read and write this store,
- * and the studio shell gates each tab through `isUnlocked`. State is
- * persisted to localStorage (best-effort) so a "licensed" session survives
- * reloads; everything degrades gracefully when storage is unavailable.
+ * Offline-first sync: state starts from built-in defaults (so SSR and the
+ * client's first paint match), then on mount hydrates from localStorage and,
+ * when configured, from the Supabase `licenses` row. Every change is written
+ * through to localStorage immediately and pushed to Supabase (debounced,
+ * best-effort) so an air-gapped device keeps working and reconciles when it is
+ * next online. Both the Developer Dashboard and the Sentinel read/write here,
+ * and the studio shell gates each tab through `isUnlocked`.
  */
 
 export type Tier = "starter" | "pro" | "enterprise";
@@ -64,6 +68,7 @@ export type License = {
 };
 
 const STORAGE_KEY = "og-license-v1";
+const ROW_ID = "primary";
 
 function randMac() {
   return Array.from({ length: 6 }, () =>
@@ -94,20 +99,99 @@ function defaultLicense(): License {
   };
 }
 
-function load(): License {
+// Stable server snapshot — never mutated, so SSR and first client paint agree.
+const SERVER_SNAPSHOT: License = defaultLicense();
+let state: License = defaultLicense();
+const listeners = new Set<() => void>();
+let hydrated = false;
+
+/** Map a Supabase `licenses` row to our License shape. */
+function fromRow(r: Record<string, unknown>): License {
   const base = defaultLicense();
-  if (typeof localStorage === "undefined") return base;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return base;
-    return { ...base, ...(JSON.parse(raw) as Partial<License>) };
-  } catch {
-    return base;
-  }
+  return {
+    tier: (r["tier"] as Tier) ?? base.tier,
+    customer: (r["customer"] as string) ?? base.customer,
+    expires: (r["expires"] as string) ?? base.expires,
+    overrides: (r["overrides"] as Record<string, boolean>) ?? {},
+    deviceKey: (r["device_key"] as string) ?? base.deviceKey,
+    mac: (r["mac"] as string) ?? base.mac,
+    usbSerial: (r["usb_serial"] as string) ?? base.usbSerial,
+    plugged: (r["plugged"] as boolean) ?? base.plugged,
+    activated: (r["activated"] as boolean) ?? base.activated,
+    graceDaysLeft: (r["grace_days_left"] as number) ?? base.graceDaysLeft,
+    slots: (r["slots"] as DeviceSlot[]) ?? base.slots,
+  };
 }
 
-let state: License = load();
-const listeners = new Set<() => void>();
+function toRow(s: License) {
+  return {
+    id: ROW_ID,
+    tier: s.tier,
+    customer: s.customer,
+    expires: s.expires,
+    overrides: s.overrides,
+    slots: s.slots,
+    device_key: s.deviceKey,
+    mac: s.mac,
+    usb_serial: s.usbSerial,
+    plugged: s.plugged,
+    activated: s.activated,
+    grace_days_left: s.graceDaysLeft,
+  };
+}
+
+let pushTimer: ReturnType<typeof setTimeout> | null = null;
+function pushRemote() {
+  if (!supabase) return;
+  if (pushTimer) clearTimeout(pushTimer);
+  pushTimer = setTimeout(() => {
+    void supabase!
+      .from("licenses")
+      .upsert(toRow(state))
+      .then(
+        () => {},
+        () => {},
+      );
+  }, 400);
+}
+
+function notify() {
+  listeners.forEach((l) => l());
+}
+
+/** Pull localStorage then Supabase on first mount (browser only). */
+function hydrateOnce() {
+  if (hydrated || typeof window === "undefined") return;
+  hydrated = true;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      state = { ...state, ...(JSON.parse(raw) as Partial<License>) };
+      notify();
+    }
+  } catch {
+    /* ignore */
+  }
+  if (supabase) {
+    void supabase
+      .from("licenses")
+      .select("*")
+      .eq("id", ROW_ID)
+      .maybeSingle()
+      .then(
+        ({ data }) => {
+          if (data) {
+            state = fromRow(data as Record<string, unknown>);
+            persist();
+            notify();
+          } else {
+            pushRemote(); // seed row from current state
+          }
+        },
+        () => {},
+      );
+  }
+}
 
 function persist() {
   try {
@@ -120,7 +204,8 @@ function persist() {
 function set(patch: Partial<License>) {
   state = { ...state, ...patch };
   persist();
-  listeners.forEach((l) => l());
+  pushRemote();
+  notify();
 }
 
 /** Is a feature unlocked given a license? Override wins; otherwise tier rank vs minTier. */
@@ -140,6 +225,7 @@ export function isLive(lic: License = state): boolean {
 export const license = {
   get: () => state,
   subscribe(l: () => void) {
+    hydrateOnce();
     listeners.add(l);
     return () => listeners.delete(l);
   },
@@ -184,11 +270,12 @@ export const license = {
     } catch {
       /* ignore */
     }
+    hydrated = false;
     state = defaultLicense();
-    listeners.forEach((l) => l());
+    notify();
   },
 };
 
 export function useLicense() {
-  return useSyncExternalStore(license.subscribe, license.get, license.get);
+  return useSyncExternalStore(license.subscribe, license.get, () => SERVER_SNAPSHOT);
 }

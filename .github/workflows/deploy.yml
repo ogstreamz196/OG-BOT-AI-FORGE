@@ -1,0 +1,41 @@
+name: Deploy to Cloudflare Workers
+
+on:
+  push:
+    branches: [main, ccr-c888eb94-qvku6a]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Type-check and test
+        run: |
+          bunx tsc --noEmit -p .
+          bun run test
+
+      # VITE_SUPABASE_* are public (publishable key) and committed in .env,
+      # so the build needs no secrets. Only deployment needs the CF token.
+      - name: Build (Cloudflare Workers bundle)
+        run: bun run build
+
+      - name: Deploy to Cloudflare
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: .output/server
+          command: deploy
