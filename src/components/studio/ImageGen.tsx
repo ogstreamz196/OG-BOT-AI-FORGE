@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Panel, Btn, Bar, inputCls } from "./ui";
+import { usage } from "@/lib/usage";
 
 type Img = { prompt: string; seed: number; hue: number };
 
@@ -31,6 +32,7 @@ export function ImageGen() {
       if (i >= steps) {
         clearInterval(id);
         setImgs((x) => [{ prompt, seed: Math.random() * 1000, hue: Math.floor(Math.random() * 360) }, ...x]);
+        usage.record("images");
         setP(-1);
       }
     }, 60);

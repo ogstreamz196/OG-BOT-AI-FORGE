@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Panel, Btn, Bar, inputCls } from "./ui";
+import { usage } from "@/lib/usage";
 
 const STAGES = ["Bundling web assets", "Generating Android project", "Compiling resources", "Gradle assemble", "Signing with keystore", "Aligning APK"];
 
@@ -19,6 +20,7 @@ export function Forge() {
       if (i >= 100) {
         clearInterval(id);
         setBuilds((b) => [`${pkg}-v1.0.${b.length}.${target.toLowerCase()} · ${(18 + Math.random() * 6).toFixed(1)} MB`, ...b]);
+        usage.record("builds");
         setTimeout(() => setP(-1), 800);
       }
     }, 120);

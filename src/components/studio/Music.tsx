@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Play, Square } from "lucide-react";
 import { Panel, Btn, inputCls } from "./ui";
+import { usage } from "@/lib/usage";
 
 type Track = { name: string; notes: number[]; bpm: number };
 const SCALES: Record<string, number[]> = {
@@ -21,6 +22,7 @@ export function Music() {
     const s = SCALES[style] ?? [220];
     const notes = Array.from({ length: 32 }, () => s[Math.floor(Math.random() * s.length)] ?? 220);
     setTracks((t) => [{ name: `${prompt} (${style})`, notes, bpm: 100 + Math.floor(Math.random() * 40) }, ...t]);
+    usage.record("music");
   };
 
   const stop = () => {

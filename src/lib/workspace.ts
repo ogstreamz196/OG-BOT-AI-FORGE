@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import hubHtml from "@/projects/og-bot-hub-starter/index.html?raw";
 import hubCss from "@/projects/og-bot-hub-starter/styles.css?raw";
 import hubJs from "@/projects/og-bot-hub-starter/app.js?raw";
+import { mobileStubs } from "./mobile-stubs";
 
 /**
  * Shared workspace store: the single source of truth for the files open in the
@@ -29,6 +30,8 @@ button{background:#3d5afe;color:#fff;border:0;padding:12px 20px;border-radius:6p
 export const TEMPLATES: Record<string, Files> = {
   "og-bot-hub-starter": { "index.html": hubHtml, "styles.css": hubCss, "app.js": hubJs },
   "blank-app": BLANK,
+  // Repository-ready mobile scaffolding baked in (Capacitor + Expo + android/ios).
+  "mobile-ready": { ...BLANK, ...mobileStubs() },
 };
 
 /** Projects the user (or agent) has created this session, keyed by name. */

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Panel, Btn, inputCls } from "./ui";
 import { TEMPLATES, workspace } from "@/lib/workspace";
 import { planEdit } from "@/lib/agent-edits";
+import { usage } from "@/lib/usage";
 
 type Line = { t: "user" | "agent" | "sys" | "ok"; s: string };
 const STEPS = [
@@ -24,7 +25,8 @@ export function slashReply(cmd: string): string[] | null {
   if (cmd.startsWith("/scaffold")) {
     const [rawName, rawTpl] = arg("/scaffold").split(/\s+/);
     const n = (rawName || "og-bot-gen-app").replace(/[^\w.-]/g, "-");
-    const tpl = rawTpl && rawTpl in TEMPLATES ? rawTpl : n in TEMPLATES ? n : rawTpl === "hub" ? "og-bot-hub-starter" : "blank-app";
+    const alias: Record<string, string> = { hub: "og-bot-hub-starter", mobile: "mobile-ready" };
+    const tpl = rawTpl && rawTpl in TEMPLATES ? rawTpl : n in TEMPLATES ? n : rawTpl && alias[rawTpl] ? alias[rawTpl]! : "blank-app";
     workspace.create(n, tpl);
     return [`Creating projects/${n}/ from template ${tpl}`, "Writing index.html, styles.css, app.js", "Opened in Workbench.", `Project ${n} ready.`];
   }
@@ -54,6 +56,8 @@ export function Agent() {
     const cmd = q.trim();
     setQ("");
     setBusy(true);
+    usage.record("prompts");
+    if (cmd.startsWith("/edit")) usage.record("edits");
     const slash = slashReply(cmd);
     if (slash) {
       slash.forEach((s, i) => setTimeout(() => {

@@ -1,6 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Code2, Bot, Package, Music2, Image, ShieldCheck, Cpu, Database as DbIcon, WifiOff, Github } from "lucide-react";
+import {
+  Code2,
+  Bot,
+  Package,
+  Music2,
+  Image,
+  ShieldCheck,
+  Cpu,
+  Database as DbIcon,
+  WifiOff,
+  Github,
+  LayoutDashboard,
+} from "lucide-react";
 import { Workbench } from "@/components/studio/Workbench";
 import { Agent } from "@/components/studio/Agent";
 import { Forge } from "@/components/studio/Forge";
@@ -10,6 +22,10 @@ import { Sentinel } from "@/components/studio/Sentinel";
 import { Hardware } from "@/components/studio/Hardware";
 import { Database } from "@/components/studio/Database";
 import { GitSync } from "@/components/studio/GitSync";
+import { Dashboard } from "@/components/studio/Dashboard";
+import { Gate } from "@/components/studio/Gate";
+import { Hud } from "@/components/studio/Hud";
+import { isUnlocked, useLicense } from "@/lib/licensing";
 import { cn } from "@/lib/utils";
 import logoAsset from "@/assets/og-bot-logo.webp.asset.json";
 import battleAsset from "@/assets/og-bot-battle-zone.webp.asset.json";
@@ -18,8 +34,10 @@ import signalsAsset from "@/assets/og-signals.webp.asset.json";
 import keysAsset from "@/assets/og-keys.webp.asset.json";
 const logo = logoAsset.url;
 const DESC: Record<string, string> = {
+  dash: "Manage customer tiers, expiry, device binding and feature permissions, and review this device's private usage ledger.",
   code: "Edit your app's code on the left and see it live on the right, on desktop, tablet or phone sizes.",
-  agent: "Chat with the offline AI helper. Ask for changes or use quick commands like /scaffold or /export-apk.",
+  agent:
+    "Chat with the offline AI helper. Ask for changes or use quick commands like /scaffold or /export-apk.",
   forge: "Package your app into an Android (APK/AAB) or iPhone (IPA) file ready to install.",
   music: "Pick a style and generate a short music track, then play it back right here.",
   image: "Type a description and generate artwork without needing the internet.",
@@ -40,15 +58,23 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "OG-BOT · Offline AI Developer Studio" },
-      { name: "description", content: "OG-BOT offline AI studio: code editor with live preview, local coding agent, APK forge, music, images, hardware sentinel and database." },
+      {
+        name: "description",
+        content:
+          "OG-BOT offline AI studio: code editor with live preview, local coding agent, APK forge, music, images, hardware sentinel and database.",
+      },
       { property: "og:title", content: "OG-BOT · Offline AI Developer Studio" },
-      { property: "og:description", content: "Build, test and package apps with a fully offline local AI workbench." },
+      {
+        property: "og:description",
+        content: "Build, test and package apps with a fully offline local AI workbench.",
+      },
     ],
   }),
   component: Studio,
 });
 
 const TABS = [
+  { id: "dash", label: "Dashboard", icon: LayoutDashboard, C: Dashboard },
   { id: "code", label: "Workbench", icon: Code2, C: Workbench },
   { id: "agent", label: "AI Agent", icon: Bot, C: Agent },
   { id: "forge", label: "APK Forge", icon: Package, C: Forge },
@@ -61,7 +87,8 @@ const TABS = [
 ];
 
 function Studio() {
-  const [tab, setTab] = useState("code");
+  const [tab, setTab] = useState("dash");
+  const lic = useLicense();
   const Active = TABS.find((t) => t.id === tab)!.C;
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
@@ -70,25 +97,68 @@ function Studio() {
           <img src={logo} alt="OG BOT mascot logo" className="h-12 w-12 object-contain" />
           <div>
             <div className="font-display text-2xl leading-none text-foreground">OG BOT</div>
-            <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-muted-foreground">Offline AI Studio</div>
+            <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-muted-foreground">
+              Offline AI Studio
+            </div>
           </div>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-col">
-          {TABS.map(({ id, label, icon: I }) => (
-            <button key={id} onClick={() => setTab(id)} className={cn("flex shrink-0 items-center gap-2 rounded px-3 py-2 text-sm transition", tab === id ? "bg-primary/10 text-primary border-l-2 border-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground")}>
-              <I className="h-4 w-4" />{label}
-            </button>
-          ))}
+          {TABS.map(({ id, label, icon: I }) => {
+            const locked = !isUnlocked(id, lic);
+            return (
+              <button
+                key={id}
+                onClick={() => setTab(id)}
+                className={cn(
+                  "flex shrink-0 items-center gap-2 rounded px-3 py-2 text-sm transition",
+                  tab === id
+                    ? "bg-primary/10 text-primary border-l-2 border-primary"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                )}
+              >
+                <I className="h-4 w-4" />
+                <span className="flex-1 text-left">{label}</span>
+                {locked && (
+                  <span
+                    title="Locked — upgrade tier or grant in Dashboard"
+                    className="text-[9px] font-semibold uppercase tracking-widest text-secondary"
+                  >
+                    pro
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </nav>
       </aside>
       <main className="flex flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-border px-4 py-2">
-          <h1 className="flex items-center gap-2 font-display text-xl uppercase">{BADGES[tab] && <img src={BADGES[tab].src} alt={BADGES[tab].alt} className="h-9 w-9 rounded-md object-cover" />}{TABS.find((t) => t.id === tab)!.label}</h1>
-          <span className="flex items-center gap-1 rounded border border-secondary/60 px-2 py-0.5 text-[10px] font-semibold tracking-widest text-secondary"><span className="h-1.5 w-1.5 rounded-full bg-secondary" /><WifiOff className="h-3 w-3" />AIR-GAPPED</span>
+          <h1 className="flex items-center gap-2 font-display text-xl uppercase">
+            {BADGES[tab] && (
+              <img
+                src={BADGES[tab].src}
+                alt={BADGES[tab].alt}
+                className="h-9 w-9 rounded-md object-cover"
+              />
+            )}
+            {TABS.find((t) => t.id === tab)!.label}
+          </h1>
+          <span className="flex items-center gap-1 rounded border border-secondary/60 px-2 py-0.5 text-[10px] font-semibold tracking-widest text-secondary">
+            <span className="h-1.5 w-1.5 rounded-full bg-secondary" />
+            <WifiOff className="h-3 w-3" />
+            AIR-GAPPED
+          </span>
         </header>
-        <p className="border-b border-border px-4 py-2 text-xs text-muted-foreground">{DESC[tab]}</p>
-        <div className="flex-1 p-4"><Active /></div>
+        <p className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
+          {DESC[tab]}
+        </p>
+        <div className="flex-1 p-4">
+          <Gate feature={tab}>
+            <Active />
+          </Gate>
+        </div>
       </main>
+      <Hud />
     </div>
   );
 }
