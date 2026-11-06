@@ -6,7 +6,9 @@ import { slashReply } from "./Agent";
 import { planEdit } from "@/lib/agent-edits";
 import { workspace, useWorkspace } from "@/lib/workspace";
 import { usage } from "@/lib/usage";
-import { useModels } from "@/lib/models";
+import { models, useModels } from "@/lib/models";
+import { connectors } from "@/lib/connectors";
+import { generateEdit } from "@/lib/local-ai";
 
 type Msg = { role: "you" | "ai" | "sys"; text: string };
 
@@ -36,7 +38,32 @@ export function Chat() {
 
   const push = (msg: Msg) => setMsgs((l) => [...l, msg]);
 
-  const run = (raw?: string) => {
+  const stream = (lines: string[]) => {
+    if (lines.length === 0) {
+      setBusy(false);
+      return;
+    }
+    lines.forEach((line, i) => {
+      setTimeout(
+        () => {
+          push({ role: "ai", text: line });
+          if (i === lines.length - 1) setBusy(false);
+        },
+        200 * (i + 1),
+      );
+    });
+  };
+
+  const ruleEngine = (text: string): string[] => {
+    const { patch, log } = planEdit(workspace.get().files, text);
+    if (Object.keys(patch).length) {
+      workspace.writeFiles(patch);
+      usage.record("edits");
+    }
+    return log;
+  };
+
+  const run = async (raw?: string) => {
     const text = (raw ?? q).trim();
     if (!text || busy) return;
     push({ role: "you", text });
@@ -44,34 +71,39 @@ export function Chat() {
     setBusy(true);
     usage.record("prompts");
 
-    const reply: string[] = [];
+    // Slash commands are always handled locally.
     if (text.startsWith("/")) {
       const lines = slashReply(text);
-      reply.push(
-        ...(lines ?? [
+      stream(
+        lines ?? [
           `Unknown command "${text.split(" ")[0]}". Try /scaffold or just describe a change.`,
-        ]),
+        ],
       );
-    } else {
-      const { patch, log } = planEdit(workspace.get().files, text);
-      if (Object.keys(patch).length) {
-        workspace.writeFiles(patch);
-        usage.record("edits");
-      }
-      reply.push(...log);
+      return;
     }
 
-    // Stream the reply lines for a live feel.
-    reply.forEach((line, i) => {
-      setTimeout(
-        () => {
-          push({ role: "ai", text: line });
-          if (i === reply.length - 1) setBusy(false);
-        },
-        250 * (i + 1),
-      );
-    });
-    if (reply.length === 0) setBusy(false);
+    // Prefer the local model when Ollama is connected and a model is active.
+    const ollama = connectors.isEnabled("ollama") ? connectors.configOf("ollama")["baseUrl"] : null;
+    const modelTag = models.activeDef()?.pull;
+    if (ollama && modelTag) {
+      push({ role: "ai", text: `Generating with ${modelTag}…` });
+      try {
+        const edit = await generateEdit(ollama, modelTag, text, workspace.get().files);
+        workspace.writeFiles(edit.files);
+        usage.record("edits");
+        stream([edit.message, `Updated ${Object.keys(edit.files).join(", ")}.`]);
+        return;
+      } catch (e) {
+        stream([
+          `Local model unavailable (${e instanceof Error ? e.message : "error"}) — used the offline rule engine instead.`,
+          ...ruleEngine(text),
+        ]);
+        return;
+      }
+    }
+
+    // No local model: deterministic offline rule engine.
+    stream(ruleEngine(text));
   };
 
   return (

@@ -15,6 +15,7 @@ import {
   Database as DbIcon,
   Github,
   Code2,
+  Plug,
   WifiOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,7 @@ import { Sentinel } from "@/components/studio/Sentinel";
 import { Database } from "@/components/studio/Database";
 import { GitSync } from "@/components/studio/GitSync";
 import { Workbench } from "@/components/studio/Workbench";
+import { Connectors } from "@/components/studio/Connectors";
 
 const logo = logoAsset.url;
 
@@ -54,10 +56,19 @@ export const Route = createFileRoute("/")({
 });
 
 type ToolId =
-  "forge" | "image" | "music" | "hardware" | "sentinel" | "database" | "git" | "workbench";
+  | "connectors"
+  | "forge"
+  | "image"
+  | "music"
+  | "hardware"
+  | "sentinel"
+  | "database"
+  | "git"
+  | "workbench";
 type Overlay = "settings" | "dash" | "tools" | ToolId | null;
 
 const TOOLS: { id: ToolId; label: string; icon: typeof Package; C: React.ComponentType }[] = [
+  { id: "connectors", label: "Connectors", icon: Plug, C: Connectors },
   { id: "forge", label: "Build & Publish", icon: Package, C: Forge },
   { id: "image", label: "Image Studio", icon: ImageIcon, C: ImageGen },
   { id: "music", label: "Music Forge", icon: Music2, C: Music },
