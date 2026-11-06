@@ -1,164 +1,239 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  Code2,
-  Bot,
+  Settings as Cog,
+  LayoutDashboard,
+  Grid3x3,
+  X,
+  MessageSquare,
+  Eye,
   Package,
   Music2,
-  Image,
+  Image as ImageIcon,
   ShieldCheck,
   Cpu,
   Database as DbIcon,
-  WifiOff,
   Github,
-  LayoutDashboard,
+  Code2,
+  WifiOff,
 } from "lucide-react";
-import { Workbench } from "@/components/studio/Workbench";
-import { Agent } from "@/components/studio/Agent";
-import { Forge } from "@/components/studio/Forge";
-import { Music } from "@/components/studio/Music";
-import { ImageGen } from "@/components/studio/ImageGen";
-import { Sentinel } from "@/components/studio/Sentinel";
-import { Hardware } from "@/components/studio/Hardware";
-import { Database } from "@/components/studio/Database";
-import { GitSync } from "@/components/studio/GitSync";
-import { Dashboard } from "@/components/studio/Dashboard";
-import { Gate } from "@/components/studio/Gate";
-import { Hud } from "@/components/studio/Hud";
-import { isUnlocked, useLicense } from "@/lib/licensing";
 import { cn } from "@/lib/utils";
 import logoAsset from "@/assets/og-bot-logo.webp.asset.json";
-import battleAsset from "@/assets/og-bot-battle-zone.webp.asset.json";
-import trackAsset from "@/assets/og-bot-create-track.webp.asset.json";
-import signalsAsset from "@/assets/og-signals.webp.asset.json";
-import keysAsset from "@/assets/og-keys.webp.asset.json";
-const logo = logoAsset.url;
-const DESC: Record<string, string> = {
-  dash: "Manage customer tiers, expiry, device binding and feature permissions, and review this device's private usage ledger.",
-  code: "Edit your app's code on the left and see it live on the right, on desktop, tablet or phone sizes.",
-  agent:
-    "Chat with the offline AI helper. Ask for changes or use quick commands like /scaffold or /export-apk.",
-  forge: "Package your app into an Android (APK/AAB) or iPhone (IPA) file ready to install.",
-  music: "Pick a style and generate a short music track, then play it back right here.",
-  image: "Type a description and generate artwork without needing the internet.",
-  sentinel: "Manage your USB licence key, activate licences and choose which devices can use them.",
-  hw: "Watch your graphics card, memory and temperature live, and see which AI models your machine can run.",
-  db: "Browse and edit your saved data tables, or run simple search queries.",
-  git: "Link your GitHub project, save changes with a note, and push or pull updates.",
-};
+import { Chat } from "@/components/studio/Chat";
+import { Preview } from "@/components/studio/Preview";
+import { Settings } from "@/components/studio/Settings";
+import { Dashboard } from "@/components/studio/Dashboard";
+import { Forge } from "@/components/studio/Forge";
+import { ImageGen } from "@/components/studio/ImageGen";
+import { Music } from "@/components/studio/Music";
+import { Hardware } from "@/components/studio/Hardware";
+import { Sentinel } from "@/components/studio/Sentinel";
+import { Database } from "@/components/studio/Database";
+import { GitSync } from "@/components/studio/GitSync";
+import { Workbench } from "@/components/studio/Workbench";
 
-const BADGES: Record<string, { src: string; alt: string }> = {
-  agent: { src: battleAsset.url, alt: "OG BOT Battle Zone badge" },
-  music: { src: trackAsset.url, alt: "OG BOT Make a Track badge" },
-  hw: { src: signalsAsset.url, alt: "OG Signals badge" },
-  sentinel: { src: keysAsset.url, alt: "OG Keys badge" },
-};
+const logo = logoAsset.url;
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "OG-BOT · Offline AI Developer Studio" },
+      { title: "OG-BOT · Offline AI App Builder" },
       {
         name: "description",
         content:
-          "OG-BOT offline AI studio: code editor with live preview, local coding agent, APK forge, music, images, hardware sentinel and database.",
+          "OG-BOT: a fully offline, all-in-one AI app builder. Chat to build, preview live, publish to web or mobile — powered by your own local models.",
       },
-      { property: "og:title", content: "OG-BOT · Offline AI Developer Studio" },
+      { property: "og:title", content: "OG-BOT · Offline AI App Builder" },
       {
         property: "og:description",
-        content: "Build, test and package apps with a fully offline local AI workbench.",
+        content: "Chat to build, preview live, publish anywhere. 100% offline local AI.",
       },
     ],
   }),
   component: Studio,
 });
 
-const TABS = [
-  { id: "dash", label: "Dashboard", icon: LayoutDashboard, C: Dashboard },
-  { id: "code", label: "Workbench", icon: Code2, C: Workbench },
-  { id: "agent", label: "AI Agent", icon: Bot, C: Agent },
-  { id: "forge", label: "APK Forge", icon: Package, C: Forge },
-  { id: "music", label: "Audio Studio", icon: Music2, C: Music },
-  { id: "image", label: "Image Gen", icon: Image, C: ImageGen },
-  { id: "sentinel", label: "Sentinel", icon: ShieldCheck, C: Sentinel },
-  { id: "hw", label: "Hardware", icon: Cpu, C: Hardware },
-  { id: "db", label: "Database", icon: DbIcon, C: Database },
+type ToolId =
+  "forge" | "image" | "music" | "hardware" | "sentinel" | "database" | "git" | "workbench";
+type Overlay = "settings" | "dash" | "tools" | ToolId | null;
+
+const TOOLS: { id: ToolId; label: string; icon: typeof Package; C: React.ComponentType }[] = [
+  { id: "forge", label: "Build & Publish", icon: Package, C: Forge },
+  { id: "image", label: "Image Studio", icon: ImageIcon, C: ImageGen },
+  { id: "music", label: "Music Forge", icon: Music2, C: Music },
+  { id: "workbench", label: "Advanced Editor", icon: Code2, C: Workbench },
+  { id: "hardware", label: "Hardware", icon: Cpu, C: Hardware },
+  { id: "sentinel", label: "USB Sentinel", icon: ShieldCheck, C: Sentinel },
+  { id: "database", label: "Database", icon: DbIcon, C: Database },
   { id: "git", label: "GitHub Sync", icon: Github, C: GitSync },
 ];
 
+const OVERLAY_TITLE: Record<string, string> = {
+  settings: "Settings",
+  dash: "Developer Dashboard",
+  tools: "Tools",
+};
+
 function Studio() {
-  const [tab, setTab] = useState("dash");
-  const lic = useLicense();
-  const Active = TABS.find((t) => t.id === tab)!.C;
+  const [overlay, setOverlay] = useState<Overlay>(null);
+  const [pane, setPane] = useState<0 | 1>(1); // 0 = chat, 1 = preview
+  const pager = useRef<HTMLDivElement>(null);
+
+  // Land on the preview pane on mobile.
+  useEffect(() => {
+    const el = pager.current;
+    if (el) el.scrollLeft = el.clientWidth;
+  }, []);
+
+  const goPane = (i: 0 | 1) => {
+    const el = pager.current;
+    if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
+    setPane(i);
+  };
+
+  const onScroll = () => {
+    const el = pager.current;
+    if (el) setPane(el.scrollLeft > el.clientWidth / 2 ? 1 : 0);
+  };
+
+  const tool = TOOLS.find((t) => t.id === overlay);
+  const OverlayBody =
+    overlay === "settings" ? (
+      <Settings />
+    ) : overlay === "dash" ? (
+      <Dashboard />
+    ) : overlay === "tools" ? (
+      <ToolsGrid onPick={setOverlay} />
+    ) : tool ? (
+      <tool.C />
+    ) : null;
+  const overlayTitle = tool ? tool.label : (OVERLAY_TITLE[overlay ?? ""] ?? "");
+
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
-      <aside className="border-b border-border bg-panel/95 md:w-56 md:border-b-0 md:border-r">
-        <div className="flex items-center gap-3 px-4 py-4">
-          <img src={logo} alt="OG BOT mascot logo" className="h-12 w-12 object-contain" />
-          <div>
-            <div className="font-display text-2xl leading-none text-foreground">OG BOT</div>
-            <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-muted-foreground">
-              Offline AI Studio
-            </div>
-          </div>
-        </div>
-        <nav className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-col">
-          {TABS.map(({ id, label, icon: I }) => {
-            const locked = !isUnlocked(id, lic);
-            return (
-              <button
-                key={id}
-                onClick={() => setTab(id)}
-                className={cn(
-                  "flex shrink-0 items-center gap-2 rounded px-3 py-2 text-sm transition",
-                  tab === id
-                    ? "bg-primary/10 text-primary border-l-2 border-primary"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                )}
-              >
-                <I className="h-4 w-4" />
-                <span className="flex-1 text-left">{label}</span>
-                {locked && (
-                  <span
-                    title="Locked — upgrade tier or grant in Dashboard"
-                    className="text-[9px] font-semibold uppercase tracking-widest text-secondary"
-                  >
-                    pro
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
-      </aside>
-      <main className="flex flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-border px-4 py-2">
-          <h1 className="flex items-center gap-2 font-display text-xl uppercase">
-            {BADGES[tab] && (
-              <img
-                src={BADGES[tab].src}
-                alt={BADGES[tab].alt}
-                className="h-9 w-9 rounded-md object-cover"
-              />
-            )}
-            {TABS.find((t) => t.id === tab)!.label}
-          </h1>
-          <span className="flex items-center gap-1 rounded border border-secondary/60 px-2 py-0.5 text-[10px] font-semibold tracking-widest text-secondary">
-            <span className="h-1.5 w-1.5 rounded-full bg-secondary" />
-            <WifiOff className="h-3 w-3" />
-            AIR-GAPPED
+    <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
+      {/* Top bar */}
+      <header className="flex items-center justify-between border-b border-border px-3 py-2">
+        <div className="flex items-center gap-2">
+          <img src={logo} alt="OG BOT" className="h-8 w-8 object-contain" />
+          <div className="font-display text-lg leading-none">OG BOT</div>
+          <span className="ml-1 hidden items-center gap-1 rounded border border-secondary/60 px-1.5 py-0.5 text-[9px] font-semibold tracking-widest text-secondary sm:flex">
+            <WifiOff className="h-2.5 w-2.5" />
+            OFFLINE
           </span>
-        </header>
-        <p className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
-          {DESC[tab]}
-        </p>
-        <div className="flex-1 p-4">
-          <Gate feature={tab}>
-            <Active />
-          </Gate>
         </div>
-      </main>
-      <Hud />
+        <div className="flex items-center gap-1">
+          <IconBtn label="Tools" onClick={() => setOverlay("tools")}>
+            <Grid3x3 className="h-5 w-5" />
+          </IconBtn>
+          <IconBtn label="Developer Dashboard" onClick={() => setOverlay("dash")}>
+            <LayoutDashboard className="h-5 w-5" />
+          </IconBtn>
+          <IconBtn label="Settings" onClick={() => setOverlay("settings")}>
+            <Cog className="h-5 w-5" />
+          </IconBtn>
+        </div>
+      </header>
+
+      {/* Desktop: two panes side by side */}
+      <div className="hidden min-h-0 flex-1 lg:flex">
+        <div className="w-[40%] max-w-[480px] border-r border-border">
+          <Chat />
+        </div>
+        <div className="min-w-0 flex-1">
+          <Preview onPublish={() => setOverlay("forge")} />
+        </div>
+      </div>
+
+      {/* Mobile: swipeable pager (chat | preview) */}
+      <div className="flex min-h-0 flex-1 flex-col lg:hidden">
+        <div
+          ref={pager}
+          onScroll={onScroll}
+          className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto scroll-smooth [scrollbar-width:none]"
+        >
+          <section className="w-full shrink-0 snap-center overflow-hidden">
+            <Chat />
+          </section>
+          <section className="w-full shrink-0 snap-center overflow-hidden">
+            <Preview onPublish={() => setOverlay("forge")} />
+          </section>
+        </div>
+        {/* segmented pager control */}
+        <div className="flex border-t border-border">
+          {(
+            [
+              [0, "Chat", MessageSquare],
+              [1, "Preview", Eye],
+            ] as const
+          ).map(([i, label, Icon]) => (
+            <button
+              key={label}
+              onClick={() => goPane(i)}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-2 py-2.5 text-xs font-semibold uppercase tracking-wide transition",
+                pane === i ? "bg-primary/10 text-primary" : "text-muted-foreground",
+              )}
+            >
+              <Icon className="h-4 w-4" /> {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Full-screen overlay */}
+      {overlay && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-background">
+          <header className="flex items-center justify-between border-b border-border px-4 py-3">
+            <h2 className="font-display text-lg uppercase">{overlayTitle}</h2>
+            <button
+              onClick={() => setOverlay(tool ? "tools" : null)}
+              aria-label="Close"
+              className="rounded p-1.5 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </header>
+          <div className="flex-1 overflow-y-auto p-4">{OverlayBody}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IconBtn({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="rounded-lg p-2 text-muted-foreground transition hover:bg-accent hover:text-foreground"
+    >
+      {children}
+    </button>
+  );
+}
+
+function ToolsGrid({ onPick }: { onPick: (o: Overlay) => void }) {
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+      {TOOLS.map(({ id, label, icon: Icon }) => (
+        <button
+          key={id}
+          onClick={() => onPick(id)}
+          className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-5 text-center transition hover:border-primary hover:text-primary"
+        >
+          <Icon className="h-7 w-7" />
+          <span className="text-xs font-semibold">{label}</span>
+        </button>
+      ))}
     </div>
   );
 }

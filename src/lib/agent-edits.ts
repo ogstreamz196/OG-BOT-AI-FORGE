@@ -71,13 +71,18 @@ export function planEdit(files: Files, args: string): EditResult {
   }
 
   // title / heading
-  const title = instruction.match(/^(?:set\s+)?(?:title|heading)\s+(?:to\s+)?["']?(.+?)["']?$/i);
+  const title = instruction.match(
+    /^(?:please\s+)?(?:set|change|make|update|rename|edit)?\s*(?:the\s+)?(?:title|heading|header|h1)\b\s*(?:to|=|:|as)?\s*["']?(.+?)["']?$/i,
+  );
   if (title) {
     const text = title[1]!.replace(/</g, "&lt;");
     const html = cur("index.html");
     let next = html;
     if (/<h1[^>]*>[\s\S]*?<\/h1>/i.test(next))
       next = next.replace(/(<h1[^>]*>)[\s\S]*?(<\/h1>)/i, (_m, a, b) => `${a}${text}${b}`);
+    else if (/<body[^>]*>/i.test(next))
+      // Full document: insert the heading just inside <body>, never before <!doctype>.
+      next = next.replace(/(<body[^>]*>)/i, (m) => `${m}\n<h1>${text}</h1>`);
     else next = `<h1>${text}</h1>\n${next}`;
     if (/<title>[\s\S]*?<\/title>/i.test(next))
       next = next.replace(/<title>[\s\S]*?<\/title>/i, () => `<title>${text}</title>`);
@@ -87,7 +92,9 @@ export function planEdit(files: Files, args: string): EditResult {
   }
 
   // background / accent colours
-  const color = instruction.match(/^(background|bg|accent)\s+(?:to\s+)?([#\w(),.%\s-]+)$/i);
+  const color = instruction.match(
+    /^(?:set|change|make|update)?\s*(?:the\s+)?(background|bg|accent)\s*(?:colou?r)?\s*(?:to|=|:)?\s*([#\w(),.%\s-]+)$/i,
+  );
   if (color) {
     const value = color[2]!.trim();
     const rule = /accent/i.test(color[1]!)

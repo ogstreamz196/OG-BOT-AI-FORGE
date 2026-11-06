@@ -37,9 +37,11 @@ export const TEMPLATES: Record<string, Files> = {
 /** Projects the user (or agent) has created this session, keyed by name. */
 const projects: Record<string, Files> = { ...TEMPLATES };
 
+// Start on a clean canvas so "describe a change" in the AI builder works
+// immediately; the OG-BOT HUB sample is one /scaffold (or Advanced Editor) away.
 let state: Workspace = {
-  project: "og-bot-hub-starter",
-  files: { ...TEMPLATES["og-bot-hub-starter"]! },
+  project: "blank-app",
+  files: { ...TEMPLATES["blank-app"]! },
   active: "index.html",
   rev: 0,
 };
@@ -80,8 +82,8 @@ export const workspace = {
     for (const k of Object.keys(projects)) delete projects[k];
     Object.assign(projects, TEMPLATES);
     state = {
-      project: "og-bot-hub-starter",
-      files: { ...TEMPLATES["og-bot-hub-starter"]! },
+      project: "blank-app",
+      files: { ...TEMPLATES["blank-app"]! },
       active: "index.html",
       rev: 0,
     };
