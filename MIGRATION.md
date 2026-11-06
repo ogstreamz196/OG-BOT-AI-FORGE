@@ -68,6 +68,39 @@ onboarding real paying customers, add Supabase Auth and restrict these policies
 to the owner — otherwise anyone with the public key could change tier/licensing
 rows. See the comment in `supabase/migrations/20261106020000_offline_studio_schema.sql`.
 
+## Building apps from the Forge tab (APK / iOS / Web)
+
+A browser (and a Cloudflare Worker) can't compile mobile apps, so the Forge tab
+triggers real builds in **GitHub Actions** and shows status + artifact links:
+
+1. Forge sends the current Workbench project to the `dispatchBuild` server
+   function (runs in the Worker; the GitHub token never reaches the browser).
+2. The server snapshots the project to the `app-build` branch (`www/` + `meta.json`)
+   and dispatches the matching workflow:
+   - **Android** → `.github/workflows/build-android.yml` → Capacitor + Gradle →
+     `app-debug.apk` artifact (free ubuntu runner).
+   - **iOS** → `.github/workflows/build-ios.yml` → Capacitor + Xcode → **unsigned**
+     simulator `.app` zip (macOS runner). A signed `.ipa` for real devices needs an
+     Apple Developer account: add the cert + provisioning profile as repo secrets
+     and switch the `xcodebuild` step to an archive + `-exportArchive` with signing.
+   - **Web** → `deploy.yml` → publishes to Cloudflare.
+3. Forge polls `buildStatus` and links to the run; download artifacts from the
+   run page on GitHub.
+
+### Enable the Forge trigger
+The Worker needs a GitHub token to dispatch builds. Create a fine-grained PAT with
+**Actions: read/write** and **Contents: read/write** on this repo, then set it as a
+Worker secret (not in the browser, not committed):
+
+```bash
+# from .output/server after a build, or via the dashboard
+wrangler secret put GITHUB_TOKEN
+wrangler secret put GITHUB_REPO   # value: ogstreamz196/offline-ai-forge
+```
+
+For local `bun run dev`, put the same two in a git-ignored `.dev.vars`. Without
+them the Forge button returns "Build backend not configured" and changes nothing.
+
 ## Local commands
 
 ```bash

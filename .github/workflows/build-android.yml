@@ -1,0 +1,51 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      appName:
+        description: App display name
+        required: true
+        default: OG-BOT App
+      appId:
+        description: Package id (reverse-DNS)
+        required: true
+        default: com.ogbot.app
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout project snapshot
+        uses: actions/checkout@v4
+        with:
+          ref: app-build
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Wrap with Capacitor and build debug APK
+        run: |
+          set -e
+          test -f www/index.html || { echo "No www/index.html in app-build branch"; exit 1; }
+          npm init -y
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
+          npx cap init "${{ inputs.appName }}" "${{ inputs.appId }}" --web-dir www
+          npx cap add android
+          npx cap sync android
+          cd android
+          chmod +x ./gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
