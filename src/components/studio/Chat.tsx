@@ -13,10 +13,14 @@ import { generateEdit } from "@/lib/local-ai";
 type Msg = { role: "you" | "ai" | "sys"; text: string };
 
 const SUGGESTIONS = [
+  "/scaffold mysite landing",
+  "Add a hero",
+  "Add a features grid",
+  "Add a pricing table",
+  "Add a contact form",
+  "Add a footer",
   "Add a dark mode toggle",
   "Set the title to OG BOT",
-  "Change the background to #0a0e17",
-  "/scaffold my-app",
 ];
 
 export function Chat() {

@@ -1,4 +1,5 @@
 import type { Files } from "./workspace";
+import { insertSection, resolveSection } from "./web-sections";
 
 /**
  * Deterministic, offline edit engine behind the Agent's `/edit` command.
@@ -122,6 +123,24 @@ export function planEdit(files: Files, args: string): EditResult {
     if (!hits) return { patch: {}, log: [...log, `No occurrences of "${from}" found.`], ok: false };
     log.push(`Replaced ${hits} occurrence${hits === 1 ? "" : "s"}. Edit applied.`);
     return { patch, log, ok: true };
+  }
+
+  // add a website section: "add a hero", "insert a pricing table", "add contact form"
+  const add = instruction.match(
+    /^(?:add|insert|include|create|put|drop)\s+(?:in\s+|a\s+|an\s+|the\s+)*(.+)$/i,
+  );
+  if (add) {
+    const section = resolveSection(add[1]!);
+    if (section) {
+      const sectionPatch = insertSection(
+        { "index.html": cur("index.html"), "styles.css": cur("styles.css") },
+        section,
+      );
+      write("index.html", sectionPatch["index.html"]!);
+      write("styles.css", sectionPatch["styles.css"]!);
+      log.push(`Added ${section.label} section. Edit applied.`);
+      return { patch, log, ok: true };
+    }
   }
 
   // append code

@@ -3,6 +3,7 @@ import hubHtml from "@/projects/og-bot-hub-starter/index.html?raw";
 import hubCss from "@/projects/og-bot-hub-starter/styles.css?raw";
 import hubJs from "@/projects/og-bot-hub-starter/app.js?raw";
 import { mobileStubs } from "./mobile-stubs";
+import { WEB_TEMPLATES } from "./web-templates";
 
 /**
  * Shared workspace store: the single source of truth for the files open in the
@@ -32,6 +33,8 @@ export const TEMPLATES: Record<string, Files> = {
   "blank-app": BLANK,
   // Repository-ready mobile scaffolding baked in (Capacitor + Expo + android/ios).
   "mobile-ready": { ...BLANK, ...mobileStubs() },
+  // Ready-made website starters composed from the section library.
+  ...WEB_TEMPLATES,
 };
 
 /** Projects the user (or agent) has created this session, keyed by name. */
