@@ -5,7 +5,7 @@ export function Panel({ title, right, children, className }: { title: string; ri
   return (
     <section className={cn("flex flex-col rounded-2xl border border-border bg-panel/80 backdrop-blur", className)}>
       <header className="flex items-center justify-between border-b border-border px-3 py-2">
-        <h3 className="font-display text-base uppercase text-foreground">{title}</h3>
+        <h3 className="shrink-0 whitespace-nowrap pr-2 font-display text-base uppercase text-foreground">{title}</h3>
         {right}
       </header>
       <div className="flex-1 min-h-0 p-3">{children}</div>

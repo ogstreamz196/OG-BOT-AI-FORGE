@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { slashReply } from "@/components/studio/Agent";
 import { MODELS } from "@/components/studio/Hardware";
+import { workspace } from "@/lib/workspace";
+
+beforeEach(() => workspace._reset());
 
 describe("agent slash commands", () => {
   it("scaffold uses given project name", () => {

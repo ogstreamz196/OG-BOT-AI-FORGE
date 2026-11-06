@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Panel, Btn, inputCls } from "./ui";
+import { TEMPLATES, workspace } from "@/lib/workspace";
+import { planEdit } from "@/lib/agent-edits";
 
 type Line = { t: "user" | "agent" | "sys" | "ok"; s: string };
 const STEPS = [
@@ -11,12 +13,26 @@ const STEPS = [
   "Task complete. No network calls were made.",
 ];
 
-const COMMANDS = ["/scaffold my-app", "/edit add dark mode toggle", "/export-apk", "/git-commit Updates", "/git-push"];
+const COMMANDS = ["/scaffold my-app", "/edit dark mode toggle", "/export-apk", "/git-commit Updates", "/git-push"];
 
+/**
+ * Execute a slash command. /scaffold and /edit mutate the shared Workbench
+ * workspace; the others are simulated pipelines. Returns the log lines to stream.
+ */
 export function slashReply(cmd: string): string[] | null {
   const arg = (c: string) => cmd.slice(c.length).trim();
-  if (cmd.startsWith("/scaffold")) { const n = arg("/scaffold") || "og-bot-gen-app"; return [`Creating projects/${n}/`, "Writing index.html, styles.css, app.js", `Project ${n} ready.`]; }
-  if (cmd.startsWith("/edit")) return [`Planning edit: ${arg("/edit") || "(no instruction)"}`, "Patching index.html (+12 −2)", "Edit applied."];
+  if (cmd.startsWith("/scaffold")) {
+    const [rawName, rawTpl] = arg("/scaffold").split(/\s+/);
+    const n = (rawName || "og-bot-gen-app").replace(/[^\w.-]/g, "-");
+    const tpl = rawTpl && rawTpl in TEMPLATES ? rawTpl : n in TEMPLATES ? n : rawTpl === "hub" ? "og-bot-hub-starter" : "blank-app";
+    workspace.create(n, tpl);
+    return [`Creating projects/${n}/ from template ${tpl}`, "Writing index.html, styles.css, app.js", "Opened in Workbench.", `Project ${n} ready.`];
+  }
+  if (cmd.startsWith("/edit")) {
+    const { patch, log } = planEdit(workspace.get().files, arg("/edit"));
+    if (Object.keys(patch).length) workspace.writeFiles(patch);
+    return [`Workspace: ${workspace.get().project}`, ...log];
+  }
   if (cmd.startsWith("/export-apk")) return ["Syncing web assets to Capacitor", "Running Gradle assembleDebug", "APK written to mobile-sdk/output/app-debug.apk"];
   if (cmd.startsWith("/git-commit")) return ["Staging all changes", `Committed: "${arg("/git-commit") || "Update"}" (queued for push)`];
   if (cmd.startsWith("/git-push")) return ["Pushing to origin/main", "Push complete."];
@@ -28,7 +44,9 @@ export function Agent() {
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
-  useEffect(() => end.current?.scrollIntoView({ block: "nearest" }), [lines]);
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: "nearest" });
+  }, [lines]);
 
   const run = () => {
     if (!q.trim() || busy) return;
