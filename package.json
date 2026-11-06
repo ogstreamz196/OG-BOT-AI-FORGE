@@ -12,7 +12,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "deploy": "bun run build && cd .output/server && wrangler deploy"
+    "deploy": "bun run build && wrangler deploy"
   },
   "overrides": {
     "rolldown": "1.2.1"

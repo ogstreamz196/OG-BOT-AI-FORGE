@@ -32,10 +32,11 @@ jobs:
       - name: Build (Cloudflare Workers bundle)
         run: bun run build
 
+      # Run from the repo root: the build writes .wrangler/deploy/config.json
+      # there, which redirects wrangler to the generated .output/server config.
       - name: Deploy to Cloudflare
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: .output/server
           command: deploy
