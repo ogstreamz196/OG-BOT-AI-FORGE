@@ -129,6 +129,84 @@ export const SECTIONS: Section[] = [
     css: `.og-cta{text-align:center;background:rgba(61,90,254,.08);border:1px solid rgba(61,90,254,.25);border-radius:24px}`,
   },
   {
+    id: "stats",
+    label: "Stats",
+    keywords: ["stats", "statistics", "metrics", "numbers", "kpis"],
+    html: `<section class="og-sec og-stats">
+  <div class="og-grid og-grid-4">
+    <div class="og-stat"><div class="og-stat-n">10k+</div><div class="og-stat-l">Users</div></div>
+    <div class="og-stat"><div class="og-stat-n">99.9%</div><div class="og-stat-l">Uptime</div></div>
+    <div class="og-stat"><div class="og-stat-n">4.9★</div><div class="og-stat-l">Rating</div></div>
+    <div class="og-stat"><div class="og-stat-n">24/7</div><div class="og-stat-l">Support</div></div>
+  </div>
+</section>`,
+    css: `.og-grid-4{grid-template-columns:repeat(4,1fr);text-align:center}
+.og-stat-n{font-size:34px;font-weight:800;color:#fff}
+.og-stat-l{color:#9aa4c4;font-size:14px}
+@media(max-width:640px){.og-grid-4{grid-template-columns:repeat(2,1fr)}}`,
+  },
+  {
+    id: "testimonials",
+    label: "Testimonials",
+    keywords: ["testimonials", "reviews", "quotes", "social proof"],
+    html: `<section class="og-sec" id="testimonials">
+  <h2>What people say</h2>
+  <p class="lead">Real words from happy users.</p>
+  <div class="og-grid og-grid-3">
+    <figure class="og-card og-quote"><blockquote>"This changed how we work."</blockquote><figcaption>— Alex, Founder</figcaption></figure>
+    <figure class="og-card og-quote"><blockquote>"Fast, simple, and offline."</blockquote><figcaption>— Sam, Developer</figcaption></figure>
+    <figure class="og-card og-quote"><blockquote>"Exactly what we needed."</blockquote><figcaption>— Riya, Designer</figcaption></figure>
+  </div>
+</section>`,
+    css: `.og-quote{margin:0}.og-quote blockquote{margin:0 0 10px;color:#fff;font-size:16px}
+.og-quote figcaption{color:#9aa4c4;font-size:13px}`,
+  },
+  {
+    id: "faq",
+    label: "FAQ",
+    keywords: ["faq", "faqs", "questions", "accordion", "q&a"],
+    html: `<section class="og-sec" id="faq">
+  <h2>FAQ</h2>
+  <div class="og-faq">
+    <details><summary>Is it really offline?</summary><p>Yes — everything runs on your own machine.</p></details>
+    <details><summary>How much does it cost?</summary><p>Nothing to run. You own the stack.</p></details>
+    <details><summary>Can I export my site?</summary><p>Yes, download it as a single file or a ZIP.</p></details>
+  </div>
+</section>`,
+    css: `.og-faq{display:grid;gap:10px;max-width:720px}
+.og-faq details{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px 16px}
+.og-faq summary{cursor:pointer;color:#fff;font-weight:600}
+.og-faq p{color:#9aa4c4;margin:10px 0 0;font-size:14px}`,
+  },
+  {
+    id: "gallery",
+    label: "Gallery",
+    keywords: ["gallery", "images", "photos", "portfolio grid", "showcase"],
+    html: `<section class="og-sec" id="gallery">
+  <h2>Gallery</h2>
+  <div class="og-grid og-grid-3 og-gallery">
+    <div class="og-shot"></div><div class="og-shot"></div><div class="og-shot"></div>
+    <div class="og-shot"></div><div class="og-shot"></div><div class="og-shot"></div>
+  </div>
+</section>`,
+    css: `.og-gallery .og-shot{aspect-ratio:4/3;border-radius:12px;background:linear-gradient(135deg,#1b2440,#0f1630);border:1px solid rgba(255,255,255,.08)}`,
+  },
+  {
+    id: "team",
+    label: "Team",
+    keywords: ["team", "about us", "people", "staff", "members"],
+    html: `<section class="og-sec" id="team">
+  <h2>Meet the team</h2>
+  <div class="og-grid og-grid-3">
+    <div class="og-card og-member"><div class="og-avatar"></div><h3>Name</h3><p>Role</p></div>
+    <div class="og-card og-member"><div class="og-avatar"></div><h3>Name</h3><p>Role</p></div>
+    <div class="og-card og-member"><div class="og-avatar"></div><h3>Name</h3><p>Role</p></div>
+  </div>
+</section>`,
+    css: `.og-member{text-align:center}.og-member h3{margin:10px 0 2px;color:#fff}.og-member p{margin:0;color:#9aa4c4;font-size:14px}
+.og-avatar{width:72px;height:72px;border-radius:50%;margin:0 auto;background:linear-gradient(135deg,#3d5afe,#00f59b)}`,
+  },
+  {
     id: "footer",
     label: "Footer",
     keywords: ["footer", "bottom", "site footer"],

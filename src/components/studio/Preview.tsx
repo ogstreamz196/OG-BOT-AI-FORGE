@@ -1,8 +1,20 @@
 import { useState } from "react";
-import { Monitor, Smartphone, Tablet, RefreshCw, Eye, Code2, Download, Rocket } from "lucide-react";
+import {
+  Monitor,
+  Smartphone,
+  Tablet,
+  RefreshCw,
+  Eye,
+  Code2,
+  Download,
+  Rocket,
+  Plus,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buildDoc, useWorkspace, workspace } from "@/lib/workspace";
 import { zipProject } from "./Workbench";
+import { SECTIONS, insertSection } from "@/lib/web-sections";
+import { usage } from "@/lib/usage";
 
 const SIZES = { desktop: "100%", tablet: "768px", mobile: "390px" } as const;
 
@@ -23,6 +35,15 @@ export function Preview({ onPublish }: { onPublish?: () => void }) {
   const [device, setDevice] = useState<keyof typeof SIZES>("mobile");
   const [nonce, setNonce] = useState(0);
   const [zipping, setZipping] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+
+  const addSection = (id: string) => {
+    const section = SECTIONS.find((s) => s.id === id);
+    if (!section) return;
+    workspace.writeFiles(insertSection(workspace.get().files, section));
+    usage.record("edits");
+    setAddOpen(false);
+  };
 
   const exportZip = async () => {
     setZipping(true);
@@ -82,6 +103,32 @@ export function Preview({ onPublish }: { onPublish?: () => void }) {
                 <Icon className="h-4 w-4" />
               </button>
             ))}
+          <div className="relative">
+            <button
+              onClick={() => setAddOpen((o) => !o)}
+              aria-label="Add section"
+              aria-expanded={addOpen}
+              className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs font-semibold text-foreground transition hover:border-primary hover:text-primary"
+            >
+              <Plus className="h-3.5 w-3.5" /> Section
+            </button>
+            {addOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setAddOpen(false)} />
+                <div className="absolute right-0 z-20 mt-1 max-h-72 w-48 overflow-y-auto rounded-xl border border-border bg-panel/95 p-1 shadow-xl backdrop-blur">
+                  {SECTIONS.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => addSection(s.id)}
+                      className="block w-full rounded px-3 py-2 text-left text-xs text-foreground transition hover:bg-primary/15 hover:text-primary"
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
           <button
             aria-label="Reload"
             onClick={() => setNonce((n) => n + 1)}

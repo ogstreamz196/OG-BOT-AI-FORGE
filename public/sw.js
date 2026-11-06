@@ -3,7 +3,42 @@
 // and to Supabase stay untouched so local AI keeps working offline.
 const CACHE = "ogbot-v1";
 
-self.addEventListener("install", () => self.skipWaiting());
+const SHELL = ["/", "/manifest.webmanifest", "/icon.svg", "/favicon.png"];
+
+self.addEventListener("install", (e) => {
+  e.waitUntil(
+    (async () => {
+      try {
+        const c = await caches.open(CACHE);
+        await c.addAll(SHELL);
+      } catch {
+        /* best effort */
+      }
+      await self.skipWaiting();
+    })(),
+  );
+});
+
+// The page posts the exact asset URLs it loaded so a later fully-offline open
+// (e.g. launched from the drive) has everything cached.
+self.addEventListener("message", (e) => {
+  const data = e.data;
+  if (!data || data.type !== "cache-urls" || !Array.isArray(data.urls)) return;
+  e.waitUntil(
+    (async () => {
+      const c = await caches.open(CACHE);
+      await Promise.all(
+        data.urls.map(async (u) => {
+          try {
+            if (!(await c.match(u))) await c.add(u);
+          } catch {
+            /* ignore individual failures */
+          }
+        }),
+      );
+    })(),
+  );
+});
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(

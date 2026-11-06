@@ -128,9 +128,28 @@ function RootComponent() {
   // Register the PWA service worker (client only) so the builder is installable
   // and works offline.
   useEffect(() => {
-    if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
-    }
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+    // After load, tell the SW to precache the exact assets this page used, so a
+    // later fully-offline launch (e.g. from the drive) opens with zero network.
+    const precache = () => {
+      try {
+        const urls = performance
+          .getEntriesByType("resource")
+          .map((e) => e.name)
+          .filter(
+            (u) => u.startsWith(location.origin) && /\.(js|css|woff2?|png|svg|webp)(\?|$)/.test(u),
+          );
+        navigator.serviceWorker.controller?.postMessage({
+          type: "cache-urls",
+          urls: [...new Set(urls)],
+        });
+      } catch {
+        /* ignore */
+      }
+    };
+    if (document.readyState === "complete") setTimeout(precache, 800);
+    else window.addEventListener("load", () => setTimeout(precache, 800), { once: true });
   }, []);
 
   return (
