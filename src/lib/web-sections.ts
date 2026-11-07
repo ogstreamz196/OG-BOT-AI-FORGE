@@ -1,4 +1,5 @@
 import type { Files } from "./workspace";
+import { wrapBlock } from "./web-blocks";
 
 /**
  * Reusable website sections the builder can drop into the current project via
@@ -237,9 +238,10 @@ export function resolveSection(phrase: string): Section | null {
 export function insertSection(files: Files, section: Section): Files {
   const html = files["index.html"] ?? "";
   const css = files["styles.css"] ?? "";
+  const block = wrapBlock(section.id, section.html);
   const nextHtml = /<\/body>/i.test(html)
-    ? html.replace(/<\/body>/i, () => `${section.html}\n</body>`)
-    : `${html}\n${section.html}`;
+    ? html.replace(/<\/body>/i, () => `${block}\n</body>`)
+    : `${html}\n${block}`;
   let nextCss = css;
   if (!nextCss.includes("og-sections-base")) nextCss = `${nextCss}\n${BASE_CSS}`;
   const marker = `/* og-sec:${section.id} */`;
