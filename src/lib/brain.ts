@@ -10,7 +10,7 @@ import { SYSTEM_PROMPT } from "./local-ai";
 
 export type Brain = { systemPrompt: string; chain: boolean };
 
-export const DEFAULT_BRAIN: Brain = { systemPrompt: SYSTEM_PROMPT, chain: true };
+export const DEFAULT_BRAIN: Brain = { systemPrompt: SYSTEM_PROMPT, chain: false };
 
 const STORAGE_KEY = "og-brain-v1";
 

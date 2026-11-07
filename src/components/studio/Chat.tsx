@@ -56,7 +56,7 @@ export function Chat() {
           push({ role: "ai", text: line });
           if (i === lines.length - 1) setBusy(false);
         },
-        200 * (i + 1),
+        55 * (i + 1),
       );
     });
   };
