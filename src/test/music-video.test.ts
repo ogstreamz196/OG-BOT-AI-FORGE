@@ -39,13 +39,13 @@ describe("parseDirectorJSON", () => {
     const out = parseDirectorJSON(JSON.stringify(SAMPLE))!;
     expect(out.suno_config.style_prompt).toMatch(/synthwave/);
     expect(out.storyboard).toHaveLength(2);
-    expect(out.storyboard[0].camera_motion).toBe("pan-left");
+    expect(out.storyboard[0]!.camera_motion).toBe("pan-left");
   });
   it("parses fenced JSON with prose and coerces numbers", () => {
     const text =
       'Here you go:\n```json\n{"suno_config":{"style_prompt":"x","lyrics":"y"},"storyboard":[{"scene_id":1,"start_sec":"0","end_sec":"15","lyric_cue":"a","visual_prompt":"b","camera_motion":"zoom-in"}]}\n```';
     const out = parseDirectorJSON(text)!;
-    expect(out.storyboard[0].end_sec).toBe(15);
+    expect(out.storyboard[0]!.end_sec).toBe(15);
   });
   it("rejects junk / empty storyboard", () => {
     expect(parseDirectorJSON("no json")).toBeNull();
@@ -64,12 +64,12 @@ describe("directorPrompt", () => {
 
 describe("comfyWorkflow", () => {
   it("maps a scene's visual prompt into the graph", () => {
-    const g = comfyWorkflow(SAMPLE.storyboard[0]) as Record<
+    const g = comfyWorkflow(SAMPLE.storyboard[0]!) as Record<
       string,
       { class_type: string; inputs: Record<string, unknown> }
     >;
-    expect(g["6"].inputs["text"]).toBe("neon city");
-    expect(g["9"].class_type).toBe("SaveImage");
+    expect(g["6"]!.inputs["text"]).toBe("neon city");
+    expect(g["9"]!.class_type).toBe("SaveImage");
   });
 });
 
