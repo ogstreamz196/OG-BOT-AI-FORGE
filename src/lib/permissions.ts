@@ -40,9 +40,9 @@ export const PERMISSIONS: PermissionDef[] = [
   },
   {
     id: "apply-code",
-    title: "Apply approved code changes",
+    title: "Open a merge request on your GitHub",
     description:
-      "Let the AI submit an approved improvement to its own codebase as a reviewed pull request (never directly to the live site). Requires a GitHub token and your approval each time.",
+      "The only way the AI changes its own code: it opens a pull request (merge request) on your connected GitHub for you to review and merge — never a direct write to the live site. Requires the GitHub connector.",
     danger: true,
   },
 ];

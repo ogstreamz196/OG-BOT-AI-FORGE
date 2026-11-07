@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { Shield, Brain as BrainIcon, Lightbulb, Loader2, AlertTriangle } from "lucide-react";
+import {
+  Shield,
+  Brain as BrainIcon,
+  Lightbulb,
+  Loader2,
+  AlertTriangle,
+  GitPullRequest,
+  Github,
+} from "lucide-react";
 import { Panel, Btn } from "./ui";
 import { cn } from "@/lib/utils";
 import { PERMISSIONS, permissions, usePermissions, type PermId } from "@/lib/permissions";
@@ -7,6 +15,7 @@ import { brain, useBrain } from "@/lib/brain";
 import { connectors } from "@/lib/connectors";
 import { models } from "@/lib/models";
 import { quickChat } from "@/lib/local-ai";
+import { githubListRepos, openImprovementPR } from "@/lib/git-actions";
 
 function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (
@@ -35,6 +44,38 @@ export function SelfImprove() {
   const [draft, setDraft] = useState(b.systemPrompt);
   const [proposal, setProposal] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [prMsg, setPrMsg] = useState<string | null>(null);
+  const [repoMsg, setRepoMsg] = useState<string | null>(null);
+
+  const listRepos = async () => {
+    setRepoMsg("Reading repos…");
+    try {
+      const r = await githubListRepos();
+      setRepoMsg(
+        r.ok
+          ? `${r.message}: ${r.repos
+              .slice(0, 6)
+              .map((x) => x.full_name)
+              .join(", ")}${r.repos.length > 6 ? "…" : ""}`
+          : r.message,
+      );
+    } catch {
+      setRepoMsg("Could not read repos.");
+    }
+  };
+
+  const openPR = async () => {
+    if (!proposal) return;
+    if (!(await permissions.request("apply-code"))) return;
+    setPrMsg("Opening merge request…");
+    try {
+      const title = proposal.split("\n")[0]?.slice(0, 72) || "AI improvement";
+      const r = await openImprovementPR({ data: { title, body: proposal } });
+      setPrMsg(r.ok ? `✓ ${r.message}${r.url ? ` ${r.url}` : ""}` : r.message);
+    } catch (e) {
+      setPrMsg(e instanceof Error ? e.message : "Failed to open merge request.");
+    }
+  };
 
   const isOn = (id: PermId) => !!granted.granted[id];
 
@@ -156,14 +197,32 @@ export function SelfImprove() {
         }
       >
         <p className="text-xs text-muted-foreground">
-          The AI reads what it is and drafts an improvement for you to review. Proposals are shown
-          only — applying one to the live app is a separate, explicit step (the “Apply approved code
-          changes” permission, via a reviewed pull request), so nothing changes without you.
+          The AI reads what it is and drafts an improvement. The only way it changes its own code is
+          by <span className="text-foreground">opening a merge request on your GitHub</span> that
+          you review and merge — never a direct write to the live site.
         </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <Btn variant="ghost" onClick={() => void listRepos()}>
+            <Github className="mr-1 inline h-3 w-3" />
+            List my repos
+          </Btn>
+          {repoMsg && (
+            <span className="font-mono text-[11px] text-muted-foreground">{repoMsg}</span>
+          )}
+        </div>
         {proposal && (
-          <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap rounded border border-border bg-background p-3 text-xs text-foreground">
-            {proposal}
-          </pre>
+          <>
+            <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap rounded border border-border bg-background p-3 text-xs text-foreground">
+              {proposal}
+            </pre>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Btn onClick={() => void openPR()}>
+                <GitPullRequest className="mr-1 inline h-3 w-3" />
+                Open merge request
+              </Btn>
+              {prMsg && <span className="font-mono text-[11px] text-primary">{prMsg}</span>}
+            </div>
+          </>
         )}
       </Panel>
     </div>

@@ -10,7 +10,8 @@ import { useSyncExternalStore } from "react";
  * the UI says so and never persists them in the browser.
  */
 
-export type ConnKind = "ollama" | "comfyui" | "supabase" | "stripe" | "rest" | "email" | "suno";
+export type ConnKind =
+  "ollama" | "comfyui" | "supabase" | "stripe" | "rest" | "email" | "suno" | "github";
 export type ConnCategory = "Local AI" | "Backend" | "Payments" | "Integrations";
 
 export type ConnField = { key: string; label: string; placeholder?: string; secret?: boolean };
@@ -68,6 +69,16 @@ export const CONNECTOR_CATALOG: ConnectorDef[] = [
     category: "Integrations",
     blurb: "Call any REST API or receive webhooks from the apps you build.",
     fields: [{ key: "baseUrl", label: "API base URL", placeholder: "https://api.example.com" }],
+  },
+  {
+    kind: "github",
+    name: "GitHub",
+    category: "Integrations",
+    blurb:
+      "Read all your repos and open merge requests. The token is a Worker secret (GITHUB_TOKEN), never in the browser.",
+    fields: [
+      { key: "owner", label: "Default owner/repo", placeholder: "ogstreamz196/offline-ai-forge" },
+    ],
   },
   {
     kind: "suno",
