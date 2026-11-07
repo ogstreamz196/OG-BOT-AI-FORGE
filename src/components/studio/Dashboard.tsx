@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { QrCode, RefreshCw, Smartphone, Usb } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { QrCode, RefreshCw, Smartphone, Usb, Inbox } from "lucide-react";
 import QR from "qrcode";
 import { Panel, Btn, Stat, inputCls } from "./ui";
 import {
@@ -12,6 +12,7 @@ import {
   type Feature,
 } from "@/lib/licensing";
 import { USAGE_META, usage, useUsage } from "@/lib/usage";
+import { getSubmissions, type Submission } from "@/lib/submissions-actions";
 import { cn } from "@/lib/utils";
 
 function overrideState(id: string, overrides: Record<string, boolean>): "default" | "on" | "off" {
@@ -257,6 +258,75 @@ export function Dashboard() {
           </ul>
         </Panel>
       </div>
+
+      <SubmissionsPanel />
     </div>
+  );
+}
+
+function SubmissionsPanel() {
+  const [rows, setRows] = useState<Submission[]>([]);
+  const [msg, setMsg] = useState("Loading…");
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    setBusy(true);
+    try {
+      const r = await getSubmissions();
+      setRows(r.rows);
+      setMsg(r.message);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed to load");
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return (
+    <Panel
+      title="Form Submissions"
+      right={
+        <Btn variant="ghost" onClick={() => void load()} disabled={busy}>
+          <RefreshCw className={cn("mr-1 inline h-3 w-3", busy && "animate-spin")} />
+          Refresh
+        </Btn>
+      }
+    >
+      <p className="mb-2 text-xs text-muted-foreground">
+        <Inbox className="mr-1 inline h-3 w-3" />
+        Contact-form submissions from your sites ·{" "}
+        <span className="font-mono text-foreground">{msg}</span>
+      </p>
+      {rows.length === 0 ? (
+        <p className="rounded border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+          No submissions yet. They appear here once a visitor sends your contact form (needs
+          SUPABASE_SERVICE_KEY on the Worker).
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {rows.map((r) => (
+            <li key={r.id} className="rounded border border-border bg-card px-3 py-2 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold text-foreground">{r.name || "—"}</span>
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  {new Date(r.created_at).toLocaleString()}
+                </span>
+              </div>
+              <div className="font-mono text-[11px] text-secondary">{r.email}</div>
+              <div className="mt-1 text-muted-foreground">{r.message}</div>
+              {r.project && (
+                <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">
+                  {r.project}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
   );
 }
