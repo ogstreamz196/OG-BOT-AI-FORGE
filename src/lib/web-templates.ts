@@ -18,7 +18,7 @@ const BASE: Files = {
 <body>
 </body>
 </html>`,
-  "styles.css": `body{margin:0;background:#0b0f1e;color:#e6e9f5;font-family:Inter,system-ui,sans-serif}`,
+  "styles.css": `body{margin:0;background:var(--og-bg,#0b0f1e);color:#e6e9f5;font-family:var(--og-font,Inter,system-ui,sans-serif)}`,
   "app.js": `console.log("OG-BOT site ready");`,
 };
 

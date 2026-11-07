@@ -17,13 +17,13 @@ export type Section = {
 };
 
 const BASE_CSS = `/* og-sections-base */
-.og-sec{max-width:1040px;margin:0 auto;padding:56px 20px;font-family:Inter,system-ui,sans-serif;color:#e6e9f5}
-.og-sec h2{font-size:30px;margin:0 0 8px;color:#fff;letter-spacing:.01em}
-.og-sec p.lead{color:#9aa4c4;margin:0 0 28px;max-width:60ch}
+.og-sec{max-width:1040px;margin:0 auto;padding:56px 20px;font-family:var(--og-font,Inter,system-ui,sans-serif);color:#e6e9f5}
+.og-sec h2{font-size:30px;margin:0 0 8px;color:var(--og-text,#fff);letter-spacing:.01em}
+.og-sec p.lead{color:var(--og-muted,#9aa4c4);margin:0 0 28px;max-width:60ch}
 .og-grid{display:grid;gap:16px}
 .og-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:20px}
-.og-btn{display:inline-block;background:#3d5afe;color:#fff;border:0;border-radius:10px;padding:12px 20px;font-weight:700;text-decoration:none;cursor:pointer}
-.og-btn.alt{background:transparent;border:1px solid #3d5afe;color:#9ab0ff}
+.og-btn{display:inline-block;background:var(--og-primary,#3d5afe);color:var(--og-text,#fff);border:0;border-radius:10px;padding:12px 20px;font-weight:700;text-decoration:none;cursor:pointer}
+.og-btn.alt{background:transparent;border:1px solid var(--og-primary,#3d5afe);color:#9ab0ff}
 @media(max-width:640px){.og-sec{padding:40px 16px}.og-sec h2{font-size:24px}}`;
 
 export const SECTIONS: Section[] = [
@@ -38,11 +38,11 @@ export const SECTIONS: Section[] = [
     <a class="og-btn" href="#">Get started</a>
   </div>
 </nav>`,
-    css: `.og-nav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 20px;max-width:1040px;margin:0 auto;font-family:Inter,system-ui,sans-serif}
-.og-nav-brand{color:#fff;font-weight:800;text-decoration:none;font-size:18px}
+    css: `.og-nav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 20px;max-width:1040px;margin:0 auto;font-family:var(--og-font,Inter,system-ui,sans-serif)}
+.og-nav-brand{color:var(--og-text,#fff);font-weight:800;text-decoration:none;font-size:18px}
 .og-nav-links{display:flex;align-items:center;gap:18px}
-.og-nav-links a{color:#9aa4c4;text-decoration:none;font-size:14px}
-.og-nav-links a.og-btn{color:#fff}`,
+.og-nav-links a{color:var(--og-muted,#9aa4c4);text-decoration:none;font-size:14px}
+.og-nav-links a.og-btn{color:var(--og-text,#fff)}`,
   },
   {
     id: "hero",
@@ -54,7 +54,7 @@ export const SECTIONS: Section[] = [
   <div class="og-hero-cta"><a class="og-btn" href="#">Start free</a><a class="og-btn alt" href="#features">Learn more</a></div>
 </section>`,
     css: `.og-hero{text-align:center;padding-top:72px;padding-bottom:72px}
-.og-hero-title{font-size:48px;line-height:1.05;margin:0 0 14px;color:#fff;font-family:Inter,system-ui,sans-serif}
+.og-hero-title{font-size:48px;line-height:1.05;margin:0 0 14px;color:var(--og-text,#fff);font-family:var(--og-font,Inter,system-ui,sans-serif)}
 .og-hero-sub{margin:0 auto 26px}
 .og-hero-cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
 @media(max-width:640px){.og-hero-title{font-size:34px}}`,
@@ -73,8 +73,8 @@ export const SECTIONS: Section[] = [
   </div>
 </section>`,
     css: `.og-grid-3{grid-template-columns:repeat(3,1fr)}
-.og-card h3{margin:0 0 6px;color:#fff}
-.og-card p{margin:0;color:#9aa4c4;font-size:14px}
+.og-card h3{margin:0 0 6px;color:var(--og-text,#fff)}
+.og-card p{margin:0;color:var(--og-muted,#9aa4c4);font-size:14px}
 @media(max-width:760px){.og-grid-3{grid-template-columns:1fr}}`,
   },
   {
@@ -91,11 +91,11 @@ export const SECTIONS: Section[] = [
   </div>
 </section>`,
     css: `.og-price{display:flex;flex-direction:column;gap:12px;text-align:center}
-.og-price h3{margin:0;color:#fff}
-.og-amount{font-size:34px;font-weight:800;color:#fff}
-.og-amount span{font-size:14px;color:#9aa4c4;font-weight:500}
-.og-price ul{list-style:none;padding:0;margin:0;color:#9aa4c4;font-size:14px;display:grid;gap:6px}
-.og-featured{border-color:#3d5afe;box-shadow:0 0 0 1px #3d5afe}
+.og-price h3{margin:0;color:var(--og-text,#fff)}
+.og-amount{font-size:34px;font-weight:800;color:var(--og-text,#fff)}
+.og-amount span{font-size:14px;color:var(--og-muted,#9aa4c4);font-weight:500}
+.og-price ul{list-style:none;padding:0;margin:0;color:var(--og-muted,#9aa4c4);font-size:14px;display:grid;gap:6px}
+.og-featured{border-color:var(--og-primary,#3d5afe);box-shadow:0 0 0 1px var(--og-primary,#3d5afe)}
 @media(max-width:760px){#pricing .og-grid-3{grid-template-columns:1fr}}`,
   },
   {
@@ -115,8 +115,8 @@ export const SECTIONS: Section[] = [
 </section>`,
     css: `.og-form{display:grid;gap:12px;max-width:460px}
 .og-form input,.og-form textarea{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px;color:#e6e9f5;font:inherit}
-.og-form input:focus,.og-form textarea:focus{outline:none;border-color:#3d5afe}
-.og-form-msg{color:#00f59b;font-size:14px}`,
+.og-form input:focus,.og-form textarea:focus{outline:none;border-color:var(--og-primary,#3d5afe)}
+.og-form-msg{color:var(--og-accent,#00f59b);font-size:14px}`,
   },
   {
     id: "cta",
@@ -142,8 +142,8 @@ export const SECTIONS: Section[] = [
   </div>
 </section>`,
     css: `.og-grid-4{grid-template-columns:repeat(4,1fr);text-align:center}
-.og-stat-n{font-size:34px;font-weight:800;color:#fff}
-.og-stat-l{color:#9aa4c4;font-size:14px}
+.og-stat-n{font-size:34px;font-weight:800;color:var(--og-text,#fff)}
+.og-stat-l{color:var(--og-muted,#9aa4c4);font-size:14px}
 @media(max-width:640px){.og-grid-4{grid-template-columns:repeat(2,1fr)}}`,
   },
   {
@@ -159,8 +159,8 @@ export const SECTIONS: Section[] = [
     <figure class="og-card og-quote"><blockquote>"Exactly what we needed."</blockquote><figcaption>— Riya, Designer</figcaption></figure>
   </div>
 </section>`,
-    css: `.og-quote{margin:0}.og-quote blockquote{margin:0 0 10px;color:#fff;font-size:16px}
-.og-quote figcaption{color:#9aa4c4;font-size:13px}`,
+    css: `.og-quote{margin:0}.og-quote blockquote{margin:0 0 10px;color:var(--og-text,#fff);font-size:16px}
+.og-quote figcaption{color:var(--og-muted,#9aa4c4);font-size:13px}`,
   },
   {
     id: "faq",
@@ -176,8 +176,8 @@ export const SECTIONS: Section[] = [
 </section>`,
     css: `.og-faq{display:grid;gap:10px;max-width:720px}
 .og-faq details{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px 16px}
-.og-faq summary{cursor:pointer;color:#fff;font-weight:600}
-.og-faq p{color:#9aa4c4;margin:10px 0 0;font-size:14px}`,
+.og-faq summary{cursor:pointer;color:var(--og-text,#fff);font-weight:600}
+.og-faq p{color:var(--og-muted,#9aa4c4);margin:10px 0 0;font-size:14px}`,
   },
   {
     id: "gallery",
@@ -204,8 +204,8 @@ export const SECTIONS: Section[] = [
     <div class="og-card og-member"><div class="og-avatar"></div><h3>Name</h3><p>Role</p></div>
   </div>
 </section>`,
-    css: `.og-member{text-align:center}.og-member h3{margin:10px 0 2px;color:#fff}.og-member p{margin:0;color:#9aa4c4;font-size:14px}
-.og-avatar{width:72px;height:72px;border-radius:50%;margin:0 auto;background:linear-gradient(135deg,#3d5afe,#00f59b)}`,
+    css: `.og-member{text-align:center}.og-member h3{margin:10px 0 2px;color:var(--og-text,#fff)}.og-member p{margin:0;color:var(--og-muted,#9aa4c4);font-size:14px}
+.og-avatar{width:72px;height:72px;border-radius:50%;margin:0 auto;background:linear-gradient(135deg,var(--og-primary,#3d5afe),var(--og-accent,#00f59b))}`,
   },
   {
     id: "footer",
@@ -216,8 +216,8 @@ export const SECTIONS: Section[] = [
   <div class="og-footer-links"><a href="#">Privacy</a><a href="#">Terms</a><a href="#contact">Contact</a></div>
   <script>var y=document.querySelector('.og-year');if(y)y.textContent=new Date().getFullYear();</script>
 </footer>`,
-    css: `.og-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;max-width:1040px;margin:0 auto;padding:28px 20px;border-top:1px solid rgba(255,255,255,.08);color:#9aa4c4;font-size:14px;font-family:Inter,system-ui,sans-serif}
-.og-footer-links{display:flex;gap:16px}.og-footer-links a{color:#9aa4c4;text-decoration:none}`,
+    css: `.og-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;max-width:1040px;margin:0 auto;padding:28px 20px;border-top:1px solid rgba(255,255,255,.08);color:var(--og-muted,#9aa4c4);font-size:14px;font-family:var(--og-font,Inter,system-ui,sans-serif)}
+.og-footer-links{display:flex;gap:16px}.og-footer-links a{color:var(--og-muted,#9aa4c4);text-decoration:none}`,
   },
 ];
 
