@@ -133,14 +133,15 @@ export function Chat() {
           text,
           installed,
           (m, p) => quickChat(ollama, m, p),
-          { allowChain: b.chain, routerModel: b.routerModel || null },
+          { allowChain: b.chain, routerModel: b.routerModel || null, byName: b.routeByName },
         );
         const { kind, steps } = plan;
         const build = steps.find((s) => s.role === "build");
         const reason = steps.find((s) => s.role === "reason");
         if (build) model = build.model;
         if (plan.routed && plan.router) {
-          push({ role: "ai", text: `Router (${plan.router}) → ${kind} · ${model}` });
+          const how = plan.byName ? "named" : kind;
+          push({ role: "ai", text: `Router (${plan.router}) → ${how} · ${model}` });
         }
         if (reason) {
           push({ role: "ai", text: `Reasoning with ${reason.model}…` });

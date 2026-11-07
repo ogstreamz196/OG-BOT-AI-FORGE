@@ -136,7 +136,63 @@ Categories:
 Task: ${prompt}`;
 }
 
+/**
+ * Prompt for by-name routing: the router is shown exactly which models are
+ * installed and must choose one of them by name (plus a category for chaining).
+ */
+export function routerModelPrompt(prompt: string, installed: string[]): string {
+  return `You are the ROUTER for a team of local AI models. Pick the single best model for the task from the INSTALLED list — you must copy a name exactly as written, never invent one. Reply with ONLY a JSON object, no prose, no markdown:
+{"model":"<exact name from the list>","kind":"code|reason|vision|flagship|chat","reason":"<max 8 words>"}
+
+Guidance: coder models for code/UI; deepseek-r1/phi4 for reasoning & math; vision/llava/minicpm for images; the largest model for very hard tasks; a small fast model for quick chat.
+
+INSTALLED models:
+${installed.map((m) => `- ${m}`).join("\n")}
+
+Task: ${prompt}`;
+}
+
 const KINDS: readonly TaskKind[] = ["code", "reason", "vision", "flagship", "chat"];
+
+/** Match a model name the router returned against the installed list (exact, else prefix). */
+function resolveInstalled(name: string, installed: string[]): string | null {
+  const n = name.trim();
+  if (!n) return null;
+  return (
+    installed.find((m) => m === n) ??
+    installed.find((m) => m.startsWith(n)) ??
+    installed.find((m) => n.startsWith(m)) ??
+    null
+  );
+}
+
+/**
+ * Parse a by-name router reply into a concrete installed model (+ optional kind).
+ * Returns null if the named model is not actually installed. Pure + tested.
+ */
+export function parseModelRoute(
+  text: string,
+  installed: string[],
+): { model: string; kind: TaskKind | null } | null {
+  if (!text) return null;
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start === -1 || end <= start) return null;
+  try {
+    const obj = JSON.parse(text.slice(start, end + 1)) as { model?: unknown; kind?: unknown };
+    if (typeof obj.model !== "string") return null;
+    const model = resolveInstalled(obj.model, installed);
+    if (!model) return null;
+    let kind: TaskKind | null = null;
+    if (typeof obj.kind === "string") {
+      const k = obj.kind.toLowerCase().trim();
+      if ((KINDS as readonly string[]).includes(k)) kind = k as TaskKind;
+    }
+    return { model, kind };
+  } catch {
+    return null;
+  }
+}
 
 /** Parse the router model's reply into a task kind. Tolerant of fences/prose. Pure + tested. */
 export function parseRoute(text: string): TaskKind | null {
@@ -172,14 +228,18 @@ export function needsReasoning(prompt: string): boolean {
 
 export type PlanStep = { role: "reason" | "build"; model: string };
 
-/** Build the reason→build step list for a known task kind + installed models. Pure. */
+/**
+ * Build the reason→build step list for a known task kind + installed models.
+ * `opts.buildModel` forces a specific build model (by-name routing); otherwise
+ * the best installed model for the kind is chosen. Pure.
+ */
 export function planFor(
   prompt: string,
   kind: TaskKind,
   installed: string[],
-  opts?: { allowChain?: boolean },
+  opts?: { allowChain?: boolean; buildModel?: string },
 ): PlanStep[] {
-  const primary = pickModel(kind, installed);
+  const primary = opts?.buildModel ?? pickModel(kind, installed);
   const steps: PlanStep[] = [];
   if (!primary) return steps;
   if (opts?.allowChain && needsReasoning(prompt)) {
@@ -210,6 +270,8 @@ export type Dispatch = {
   router: string | null;
   /** True when the live router model made the call; false when the deterministic classifier did. */
   routed: boolean;
+  /** True when the router named the build model itself (by-name mode). */
+  byName: boolean;
 };
 
 /**
@@ -223,11 +285,11 @@ export async function dispatch(
   prompt: string,
   installed: string[],
   ask: (model: string, prompt: string) => Promise<string>,
-  opts?: { allowChain?: boolean; routerModel?: string | null },
+  opts?: { allowChain?: boolean; routerModel?: string | null; byName?: boolean },
 ): Promise<Dispatch> {
   const fallback = (): Dispatch => {
     const { kind, steps } = planChain(prompt, installed, opts);
-    return { kind, steps, router: null, routed: false };
+    return { kind, steps, router: null, routed: false, byName: false };
   };
   const router =
     opts?.routerModel && installed.includes(opts.routerModel)
@@ -235,12 +297,23 @@ export async function dispatch(
       : pickRouter(installed);
   if (!router) return fallback();
   try {
+    if (opts?.byName) {
+      // By-name mode: the router picks the exact model from the installed list.
+      const reply = await ask(router, routerModelPrompt(prompt, installed));
+      const route = parseModelRoute(reply, installed);
+      if (route) {
+        const kind = route.kind ?? classifyTask(prompt);
+        const steps = planFor(prompt, kind, installed, { ...opts, buildModel: route.model });
+        if (steps.length > 0) return { kind, steps, router, routed: true, byName: true };
+      }
+      // Named model was invalid/unavailable — fall through to category routing.
+    }
     const reply = await ask(router, routerPrompt(prompt));
     const kind = parseRoute(reply);
     if (!kind) return fallback();
     const steps = planFor(prompt, kind, installed, opts);
     if (steps.length === 0) return fallback();
-    return { kind, steps, router, routed: true };
+    return { kind, steps, router, routed: true, byName: false };
   } catch {
     return fallback();
   }

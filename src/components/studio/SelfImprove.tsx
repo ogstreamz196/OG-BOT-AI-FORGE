@@ -182,6 +182,22 @@ export function SelfImprove() {
             className="w-40 shrink-0 rounded border border-input bg-background px-2 py-1 font-mono text-[11px] text-foreground outline-none focus:border-primary disabled:opacity-60"
           />
         </label>
+        <label className="mb-2 flex items-center justify-between gap-3 rounded border border-border bg-card px-3 py-2 text-sm">
+          <span className="min-w-0 text-foreground">
+            Router names the exact model
+            <span className="block text-[11px] text-muted-foreground">
+              On: the router picks a specific installed model. Off: it picks a task category and the
+              best model for it. Falls back to category if the name is invalid.
+            </span>
+          </span>
+          <Toggle
+            on={b.routeByName}
+            onClick={async () => {
+              if (!isOn("self-tune") && !(await permissions.request("self-tune"))) return;
+              brain.set({ routeByName: !b.routeByName });
+            }}
+          />
+        </label>
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}

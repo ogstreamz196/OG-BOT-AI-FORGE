@@ -13,9 +13,16 @@ export type Brain = {
   chain: boolean;
   /** Router/dispatcher model; empty = auto-pick the best small model installed. */
   routerModel: string;
+  /** When true, the router names the exact build model; otherwise it picks a category. */
+  routeByName: boolean;
 };
 
-export const DEFAULT_BRAIN: Brain = { systemPrompt: SYSTEM_PROMPT, chain: false, routerModel: "" };
+export const DEFAULT_BRAIN: Brain = {
+  systemPrompt: SYSTEM_PROMPT,
+  chain: false,
+  routerModel: "",
+  routeByName: false,
+};
 
 const STORAGE_KEY = "og-brain-v1";
 

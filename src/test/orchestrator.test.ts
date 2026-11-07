@@ -4,6 +4,7 @@ import {
   pickModel,
   pickRouter,
   parseRoute,
+  parseModelRoute,
   dispatch,
   needsReasoning,
   planChain,
@@ -143,5 +144,51 @@ describe("dispatch", () => {
     const plan = await dispatch("hi", INSTALLED, ask, { routerModel: "llama3.1:8b" });
     expect(plan.router).toBe("llama3.1:8b");
     expect(seen).toEqual(["llama3.1:8b"]);
+  });
+});
+
+describe("parseModelRoute", () => {
+  it("accepts a model that is installed", () => {
+    const r = parseModelRoute('{"model":"deepseek-r1:8b","kind":"reason"}', INSTALLED);
+    expect(r).toEqual({ model: "deepseek-r1:8b", kind: "reason" });
+  });
+  it("resolves a close-but-partial name to an installed tag", () => {
+    const r = parseModelRoute('{"model":"qwen2.5-coder"}', INSTALLED);
+    expect(r?.model).toMatch(/^qwen2\.5-coder/);
+    expect(r?.kind).toBeNull();
+  });
+  it("rejects a hallucinated model not installed", () => {
+    expect(parseModelRoute('{"model":"gpt-4o"}', INSTALLED)).toBeNull();
+  });
+  it("rejects junk", () => {
+    expect(parseModelRoute("nope", INSTALLED)).toBeNull();
+  });
+});
+
+describe("dispatch by-name mode", () => {
+  it("builds with the exact model the router names", async () => {
+    const plan = await dispatch(
+      "do a thing",
+      INSTALLED,
+      async () => '{"model":"deepseek-r1:32b","kind":"reason"}',
+      { byName: true },
+    );
+    expect(plan.routed).toBe(true);
+    expect(plan.byName).toBe(true);
+    expect(plan.steps.find((s) => s.role === "build")!.model).toBe("deepseek-r1:32b");
+  });
+
+  it("falls back to category routing when the named model is invalid", async () => {
+    let call = 0;
+    const ask = async () => {
+      call += 1;
+      // First (by-name) reply names a bad model; second (category) reply is valid.
+      return call === 1 ? '{"model":"gpt-4o"}' : '{"kind":"code"}';
+    };
+    const plan = await dispatch("write code", INSTALLED, ask, { byName: true });
+    expect(plan.routed).toBe(true);
+    expect(plan.byName).toBe(false);
+    expect(plan.steps.find((s) => s.role === "build")!.model).toMatch(/coder/);
+    expect(call).toBe(2);
   });
 });
