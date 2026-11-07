@@ -76,7 +76,6 @@ export const Route = createFileRoute("/")({
 });
 
 type ToolId =
-  | "create"
   | "connectors"
   | "brand"
   | "ollama"
@@ -100,7 +99,6 @@ const TOOLS: {
   C: React.ComponentType;
   dev?: boolean;
 }[] = [
-  { id: "create", label: "Create (Image · Song · Video)", icon: Sparkles, C: Create },
   { id: "connectors", label: "Connectors", icon: Plug, C: Connectors, dev: true },
   { id: "brand", label: "Theme & Brand", icon: Palette, C: Brand },
   { id: "setup", label: "Setup Guide", icon: LifeBuoy, C: SetupGuide },
@@ -125,6 +123,7 @@ const OVERLAY_TITLE: Record<string, string> = {
 
 function Studio() {
   const [overlay, setOverlay] = useState<Overlay>(null);
+  const [view, setView] = useState<"create" | "build">("create");
   const [pane, setPane] = useState<0 | 1>(1); // 0 = chat, 1 = preview
   const pager = useRef<HTMLDivElement>(null);
 
@@ -225,6 +224,31 @@ function Studio() {
             OFFLINE
           </span>
         </div>
+
+        {/* Primary view switch */}
+        <div className="flex items-center rounded-full border border-border bg-card/60 p-0.5">
+          {(
+            [
+              ["create", "Create", Sparkles],
+              ["build", "Build", Code2],
+            ] as const
+          ).map(([v, label, Icon]) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition",
+                view === v
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{label}</span>
+            </button>
+          ))}
+        </div>
+
         <div className="flex items-center gap-1">
           {installEvt && (
             <button
@@ -263,17 +287,27 @@ function Studio() {
         </div>
       </header>
 
+      {/* Create: the AIO gateway, full-width on every size */}
+      {view === "create" && (
+        <div className="min-h-0 flex-1 overflow-hidden p-3">
+          <Create />
+        </div>
+      )}
+
       {/* Desktop: two panes side by side */}
-      <div className="hidden min-h-0 flex-1 lg:flex">
-        <div className="w-[40%] max-w-[480px] border-r border-border">
-          <Chat />
+      {view === "build" && (
+        <div className="hidden min-h-0 flex-1 lg:flex">
+          <div className="w-[40%] max-w-[480px] border-r border-border">
+            <Chat />
+          </div>
+          <div className="min-w-0 flex-1">
+            <Preview onPublish={() => setOverlay("forge")} />
+          </div>
         </div>
-        <div className="min-w-0 flex-1">
-          <Preview onPublish={() => setOverlay("forge")} />
-        </div>
-      </div>
+      )}
 
       {/* Mobile: swipeable pager (chat | preview) */}
+      {view === "build" && (
       <div className="flex min-h-0 flex-1 flex-col lg:hidden">
         <div
           ref={pager}
@@ -308,6 +342,7 @@ function Studio() {
           ))}
         </div>
       </div>
+      )}
 
       {/* Full-screen overlay */}
       {overlay && (
