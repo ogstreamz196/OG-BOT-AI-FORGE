@@ -142,6 +142,10 @@ export const SAMPLERS = [
 ];
 export const SCHEDULERS = ["karras", "normal", "exponential", "sgm_uniform", "simple"];
 
+export type Arch = "sdxl" | "flux";
+
+export type FluxComponents = { unet: string; clipT5: string; clipL: string; vae: string };
+
 export type GenOpts = {
   prompt: string;
   styleId: string;
@@ -155,6 +159,10 @@ export type GenOpts = {
   scheduler: string;
   seed: number;
   batch: number;
+  /** Which model architecture to build the graph for. Defaults to sdxl. */
+  arch?: Arch;
+  /** Flux component files (required when arch === "flux"). */
+  flux?: FluxComponents;
 };
 
 /** Combine the user prompt with the chosen style into final positive/negative text. */
@@ -174,19 +182,17 @@ export function randomSeed(): number {
   return Math.floor(Math.random() * 1_000_000_000_000);
 }
 
-/** Build a complete ComfyUI txt2img API graph with full manual control. */
-export function txt2imgWorkflow(opts: GenOpts): Record<string, unknown> {
+const clampBatch = (n: number) => Math.max(1, Math.min(8, n));
+
+/** Standard SDXL / SD checkpoint txt2img graph. */
+function sdxlWorkflow(opts: GenOpts): Record<string, unknown> {
   const { positive, negative } = buildPrompt(opts.prompt, opts.styleId, opts.negative);
   const ckpt = opts.checkpoint || "sd_xl_base_1.0.safetensors";
   return {
     "4": { class_type: "CheckpointLoaderSimple", inputs: { ckpt_name: ckpt } },
     "5": {
       class_type: "EmptyLatentImage",
-      inputs: {
-        width: opts.width,
-        height: opts.height,
-        batch_size: Math.max(1, Math.min(8, opts.batch)),
-      },
+      inputs: { width: opts.width, height: opts.height, batch_size: clampBatch(opts.batch) },
     },
     "6": { class_type: "CLIPTextEncode", inputs: { text: positive, clip: ["4", 1] } },
     "7": { class_type: "CLIPTextEncode", inputs: { text: negative, clip: ["4", 1] } },
@@ -206,11 +212,67 @@ export function txt2imgWorkflow(opts: GenOpts): Record<string, unknown> {
       },
     },
     "8": { class_type: "VAEDecode", inputs: { samples: ["3", 0], vae: ["4", 2] } },
-    "9": {
-      class_type: "SaveImage",
-      inputs: { filename_prefix: "ogbot", images: ["8", 0] },
-    },
+    "9": { class_type: "SaveImage", inputs: { filename_prefix: "ogbot", images: ["8", 0] } },
   };
+}
+
+/**
+ * Flux (dev/schnell) txt2img graph: separate UNET + dual CLIP (t5xxl + clip_l)
+ * + VAE, with FluxGuidance and cfg fixed at 1 (Flux uses distilled guidance,
+ * not classic CFG). The user's `cfg` slider drives the guidance value instead.
+ */
+function fluxWorkflow(opts: GenOpts): Record<string, unknown> {
+  const { positive } = buildPrompt(opts.prompt, opts.styleId, opts.negative);
+  const f = opts.flux ?? {
+    unet: "flux1-dev.safetensors",
+    clipT5: "t5xxl_fp16.safetensors",
+    clipL: "clip_l.safetensors",
+    vae: "ae.safetensors",
+  };
+  const guidance = opts.cfg > 1 ? opts.cfg : 3.5;
+  return {
+    "12": {
+      class_type: "UNETLoader",
+      inputs: { unet_name: f.unet, weight_dtype: "default" },
+    },
+    "11": {
+      class_type: "DualCLIPLoader",
+      inputs: { clip_name1: f.clipT5, clip_name2: f.clipL, type: "flux" },
+    },
+    "10": { class_type: "VAELoader", inputs: { vae_name: f.vae } },
+    "5": {
+      class_type: "EmptySD3LatentImage",
+      inputs: { width: opts.width, height: opts.height, batch_size: clampBatch(opts.batch) },
+    },
+    "6": { class_type: "CLIPTextEncode", inputs: { text: positive, clip: ["11", 0] } },
+    "33": { class_type: "CLIPTextEncode", inputs: { text: "", clip: ["11", 0] } },
+    "22": {
+      class_type: "FluxGuidance",
+      inputs: { conditioning: ["6", 0], guidance },
+    },
+    "3": {
+      class_type: "KSampler",
+      inputs: {
+        seed: opts.seed,
+        steps: opts.steps,
+        cfg: 1,
+        sampler_name: opts.sampler,
+        scheduler: opts.scheduler,
+        denoise: 1,
+        model: ["12", 0],
+        positive: ["22", 0],
+        negative: ["33", 0],
+        latent_image: ["5", 0],
+      },
+    },
+    "8": { class_type: "VAEDecode", inputs: { samples: ["3", 0], vae: ["10", 0] } },
+    "9": { class_type: "SaveImage", inputs: { filename_prefix: "ogbot", images: ["8", 0] } },
+  };
+}
+
+/** Build a complete ComfyUI txt2img API graph for the chosen architecture. */
+export function txt2imgWorkflow(opts: GenOpts): Record<string, unknown> {
+  return opts.arch === "flux" ? fluxWorkflow(opts) : sdxlWorkflow(opts);
 }
 
 export type ComfyImage = { filename: string; subfolder: string; type: string };
@@ -261,6 +323,28 @@ export function parseCheckpoints(objectInfo: unknown): string[] {
   return [];
 }
 
+/** Read a combo (dropdown) input's option list from a node's /object_info. */
+export function parseNodeOptions(objectInfo: unknown, node: string, field: string): string[] {
+  if (!objectInfo || typeof objectInfo !== "object") return [];
+  const n = (objectInfo as Record<string, unknown>)[node] as
+    | { input?: { required?: Record<string, unknown[]>; optional?: Record<string, unknown[]> } }
+    | undefined;
+  const slot = n?.input?.required?.[field] ?? n?.input?.optional?.[field];
+  if (Array.isArray(slot) && Array.isArray(slot[0])) {
+    return (slot[0] as unknown[]).filter((x): x is string => typeof x === "string");
+  }
+  return [];
+}
+
+/** Pick the first option matching any hint substring, else the first option. */
+export function preferOption(options: string[], hints: string[]): string {
+  for (const h of hints) {
+    const hit = options.find((o) => o.toLowerCase().includes(h.toLowerCase()));
+    if (hit) return hit;
+  }
+  return options[0] ?? "";
+}
+
 /** Instruction for the local LLM to turn a short idea into a rich image prompt. */
 export function enhanceInstruction(idea: string, styleId: string): string {
   const style = styleById(styleId);
@@ -290,6 +374,42 @@ export async function fetchCheckpoints(baseUrl: string): Promise<string[]> {
     return parseCheckpoints(await res.json());
   } catch {
     return [];
+  }
+}
+
+export type FluxDiscovery = {
+  unets: string[];
+  clips: string[];
+  vaes: string[];
+  /** Best-guess defaults for the four Flux components, or null if unavailable. */
+  suggested: FluxComponents | null;
+};
+
+/** Discover Flux UNET / CLIP / VAE files from ComfyUI and suggest a sensible set. */
+export async function fetchFluxComponents(baseUrl: string): Promise<FluxDiscovery> {
+  const base = baseUrl.replace(/\/$/, "");
+  const empty: FluxDiscovery = { unets: [], clips: [], vaes: [], suggested: null };
+  try {
+    const [u, c, v] = await Promise.all([
+      fetch(`${base}/object_info/UNETLoader`).then((r) => (r.ok ? r.json() : null)),
+      fetch(`${base}/object_info/DualCLIPLoader`).then((r) => (r.ok ? r.json() : null)),
+      fetch(`${base}/object_info/VAELoader`).then((r) => (r.ok ? r.json() : null)),
+    ]);
+    const unets = parseNodeOptions(u, "UNETLoader", "unet_name");
+    const clips = parseNodeOptions(c, "DualCLIPLoader", "clip_name1");
+    const vaes = parseNodeOptions(v, "VAELoader", "vae_name");
+    const suggested =
+      unets.length && clips.length && vaes.length
+        ? {
+            unet: preferOption(unets, ["flux1-dev", "flux1", "flux"]),
+            clipT5: preferOption(clips, ["t5xxl", "t5"]),
+            clipL: preferOption(clips, ["clip_l", "clip-l", "clip"]),
+            vae: preferOption(vaes, ["ae.", "flux", "vae"]),
+          }
+        : null;
+    return { unets, clips, vaes, suggested };
+  } catch {
+    return empty;
   }
 }
 

@@ -30,9 +30,13 @@ import {
   pingComfy,
   waitForImages,
   fetchCheckpoints,
+  fetchFluxComponents,
   enhanceInstruction,
   cleanEnhanced,
   type GenOpts,
+  type Arch,
+  type FluxComponents,
+  type FluxDiscovery,
 } from "@/lib/image-gen";
 
 type Shot = { url: string; prompt: string; seed: number; opts: GenOpts };
@@ -45,6 +49,9 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
   const [aspectId, setAspectId] = useState("16:9");
   const [checkpoint, setCheckpoint] = useState("");
   const [checkpoints, setCheckpoints] = useState<string[]>([]);
+  const [arch, setArch] = useState<Arch>("sdxl");
+  const [flux, setFlux] = useState<FluxComponents | null>(null);
+  const [fluxDisco, setFluxDisco] = useState<FluxDiscovery | null>(null);
   const [steps, setSteps] = useState(32);
   const [cfg, setCfg] = useState(6.5);
   const [sampler, setSampler] = useState("dpmpp_2m");
@@ -71,9 +78,14 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
     const ok = await pingComfy(comfyUrl);
     setComfyOk(ok);
     if (ok) {
-      const list = await fetchCheckpoints(comfyUrl);
+      const [list, disco] = await Promise.all([
+        fetchCheckpoints(comfyUrl),
+        fetchFluxComponents(comfyUrl),
+      ]);
       setCheckpoints(list);
       setCheckpoint((c) => c || list[0] || "");
+      setFluxDisco(disco);
+      if (disco.suggested) setFlux((f) => f ?? disco.suggested);
     }
   }, [comfyUrl]);
 
@@ -87,6 +99,23 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
     const s = styleById(id);
     setSteps(s.steps);
     setCfg(s.cfg);
+  };
+
+  // Switching architecture loads sampler/step defaults that suit it.
+  const applyArch = (a: Arch) => {
+    setArch(a);
+    if (a === "flux") {
+      setSteps(20);
+      setCfg(3.5); // drives FluxGuidance
+      setSampler("euler");
+      setScheduler("simple");
+    } else {
+      const s = styleById(styleId);
+      setSteps(s.steps);
+      setCfg(s.cfg);
+      setSampler("dpmpp_2m");
+      setScheduler("karras");
+    }
   };
 
   const enhance = async () => {
@@ -110,7 +139,7 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
 
   const buildOpts = (useSeed: number): GenOpts => {
     const a = aspectById(aspectId);
-    return {
+    const base: GenOpts = {
       prompt,
       styleId,
       negative,
@@ -123,7 +152,10 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
       scheduler,
       seed: useSeed,
       batch,
+      arch,
     };
+    if (arch === "flux" && flux) base.flux = flux;
+    return base;
   };
 
   const generate = async (opts: GenOpts) => {
@@ -164,6 +196,10 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
   };
 
   const run = () => {
+    if (arch === "flux" && !flux) {
+      setErr("Flux needs a UNET, T5 + CLIP-L, and a VAE installed in ComfyUI.");
+      return;
+    }
     const useSeed = lockSeed ? seed : randomSeed();
     if (!lockSeed) setSeed(useSeed);
     void generate(buildOpts(useSeed));
@@ -234,6 +270,39 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
 
           <div>
             <label className="mb-1 block text-[10px] uppercase tracking-widest text-muted-foreground">
+              Engine
+            </label>
+            <div className="flex gap-1.5">
+              {(["sdxl", "flux"] as const).map((a) => (
+                <button
+                  key={a}
+                  onClick={() => applyArch(a)}
+                  className={cn(
+                    "flex-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition",
+                    arch === a
+                      ? "border-primary bg-primary/15 text-primary"
+                      : "border-border bg-card text-muted-foreground hover:border-primary",
+                  )}
+                >
+                  {a === "sdxl" ? "SDXL / SD" : "Flux"}
+                </button>
+              ))}
+            </div>
+            {arch === "flux" && (
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Flux: highest fidelity + best text rendering. CFG acts as guidance (~3.5).
+                {fluxDisco && !fluxDisco.suggested && (
+                  <span className="text-destructive">
+                    {" "}
+                    No Flux files found — install a UNET, t5xxl + clip_l, and a VAE in ComfyUI.
+                  </span>
+                )}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[10px] uppercase tracking-widest text-muted-foreground">
               Style
             </label>
             <div className="flex flex-wrap gap-1.5">
@@ -276,7 +345,7 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
             </div>
           </div>
 
-          {checkpoints.length > 0 && (
+          {arch === "sdxl" && checkpoints.length > 0 && (
             <label className="block text-xs text-muted-foreground">
               Model checkpoint
               <select
@@ -291,6 +360,34 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
                 ))}
               </select>
             </label>
+          )}
+
+          {arch === "flux" && fluxDisco?.suggested && flux && (
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  ["UNET", "unet", fluxDisco.unets],
+                  ["VAE", "vae", fluxDisco.vaes],
+                  ["T5 CLIP", "clipT5", fluxDisco.clips],
+                  ["CLIP-L", "clipL", fluxDisco.clips],
+                ] as const
+              ).map(([label, key, list]) => (
+                <label key={key} className="block text-[11px] text-muted-foreground">
+                  {label}
+                  <select
+                    className={cn(inputCls, "mt-1")}
+                    value={flux[key]}
+                    onChange={(e) => setFlux({ ...flux, [key]: e.target.value })}
+                  >
+                    {list.map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+            </div>
           )}
 
           <div className="flex items-center gap-2">

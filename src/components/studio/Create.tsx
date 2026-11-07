@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sparkles, Image as ImageIcon, Music2, Clapperboard, Wand2, Loader2, Zap } from "lucide-react";
 import { Btn, inputCls } from "./ui";
 import { cn } from "@/lib/utils";
 import { connectors } from "@/lib/connectors";
-import { quickChat } from "@/lib/local-ai";
+import { quickChat, pingOllama } from "@/lib/local-ai";
+import { pingComfy } from "@/lib/image-gen";
 import { models } from "@/lib/models";
 import { classifyCreation, creationRouterPrompt, parseCreation, type CreationKind } from "@/lib/creation";
 import { ImageGen } from "./ImageGen";
@@ -42,8 +43,26 @@ export function Create() {
   const [routing, setRouting] = useState(false);
   const [enhancing, setEnhancing] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [llmCount, setLlmCount] = useState<number | null>(null);
+  const [comfyOk, setComfyOk] = useState<boolean | null>(null);
 
   const ollama = connectors.isEnabled("ollama") ? connectors.configOf("ollama")["baseUrl"] : null;
+  const comfyUrl = connectors.configOf("comfyui")["baseUrl"] ?? "http://127.0.0.1:8188";
+
+  useEffect(() => {
+    let live = true;
+    if (ollama)
+      void pingOllama(ollama).then((r) => {
+        if (!live) return;
+        setLlmCount(r.ok ? r.models.length : 0);
+        if (r.ok) models.syncLive(r.models);
+      });
+    else setLlmCount(0);
+    void pingComfy(comfyUrl).then((ok) => live && setComfyOk(ok));
+    return () => {
+      live = false;
+    };
+  }, [ollama, comfyUrl]);
 
   const resolveKind = async (text: string): Promise<{ kind: CreationKind; byAi: boolean }> => {
     if (mode !== "auto") return { kind: mode, byAi: false };
@@ -105,9 +124,28 @@ export function Create() {
             <Sparkles className="h-4 w-4" />
           </span>
           <div className="font-display text-sm uppercase">Create anything</div>
-          <span className="ml-auto font-mono text-[10px] text-muted-foreground">
-            {ollama ? "AI routing on" : "offline routing"}
-          </span>
+          <div className="ml-auto flex items-center gap-1.5 font-mono text-[10px]">
+            <span
+              className={cn(
+                "flex items-center gap-1 rounded-full border px-1.5 py-0.5",
+                llmCount ? "border-primary/50 text-primary" : "border-border text-muted-foreground",
+              )}
+              title="Local language models (Ollama)"
+            >
+              <span className={cn("h-1.5 w-1.5 rounded-full", llmCount ? "bg-primary" : "bg-muted")} />
+              {llmCount ? `${llmCount} LLM${llmCount > 1 ? "s" : ""}` : "no LLM"}
+            </span>
+            <span
+              className={cn(
+                "flex items-center gap-1 rounded-full border px-1.5 py-0.5",
+                comfyOk ? "border-primary/50 text-primary" : "border-border text-muted-foreground",
+              )}
+              title="Image engine (ComfyUI)"
+            >
+              <span className={cn("h-1.5 w-1.5 rounded-full", comfyOk ? "bg-primary" : "bg-muted")} />
+              {comfyOk ? "ComfyUI" : "no GPU img"}
+            </span>
+          </div>
         </div>
 
         <textarea
