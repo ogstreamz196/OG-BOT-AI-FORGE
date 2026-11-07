@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { ShieldCheck, X } from "lucide-react";
+import { ShieldCheck, X, Wifi, WifiOff } from "lucide-react";
 import { devAuth, DEV_ROLE } from "@/lib/dev-auth";
+import { useOnline } from "@/lib/online";
 
 /**
  * Discreet DEV sign-in sheet. Opened from a hidden gesture (tap the logo a few
@@ -10,6 +11,7 @@ export function DevSignIn({ onClose }: { onClose: () => void }) {
   const [code, setCode] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const online = useOnline();
 
   const google = async () => {
     setBusy(true);
@@ -49,9 +51,19 @@ export function DevSignIn({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
+        <div
+          className={`mb-3 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${online ? "border-primary/40 bg-primary/10 text-primary" : "border-border bg-card text-muted-foreground"}`}
+        >
+          {online ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
+          {online
+            ? "Online — remote dev access on any device, anywhere."
+            : "Offline — use the local dev code below."}
+        </div>
+
         <button
           onClick={() => void google()}
-          disabled={busy}
+          disabled={busy || !online}
+          title={online ? "" : "Sign in requires an internet connection"}
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-bold text-[#1f1f1f] transition hover:opacity-90 disabled:opacity-50"
         >
           <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden>
