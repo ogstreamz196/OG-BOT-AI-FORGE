@@ -8,7 +8,10 @@ import { workspace, useWorkspace } from "@/lib/workspace";
 import { usage } from "@/lib/usage";
 import { models, useModels } from "@/lib/models";
 import { connectors } from "@/lib/connectors";
-import { generateEdit } from "@/lib/local-ai";
+import { generateEdit, pingOllama, quickChat } from "@/lib/local-ai";
+import { permissions } from "@/lib/permissions";
+import { brain } from "@/lib/brain";
+import { planChain } from "@/lib/orchestrator";
 
 type Msg = { role: "you" | "ai" | "sys"; text: string };
 
@@ -86,28 +89,55 @@ export function Chat() {
       return;
     }
 
-    // Prefer the local model when Ollama is connected and a model is active.
     const ollama = connectors.isEnabled("ollama") ? connectors.configOf("ollama")["baseUrl"] : null;
-    const modelTag = models.activeDef()?.pull;
-    if (ollama && modelTag) {
-      push({ role: "ai", text: `Generating with ${modelTag}…` });
-      try {
-        const edit = await generateEdit(ollama, modelTag, text, workspace.get().files);
-        workspace.writeFiles(edit.files);
-        usage.record("edits");
-        stream([edit.message, `Updated ${Object.keys(edit.files).join(", ")}.`]);
-        return;
-      } catch (e) {
-        stream([
-          `Local model unavailable (${e instanceof Error ? e.message : "error"}) — used the offline rule engine instead.`,
-          ...ruleEngine(text),
-        ]);
-        return;
-      }
+    if (!ollama) {
+      // No local AI: deterministic offline rule engine.
+      stream(ruleEngine(text));
+      return;
     }
 
-    // No local model: deterministic offline rule engine.
-    stream(ruleEngine(text));
+    try {
+      // Ask once to let the AI route across all your models (and chain them).
+      const orchestrate = await permissions.request("orchestrate");
+      const b = brain.get();
+      let model = models.activeDef()?.pull ?? "llama3.2:1b";
+      let context: string | undefined;
+
+      if (orchestrate) {
+        const health = await pingOllama(ollama);
+        const installed = health.models.length ? health.models : model ? [model] : [];
+        const { kind, steps } = planChain(text, installed, { allowChain: b.chain });
+        const build = steps.find((s) => s.role === "build");
+        const reason = steps.find((s) => s.role === "reason");
+        if (build) model = build.model;
+        if (reason) {
+          push({ role: "ai", text: `Reasoning with ${reason.model}…` });
+          context = await quickChat(
+            ollama,
+            reason.model,
+            `Task: ${text}\nGive a short, concrete plan (max 6 bullet points) for implementing this in a small static web app.`,
+          ).catch(() => undefined);
+        }
+        push({
+          role: "ai",
+          text: `Building with ${model} · ${kind}${reason ? " (chained)" : ""}…`,
+        });
+      } else {
+        push({ role: "ai", text: `Generating with ${model}…` });
+      }
+
+      const opts: { context?: string; system?: string } = { system: b.systemPrompt };
+      if (context) opts.context = context;
+      const edit = await generateEdit(ollama, model, text, workspace.get().files, opts);
+      workspace.writeFiles(edit.files);
+      usage.record("edits");
+      stream([edit.message, `Updated ${Object.keys(edit.files).join(", ")}.`]);
+    } catch (e) {
+      stream([
+        `Local model unavailable (${e instanceof Error ? e.message : "error"}) — used the offline rule engine instead.`,
+        ...ruleEngine(text),
+      ]);
+    }
   };
 
   return (

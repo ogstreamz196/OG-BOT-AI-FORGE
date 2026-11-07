@@ -18,6 +18,7 @@ import {
   Plug,
   Palette,
   Activity,
+  Brain,
   WifiOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,8 @@ import { Workbench } from "@/components/studio/Workbench";
 import { Connectors } from "@/components/studio/Connectors";
 import { Brand } from "@/components/studio/Brand";
 import { OllamaTester } from "@/components/studio/OllamaTester";
+import { SelfImprove } from "@/components/studio/SelfImprove";
+import { PermissionModal } from "@/components/studio/PermissionModal";
 
 const logo = logoAsset.url;
 
@@ -63,6 +66,7 @@ type ToolId =
   | "connectors"
   | "brand"
   | "ollama"
+  | "selfimprove"
   | "forge"
   | "image"
   | "music"
@@ -77,6 +81,7 @@ const TOOLS: { id: ToolId; label: string; icon: typeof Package; C: React.Compone
   { id: "connectors", label: "Connectors", icon: Plug, C: Connectors },
   { id: "brand", label: "Theme & Brand", icon: Palette, C: Brand },
   { id: "ollama", label: "Ollama Test", icon: Activity, C: OllamaTester },
+  { id: "selfimprove", label: "Self-Improve", icon: Brain, C: SelfImprove },
   { id: "forge", label: "Build & Publish", icon: Package, C: Forge },
   { id: "image", label: "Image Studio", icon: ImageIcon, C: ImageGen },
   { id: "music", label: "Music Forge", icon: Music2, C: Music },
@@ -215,6 +220,8 @@ function Studio() {
           <div className="flex-1 overflow-y-auto p-4">{OverlayBody}</div>
         </div>
       )}
+
+      <PermissionModal />
     </div>
   );
 }

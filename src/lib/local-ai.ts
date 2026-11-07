@@ -22,7 +22,7 @@ export async function pingOllama(baseUrl: string): Promise<EngineStatus> {
 
 export type ModelEdit = { files: Files; message: string };
 
-const SYSTEM_PROMPT = `You are OG-BOT, an offline web app builder. You edit a tiny static web project made of these files: index.html (an HTML fragment or full document), styles.css, and app.js.
+export const SYSTEM_PROMPT = `You are OG-BOT, an offline web app builder. You edit a tiny static web project made of these files: index.html (an HTML fragment or full document), styles.css, and app.js.
 Apply the user's requested change and respond with ONLY a JSON object, no prose, no markdown fences:
 {"files": {"<filename>": "<full new file contents>"}, "message": "<one short sentence>"}
 Include ONLY the files you changed, with their COMPLETE new contents. Keep it a single self-contained web app. Do not add build tools or frameworks.`;
@@ -55,14 +55,41 @@ export function parseModelEdit(text: string): ModelEdit | null {
   return { files, message: typeof obj.message === "string" ? obj.message : "Applied changes." };
 }
 
-/** Ask the local model to edit the project. Throws on network/engine failure. */
+/** A quick non-streaming completion — used for the orchestrator's reasoning step. */
+export async function quickChat(
+  baseUrl: string,
+  model: string,
+  prompt: string,
+  system?: string,
+): Promise<string> {
+  const messages = [
+    ...(system ? [{ role: "system", content: system }] : []),
+    { role: "user", content: prompt },
+  ];
+  const res = await fetch(`${baseUrl.replace(/\/$/, "")}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model, stream: false, options: { temperature: 0.3 }, messages }),
+  });
+  if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
+  const data = (await res.json()) as { message?: { content?: string } };
+  return data.message?.content ?? "";
+}
+
+/**
+ * Ask the local model to edit the project. `opts.context` (e.g. a reasoning
+ * model's plan) is prepended, and `opts.system` overrides the system prompt so
+ * the AI's own tuned logic can be used. Throws on network/engine failure.
+ */
 export async function generateEdit(
   baseUrl: string,
   model: string,
   request: string,
   files: Files,
+  opts?: { context?: string; system?: string },
 ): Promise<ModelEdit> {
-  const prompt = `Current files:\n${JSON.stringify(files, null, 2)}\n\nRequested change: ${request}`;
+  const context = opts?.context ? `Approach to follow:\n${opts.context}\n\n` : "";
+  const prompt = `${context}Current files:\n${JSON.stringify(files, null, 2)}\n\nRequested change: ${request}`;
   const res = await fetch(`${baseUrl.replace(/\/$/, "")}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -71,7 +98,7 @@ export async function generateEdit(
       stream: false,
       options: { temperature: 0.2 },
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: opts?.system || SYSTEM_PROMPT },
         { role: "user", content: prompt },
       ],
     }),
