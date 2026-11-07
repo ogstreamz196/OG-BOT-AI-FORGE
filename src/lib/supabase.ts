@@ -12,7 +12,14 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 const url = import.meta.env["VITE_SUPABASE_URL"] as string | undefined;
 const key = import.meta.env["VITE_SUPABASE_ANON_KEY"] as string | undefined;
 
+const browser = typeof window !== "undefined";
 export const supabase: SupabaseClient | null =
-  url && key ? createClient(url, key, { auth: { persistSession: false } }) : null;
+  url && key
+    ? createClient(url, key, {
+        // Persist the auth session in the browser so Google DEV sign-in survives
+        // reloads and OAuth redirects resolve; inert during SSR.
+        auth: { persistSession: browser, autoRefreshToken: browser, detectSessionInUrl: browser },
+      })
+    : null;
 
 export const hasSupabase = Boolean(supabase);

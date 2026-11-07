@@ -19,6 +19,7 @@ import {
   Palette,
   Activity,
   Brain,
+  Download,
   WifiOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -40,8 +41,14 @@ import { Brand } from "@/components/studio/Brand";
 import { OllamaTester } from "@/components/studio/OllamaTester";
 import { SelfImprove } from "@/components/studio/SelfImprove";
 import { PermissionModal } from "@/components/studio/PermissionModal";
+import { DevSignIn } from "@/components/studio/DevSignIn";
+import { DEV_ROLE, useDevAuth } from "@/lib/dev-auth";
 
 const logo = logoAsset.url;
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -77,11 +84,17 @@ type ToolId =
   | "workbench";
 type Overlay = "settings" | "dash" | "tools" | ToolId | null;
 
-const TOOLS: { id: ToolId; label: string; icon: typeof Package; C: React.ComponentType }[] = [
-  { id: "connectors", label: "Connectors", icon: Plug, C: Connectors },
+const TOOLS: {
+  id: ToolId;
+  label: string;
+  icon: typeof Package;
+  C: React.ComponentType;
+  dev?: boolean;
+}[] = [
+  { id: "connectors", label: "Connectors", icon: Plug, C: Connectors, dev: true },
   { id: "brand", label: "Theme & Brand", icon: Palette, C: Brand },
-  { id: "ollama", label: "Ollama Test", icon: Activity, C: OllamaTester },
-  { id: "selfimprove", label: "Self-Improve", icon: Brain, C: SelfImprove },
+  { id: "ollama", label: "Ollama Test", icon: Activity, C: OllamaTester, dev: true },
+  { id: "selfimprove", label: "Self-Improve", icon: Brain, C: SelfImprove, dev: true },
   { id: "forge", label: "Build & Publish", icon: Package, C: Forge },
   { id: "image", label: "Image Studio", icon: ImageIcon, C: ImageGen },
   { id: "music", label: "Music Forge", icon: Music2, C: Music },
@@ -103,11 +116,56 @@ function Studio() {
   const [pane, setPane] = useState<0 | 1>(1); // 0 = chat, 1 = preview
   const pager = useRef<HTMLDivElement>(null);
 
+  const dev = useDevAuth();
+  const [customerPreview, setCustomerPreview] = useState(false);
+  const [devOpen, setDevOpen] = useState(false);
+  const effectiveDev = dev.isDev && !customerPreview;
+  const tapRef = useRef<number[]>([]);
+  const [installEvt, setInstallEvt] = useState<BeforeInstallPromptEvent | null>(null);
+
   // Land on the preview pane on mobile.
   useEffect(() => {
     const el = pager.current;
     if (el) el.scrollLeft = el.clientWidth;
   }, []);
+
+  // Capture the PWA install prompt (Android/desktop Chromium).
+  useEffect(() => {
+    const onPrompt = (e: Event) => {
+      e.preventDefault();
+      setInstallEvt(e as BeforeInstallPromptEvent);
+    };
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    return () => window.removeEventListener("beforeinstallprompt", onPrompt);
+  }, []);
+
+  // Discreet DEV entry: Ctrl/Cmd+Shift+D.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        setDevOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Discreet DEV entry: tap the logo 5× within 2s.
+  const tapLogo = () => {
+    const now = Date.now();
+    tapRef.current = [...tapRef.current, now].filter((t) => now - t < 2000);
+    if (tapRef.current.length >= 5) {
+      tapRef.current = [];
+      setDevOpen(true);
+    }
+  };
+
+  const installApp = async () => {
+    if (!installEvt) return;
+    await installEvt.prompt();
+    setInstallEvt(null);
+  };
 
   const goPane = (i: 0 | 1) => {
     const el = pager.current;
@@ -127,7 +185,7 @@ function Studio() {
     ) : overlay === "dash" ? (
       <Dashboard />
     ) : overlay === "tools" ? (
-      <ToolsGrid onPick={setOverlay} />
+      <ToolsGrid onPick={setOverlay} dev={effectiveDev} />
     ) : tool ? (
       <tool.C />
     ) : null;
@@ -138,20 +196,55 @@ function Studio() {
       {/* Top bar */}
       <header className="flex items-center justify-between border-b border-border px-3 py-2">
         <div className="flex items-center gap-2">
-          <img src={logo} alt="OG BOT" className="h-8 w-8 object-contain" />
+          <img
+            src={logo}
+            alt="OG BOT"
+            onClick={tapLogo}
+            className="h-8 w-8 cursor-pointer object-contain select-none"
+          />
           <div className="font-display text-lg leading-none">OG BOT</div>
+          {effectiveDev && (
+            <span className="ml-1 rounded border border-primary/60 bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold tracking-widest text-primary">
+              {DEV_ROLE}
+            </span>
+          )}
           <span className="ml-1 hidden items-center gap-1 rounded border border-secondary/60 px-1.5 py-0.5 text-[9px] font-semibold tracking-widest text-secondary sm:flex">
             <WifiOff className="h-2.5 w-2.5" />
             OFFLINE
           </span>
         </div>
         <div className="flex items-center gap-1">
-          <IconBtn label="Tools" onClick={() => setOverlay("tools")}>
-            <Grid3x3 className="h-5 w-5" />
-          </IconBtn>
-          <IconBtn label="Developer Dashboard" onClick={() => setOverlay("dash")}>
-            <LayoutDashboard className="h-5 w-5" />
-          </IconBtn>
+          {installEvt && (
+            <button
+              onClick={() => void installApp()}
+              className="flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-bold text-primary-foreground transition hover:opacity-90"
+            >
+              <Download className="h-4 w-4" /> Install
+            </button>
+          )}
+          {effectiveDev && (
+            <button
+              onClick={() => setCustomerPreview(true)}
+              className="hidden items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold text-foreground transition hover:border-primary sm:flex"
+            >
+              <Eye className="h-4 w-4" /> Customer view
+            </button>
+          )}
+          {effectiveDev && (
+            <>
+              <IconBtn label="Tools" onClick={() => setOverlay("tools")}>
+                <Grid3x3 className="h-5 w-5" />
+              </IconBtn>
+              <IconBtn label="Developer Dashboard" onClick={() => setOverlay("dash")}>
+                <LayoutDashboard className="h-5 w-5" />
+              </IconBtn>
+            </>
+          )}
+          {!effectiveDev && (
+            <IconBtn label="Tools" onClick={() => setOverlay("tools")}>
+              <Grid3x3 className="h-5 w-5" />
+            </IconBtn>
+          )}
           <IconBtn label="Settings" onClick={() => setOverlay("settings")}>
             <Cog className="h-5 w-5" />
           </IconBtn>
@@ -221,6 +314,17 @@ function Studio() {
         </div>
       )}
 
+      {/* Returning to dev while previewing the customer UI (dev only) */}
+      {dev.isDev && customerPreview && (
+        <button
+          onClick={() => setCustomerPreview(false)}
+          className="fixed bottom-3 left-3 z-50 flex items-center gap-1 rounded-full border border-primary/60 bg-black/70 px-3 py-1.5 text-xs font-bold text-primary backdrop-blur"
+        >
+          <Eye className="h-3.5 w-3.5" /> Exit customer view ({DEV_ROLE})
+        </button>
+      )}
+
+      {devOpen && <DevSignIn onClose={() => setDevOpen(false)} />}
       <PermissionModal />
     </div>
   );
@@ -247,10 +351,10 @@ function IconBtn({
   );
 }
 
-function ToolsGrid({ onPick }: { onPick: (o: Overlay) => void }) {
+function ToolsGrid({ onPick, dev }: { onPick: (o: Overlay) => void; dev: boolean }) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-      {TOOLS.map(({ id, label, icon: Icon }) => (
+      {TOOLS.filter((t) => dev || !t.dev).map(({ id, label, icon: Icon }) => (
         <button
           key={id}
           onClick={() => onPick(id)}

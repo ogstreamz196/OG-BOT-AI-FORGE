@@ -47,7 +47,7 @@ describe("planChain", () => {
       "Refactor the whole app: add auth, a dashboard, and a settings page, then wire them together and explain the plan";
     const { steps } = planChain(hard, INSTALLED, { allowChain: true });
     expect(steps.map((s) => s.role)).toEqual(["reason", "build"]);
-    expect(steps[1].model).toMatch(/coder/);
+    expect(steps.find((s) => s.role === "build")!.model).toMatch(/coder/);
   });
   it("single step for simple tasks", () => {
     const { steps } = planChain("add a hero", INSTALLED, { allowChain: true });

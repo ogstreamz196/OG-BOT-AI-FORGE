@@ -31,3 +31,19 @@ describe("permissions", () => {
     expect(permissions.isGranted("propose-code")).toBe(false);
   });
 });
+
+import { isAllowed, isDevCode } from "@/lib/dev-auth";
+describe("dev-auth allowlist", () => {
+  it("allows the 3 dev emails (case-insensitive), rejects others", () => {
+    expect(isAllowed("ogbot196@gmail.com")).toBe(true);
+    expect(isAllowed("OGSTREAMZ196@gmail.com")).toBe(true);
+    expect(isAllowed("faiyaz196@gmail.com")).toBe(true);
+    expect(isAllowed("someone@else.com")).toBe(false);
+    expect(isAllowed(null)).toBe(false);
+  });
+  it("accepts the local fallback code variants", () => {
+    expect(isDevCode("dev.b055")).toBe(true);
+    expect(isDevCode("DEV.BO55")).toBe(true);
+    expect(isDevCode("nope")).toBe(false);
+  });
+});
