@@ -105,13 +105,14 @@ export const SECTIONS: Section[] = [
     html: `<section class="og-sec" id="contact">
   <h2>Get in touch</h2>
   <p class="lead">We'll get back to you shortly.</p>
-  <form class="og-form" onsubmit="event.preventDefault();this.querySelector('.og-form-msg').textContent='Thanks — message captured locally.';">
-    <input required placeholder="Your name" />
-    <input required type="email" placeholder="Email" />
-    <textarea required rows="4" placeholder="Message"></textarea>
+  <form class="og-form" data-og-contact>
+    <input name="name" required placeholder="Your name" />
+    <input name="email" required type="email" placeholder="Email" />
+    <textarea name="message" required rows="4" placeholder="Message"></textarea>
     <button class="og-btn" type="submit">Send</button>
     <div class="og-form-msg"></div>
   </form>
+  <script>document.querySelectorAll('form[data-og-contact]').forEach(function(f){if(f.__og)return;f.__og=1;f.addEventListener('submit',function(e){e.preventDefault();var m=f.querySelector('.og-form-msg');var d={project:(window.OG_PROJECT||'site'),name:f.elements['name'].value,email:f.elements['email'].value,message:f.elements['message'].value};var c=window.OG_SUPABASE;if(c&&c.url&&c.key){m.textContent='Sending…';fetch(c.url.replace(/\\/$/,'')+'/rest/v1/submissions',{method:'POST',headers:{'Content-Type':'application/json','apikey':c.key,'Authorization':'Bearer '+c.key},body:JSON.stringify(d)}).then(function(r){m.textContent=r.ok?'Thanks — your message was sent.':'Sorry, something went wrong.';if(r.ok)f.reset();}).catch(function(){m.textContent='Network error — please try again.';});}else{m.textContent='Thanks — message captured (connect Supabase to save).';f.reset();}});});</script>
 </section>`,
     css: `.og-form{display:grid;gap:12px;max-width:460px}
 .og-form input,.og-form textarea{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px;color:#e6e9f5;font:inherit}

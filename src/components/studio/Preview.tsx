@@ -186,7 +186,7 @@ export function Preview({ onPublish }: { onPublish?: () => void }) {
           <iframe
             key={nonce}
             title="preview"
-            sandbox="allow-scripts"
+            sandbox="allow-scripts allow-forms"
             srcDoc={buildDoc(files)}
             style={{ width: SIZES[device] }}
             className="h-full min-h-[480px] max-w-full rounded-xl border border-border bg-background shadow-xl transition-all"

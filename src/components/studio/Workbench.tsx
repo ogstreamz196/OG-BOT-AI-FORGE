@@ -93,7 +93,7 @@ export function Workbench() {
         }
       >
         <div className="flex h-full justify-center overflow-auto rounded bg-muted/40 p-2">
-          <iframe key={nonce} title="preview" sandbox="allow-scripts" srcDoc={buildDoc(files)} style={{ width: SIZES[device] }} className="h-full min-h-[440px] max-w-full rounded border border-border bg-background transition-all" />
+          <iframe key={nonce} title="preview" sandbox="allow-scripts allow-forms" srcDoc={buildDoc(files)} style={{ width: SIZES[device] }} className="h-full min-h-[440px] max-w-full rounded border border-border bg-background transition-all" />
         </div>
       </Panel>
     </div>

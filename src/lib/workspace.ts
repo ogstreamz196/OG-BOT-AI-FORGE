@@ -4,6 +4,7 @@ import hubCss from "@/projects/og-bot-hub-starter/styles.css?raw";
 import hubJs from "@/projects/og-bot-hub-starter/app.js?raw";
 import { mobileStubs } from "./mobile-stubs";
 import { WEB_TEMPLATES } from "./web-templates";
+import { connectors } from "./connectors";
 
 /**
  * Shared workspace store: the single source of truth for the files open in the
@@ -98,24 +99,52 @@ export function useWorkspace() {
   return useSyncExternalStore(workspace.subscribe, workspace.get, workspace.get);
 }
 
+/**
+ * A tiny config script injected into built/exported pages: sets window.OG_PROJECT
+ * and, when the Supabase connector is enabled, window.OG_SUPABASE so generated
+ * features (e.g. the contact form) can talk to the backend. Publishable key only.
+ */
+function connectorConfigScript(): string {
+  let cfg = `window.OG_PROJECT=${JSON.stringify(state.project)};`;
+  try {
+    if (connectors.isEnabled("supabase")) {
+      const c = connectors.configOf("supabase");
+      if (c["url"] && c["anonKey"]) {
+        cfg += `window.OG_SUPABASE={url:${JSON.stringify(c["url"])},key:${JSON.stringify(c["anonKey"])}};`;
+      }
+    }
+  } catch {
+    /* connectors unavailable — OG_PROJECT only */
+  }
+  return `<script>${cfg}</script>`;
+}
+
+const injectAfterBody = (doc: string, inject: string) =>
+  /<body[^>]*>/i.test(doc)
+    ? doc.replace(/<body[^>]*>/i, (m) => `${m}${inject}`)
+    : `${inject}${doc}`;
+
 /** Inline styles.css and app.js into a single self-contained HTML document. */
 export function buildDoc(f: Files) {
   const html = f["index.html"] ?? "";
   const css = f["styles.css"] ?? "";
   const js = f["app.js"] ?? "";
+  const cfg = connectorConfigScript();
   if (/<html/i.test(html)) {
     // Function replacers so `$` sequences in user code are not treated as patterns.
-    return html
+    const doc = html
       .replace(/<link[^>]*href=["']styles\.css["'][^>]*>/i, () => `<style>${css}</style>`)
       .replace(/<script[^>]*src=["']app\.js["'][^>]*><\/script>/i, () => `<script>${js}</script>`);
+    return injectAfterBody(doc, cfg);
   }
-  return `<!doctype html><html><head><style>${css}</style></head><body>${html}<script>${js}</script></body></html>`;
+  return `<!doctype html><html><head><style>${css}</style></head><body>${cfg}${html}<script>${js}</script></body></html>`;
 }
 
 /** Wrap a fragment index.html in a full document that links styles.css / app.js, for multi-file export. */
 export function standaloneIndex(f: Files) {
   const html = f["index.html"] ?? "";
-  if (/<html/i.test(html)) return html;
+  const cfg = connectorConfigScript();
+  if (/<html/i.test(html)) return injectAfterBody(html, cfg);
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -124,6 +153,7 @@ export function standaloneIndex(f: Files) {
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+${cfg}
 ${html}
 <script src="app.js"></script>
 </body>
