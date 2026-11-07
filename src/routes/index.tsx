@@ -17,6 +17,7 @@ import {
   Code2,
   Plug,
   Palette,
+  Activity,
   WifiOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,7 @@ import { GitSync } from "@/components/studio/GitSync";
 import { Workbench } from "@/components/studio/Workbench";
 import { Connectors } from "@/components/studio/Connectors";
 import { Brand } from "@/components/studio/Brand";
+import { OllamaTester } from "@/components/studio/OllamaTester";
 
 const logo = logoAsset.url;
 
@@ -60,6 +62,7 @@ export const Route = createFileRoute("/")({
 type ToolId =
   | "connectors"
   | "brand"
+  | "ollama"
   | "forge"
   | "image"
   | "music"
@@ -73,6 +76,7 @@ type Overlay = "settings" | "dash" | "tools" | ToolId | null;
 const TOOLS: { id: ToolId; label: string; icon: typeof Package; C: React.ComponentType }[] = [
   { id: "connectors", label: "Connectors", icon: Plug, C: Connectors },
   { id: "brand", label: "Theme & Brand", icon: Palette, C: Brand },
+  { id: "ollama", label: "Ollama Test", icon: Activity, C: OllamaTester },
   { id: "forge", label: "Build & Publish", icon: Package, C: Forge },
   { id: "image", label: "Image Studio", icon: ImageIcon, C: ImageGen },
   { id: "music", label: "Music Forge", icon: Music2, C: Music },
