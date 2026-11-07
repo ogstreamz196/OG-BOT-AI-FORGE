@@ -9,10 +9,12 @@ import {
   Loader2,
   ImageOff,
   Settings2,
+  Trash2,
 } from "lucide-react";
 import { Panel, Btn, Bar, inputCls } from "./ui";
 import { cn } from "@/lib/utils";
 import { usage } from "@/lib/usage";
+import { gallery, useGallery } from "@/lib/gallery";
 import { connectors } from "@/lib/connectors";
 import { models } from "@/lib/models";
 import { quickChat } from "@/lib/local-ai";
@@ -38,8 +40,7 @@ import {
   type FluxComponents,
   type FluxDiscovery,
 } from "@/lib/image-gen";
-
-type Shot = { url: string; prompt: string; seed: number; opts: GenOpts };
+import type { Creation } from "@/lib/gallery";
 
 export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
   const [prompt, setPrompt] = useState(
@@ -68,7 +69,7 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
   const [status, setStatus] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [enhancing, setEnhancing] = useState(false);
-  const [shots, setShots] = useState<Shot[]>([]);
+  const shots = useGallery().filter((c) => c.kind === "image");
   const abortRef = useRef<AbortController | null>(null);
 
   const comfyUrl = connectors.configOf("comfyui")["baseUrl"] ?? "http://127.0.0.1:8188";
@@ -175,13 +176,15 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
       setStatus("Rendering on your GPU…");
       const images = await waitForImages(comfyUrl, q.promptId, { signal: ac.signal });
       if (images.length === 0) throw new Error("Timed out waiting for the render");
-      const newShots: Shot[] = images.map((img) => ({
-        url: viewUrl(comfyUrl, img),
-        prompt: opts.prompt,
-        seed: opts.seed,
-        opts,
-      }));
-      setShots((s) => [...newShots, ...s]);
+      gallery.add(
+        images.map((img) => ({
+          kind: "image" as const,
+          url: viewUrl(comfyUrl, img),
+          prompt: opts.prompt,
+          seed: opts.seed,
+          opts,
+        })),
+      );
       usage.record("images");
       setStatus(null);
     } catch (e) {
@@ -205,13 +208,14 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
     void generate(buildOpts(useSeed));
   };
 
-  const vary = (shot: Shot) => {
+  const vary = (shot: Creation) => {
+    if (!shot.opts) return;
     const s = randomSeed();
     setSeed(s);
     void generate({ ...shot.opts, seed: s, batch: 1 });
   };
 
-  const reuseSeed = (shot: Shot) => {
+  const reuseSeed = (shot: Creation) => {
     setSeed(shot.seed);
     setLockSeed(true);
   };
@@ -554,7 +558,15 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
         title="Gallery"
         right={
           shots.length > 0 && (
-            <span className="font-mono text-[10px] text-muted-foreground">{shots.length}</span>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[10px] text-muted-foreground">{shots.length}</span>
+              <button
+                onClick={() => gallery.clear()}
+                className="rounded border border-border px-2 py-0.5 text-[10px] text-muted-foreground hover:border-destructive hover:text-destructive"
+              >
+                Clear
+              </button>
+            </div>
           )
         }
       >
@@ -569,9 +581,9 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {shots.map((shot, i) => (
+            {shots.map((shot) => (
               <figure
-                key={`${shot.seed}-${i}`}
+                key={shot.id}
                 className="group relative overflow-hidden rounded-xl border border-border bg-card"
               >
                 <img
@@ -593,19 +605,28 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
                     >
                       <Download className="h-3.5 w-3.5" />
                     </a>
-                    <button
-                      onClick={() => vary(shot)}
-                      title="Make a variation"
-                      className="rounded bg-white/15 p-1.5 text-white hover:bg-white/30"
-                    >
-                      <RefreshCw className="h-3.5 w-3.5" />
-                    </button>
+                    {shot.opts && (
+                      <button
+                        onClick={() => vary(shot)}
+                        title="Make a variation"
+                        className="rounded bg-white/15 p-1.5 text-white hover:bg-white/30"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                     <button
                       onClick={() => reuseSeed(shot)}
                       title="Reuse this seed"
                       className="rounded bg-white/15 p-1.5 text-white hover:bg-white/30"
                     >
                       <Dice5 className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => gallery.remove(shot.id)}
+                      title="Delete"
+                      className="rounded bg-white/15 p-1.5 text-white hover:bg-destructive/60"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
                     </button>
                     <span className="ml-auto font-mono text-[9px] text-white/60">#{shot.seed}</span>
                   </div>
