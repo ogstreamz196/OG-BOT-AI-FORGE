@@ -21,6 +21,7 @@ import {
   Activity,
   Brain,
   Download,
+  LifeBuoy,
   WifiOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -43,6 +44,7 @@ import { OllamaTester } from "@/components/studio/OllamaTester";
 import { SelfImprove } from "@/components/studio/SelfImprove";
 import { PermissionModal } from "@/components/studio/PermissionModal";
 import { MusicVideo } from "@/components/studio/MusicVideo";
+import { SetupGuide } from "@/components/studio/SetupGuide";
 import { DevSignIn } from "@/components/studio/DevSignIn";
 import { DEV_ROLE, useDevAuth } from "@/lib/dev-auth";
 
@@ -77,6 +79,7 @@ type ToolId =
   | "ollama"
   | "selfimprove"
   | "musicvideo"
+  | "setup"
   | "forge"
   | "image"
   | "music"
@@ -96,6 +99,7 @@ const TOOLS: {
 }[] = [
   { id: "connectors", label: "Connectors", icon: Plug, C: Connectors, dev: true },
   { id: "brand", label: "Theme & Brand", icon: Palette, C: Brand },
+  { id: "setup", label: "Setup Guide", icon: LifeBuoy, C: SetupGuide },
   { id: "ollama", label: "Ollama Test", icon: Activity, C: OllamaTester, dev: true },
   { id: "selfimprove", label: "Self-Improve", icon: Brain, C: SelfImprove, dev: true },
   { id: "forge", label: "Build & Publish", icon: Package, C: Forge },
