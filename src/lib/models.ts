@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { pickModel } from "./orchestrator";
 
 /**
  * Local AI model catalog + status. The studio ships with no weights — the user
@@ -84,31 +85,36 @@ export type ModelStatus = "available" | "installed";
 type State = {
   /** id -> status. Absent means "available" (not installed). */
   installed: Record<string, ModelStatus>;
-  /** active coder/reasoning model id driving the chat, or null. */
+  /** active model driving the chat: a catalog id OR a raw Ollama tag, or null. */
   active: string | null;
+  /** Raw model tags actually installed on the connected Ollama server (live truth). */
+  live: string[];
 };
 
 const STORAGE_KEY = "og-models-v1";
 
 function load(): State {
-  const base: State = { installed: {}, active: null };
+  const base: State = { installed: {}, active: null, live: [] };
   if (typeof localStorage === "undefined") return base;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? { ...base, ...(JSON.parse(raw) as Partial<State>) } : base;
+    // `live` is runtime truth from the engine; never restore a stale list.
+    return raw ? { ...base, ...(JSON.parse(raw) as Partial<State>), live: [] } : base;
   } catch {
     return base;
   }
 }
 
 let state: State = load();
-const SERVER_SNAPSHOT: State = { installed: {}, active: null };
+const SERVER_SNAPSHOT: State = { installed: {}, active: null, live: [] };
 const listeners = new Set<() => void>();
 let hydrated = false;
 
 function persist() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    // Don't persist `live` — it is re-synced from the engine on connect.
+    const { installed, active } = state;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ installed, active }));
   } catch {
     /* ignore */
   }
@@ -155,8 +161,37 @@ export const models = {
   setActive: (id: string | null) => set({ active: id }),
   activeDef: (): ModelDef | null => MODEL_CATALOG.find((m) => m.id === state.active) ?? null,
   installedCount: () => Object.values(state.installed).filter((s) => s === "installed").length,
+
+  /** Live Ollama tags currently installed on the connected engine. */
+  live: () => state.live,
+  liveCount: () => state.live.length,
+  /**
+   * Record the real model list from the engine (/api/tags). If the active model
+   * is unset or no longer installed, auto-pick the best coding model so the chat
+   * always targets something that actually exists. Idempotent/no-op if unchanged.
+   */
+  syncLive(names: string[]) {
+    const sameList = names.length === state.live.length && names.every((n, i) => state.live[i] === n);
+    const activeStillValid =
+      state.active != null &&
+      (names.includes(state.active) || MODEL_CATALOG.some((m) => m.id === state.active));
+    const active = activeStillValid ? state.active : (pickModel("code", names) ?? state.active);
+    if (sameList && active === state.active) return;
+    set({ live: names, active });
+  },
+  /**
+   * The raw tag to send to the engine for the active model: the live tag if the
+   * active id is one, else the catalog pull tag, else the first live model.
+   */
+  activeTag(): string | null {
+    const a = state.active;
+    if (a && state.live.includes(a)) return a;
+    const def = MODEL_CATALOG.find((m) => m.id === a);
+    if (def) return def.pull;
+    return state.live[0] ?? null;
+  },
   _reset() {
-    state = { installed: {}, active: null };
+    state = { installed: {}, active: null, live: [] };
     persist();
     notify();
   },

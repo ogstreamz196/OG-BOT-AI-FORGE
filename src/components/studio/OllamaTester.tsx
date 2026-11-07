@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { models as modelStore } from "@/lib/models";
 
 /**
  * Self-contained Ollama test client. Verifies the local backend, lists installed
@@ -60,6 +61,7 @@ export function OllamaTester() {
       const data = (await res.json()) as { models?: { name: string }[] };
       const names = (data.models ?? []).map((m) => m.name);
       setModels(names);
+      modelStore.syncLive(names); // share the live list with the rest of the app
       setStatus("connected");
       setError(null);
       setModel((prev) =>

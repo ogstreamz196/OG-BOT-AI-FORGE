@@ -92,7 +92,7 @@ export function SelfImprove() {
     setBusy(true);
     setProposal(null);
     try {
-      const model = models.activeDef()?.pull ?? "llama3.2:1b";
+      const model = models.activeTag() ?? "llama3.2:1b";
       const text = await quickChat(
         ollama,
         model,

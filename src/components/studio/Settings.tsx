@@ -16,6 +16,42 @@ export function Settings() {
 
   return (
     <div className="space-y-3">
+      {m.live.length > 0 && (
+        <Panel
+          title="Detected on your engine"
+          right={
+            <span className="font-mono text-[11px] text-primary">{m.live.length} live</span>
+          }
+        >
+          <p className="mb-3 text-xs text-muted-foreground">
+            <Check className="mr-1 inline h-3 w-3 text-primary" />
+            These models are actually installed on your connected Ollama server — the AI builder and
+            router use them automatically. Pick which one drives the chat by default.
+          </p>
+          <ul className="flex flex-wrap gap-2">
+            {m.live.map((tag) => {
+              const active = m.active === tag;
+              return (
+                <li key={tag}>
+                  <button
+                    onClick={() => models.setActive(active ? null : tag)}
+                    className={cn(
+                      "flex items-center gap-1 rounded-full border px-3 py-1 font-mono text-[11px] transition",
+                      active
+                        ? "border-primary bg-primary/15 text-primary"
+                        : "border-border bg-card text-muted-foreground hover:border-primary",
+                    )}
+                  >
+                    {active && <Check className="h-3 w-3" />}
+                    {tag}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </Panel>
+      )}
+
       <Panel
         title="Local AI Models"
         right={

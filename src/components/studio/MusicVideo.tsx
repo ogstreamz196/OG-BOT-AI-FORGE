@@ -4,6 +4,7 @@ import { Panel, Btn, inputCls } from "./ui";
 import { cn } from "@/lib/utils";
 import { connectors } from "@/lib/connectors";
 import { pingOllama } from "@/lib/local-ai";
+import { models as modelStore } from "@/lib/models";
 import {
   callDirector,
   comfyWorkflow,
@@ -75,6 +76,7 @@ export function MusicVideo() {
       if (r.models.length) {
         setModels(r.models);
         setDirector(pickDirectorModel(r.models));
+        modelStore.syncLive(r.models); // share the live list app-wide
       }
     });
     void pingComfy(comfyUrl).then((ok) => live && setComfyOk(ok));

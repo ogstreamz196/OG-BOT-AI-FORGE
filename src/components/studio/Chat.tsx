@@ -28,8 +28,9 @@ const SUGGESTIONS = [
 
 export function Chat() {
   const ws = useWorkspace();
-  const m = useModels();
-  const activeId = m.active;
+  useModels(); // re-render when the live model list / active model changes
+  const activeTag = models.activeTag();
+  const liveCount = models.liveCount();
   const [msgs, setMsgs] = useState<Msg[]>([
     {
       role: "sys",
@@ -42,6 +43,25 @@ export function Chat() {
   useEffect(() => {
     end.current?.scrollIntoView({ block: "nearest" });
   }, [msgs]);
+
+  // Learn what's actually installed on the local engine as soon as it's
+  // connected, so the header and default model reflect reality (not the manual
+  // catalog). Re-checks when the Ollama connector config changes.
+  useEffect(() => {
+    let cancelled = false;
+    const sync = async () => {
+      const base = connectors.isEnabled("ollama") ? connectors.configOf("ollama")["baseUrl"] : null;
+      if (!base) return;
+      const health = await pingOllama(base);
+      if (!cancelled && health.ok) models.syncLive(health.models);
+    };
+    void sync();
+    const unsub = connectors.subscribe(() => void sync());
+    return () => {
+      cancelled = true;
+      unsub();
+    };
+  }, []);
 
   const push = (msg: Msg) => setMsgs((l) => [...l, msg]);
 
@@ -100,11 +120,12 @@ export function Chat() {
       // Ask once to let the AI route across all your models (and chain them).
       const orchestrate = await permissions.request("orchestrate");
       const b = brain.get();
-      let model = models.activeDef()?.pull ?? "llama3.2:1b";
+      let model = models.activeTag() ?? "llama3.2:1b";
       let context: string | undefined;
 
       if (orchestrate) {
         const health = await pingOllama(ollama);
+        if (health.ok) models.syncLive(health.models);
         const installed = health.models.length ? health.models : model ? [model] : [];
         // A small fast model routes the task to the right specialist; the
         // deterministic classifier is the fallback if it is slow or replies junk.
@@ -163,7 +184,7 @@ export function Chat() {
             <span
               className={cn(
                 "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background",
-                busy ? "bg-warning" : activeId ? "bg-primary" : "bg-secondary",
+                busy ? "bg-warning" : activeTag ? "bg-primary" : "bg-secondary",
               )}
             />
           </span>
@@ -176,7 +197,9 @@ export function Chat() {
         </div>
         <span className="flex items-center gap-1 rounded-full border border-border bg-card/60 px-2.5 py-1 font-mono text-[10px] text-muted-foreground">
           <Cpu className="h-3 w-3" />
-          {activeId ? activeId : "no model · offline"}
+          {activeTag
+            ? `${activeTag}${liveCount > 1 ? ` · ${liveCount} models` : ""}`
+            : "no model · offline"}
         </span>
       </div>
 

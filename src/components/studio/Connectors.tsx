@@ -10,6 +10,7 @@ import {
   type ConnectorDef,
 } from "@/lib/connectors";
 import { pingOllama } from "@/lib/local-ai";
+import { models } from "@/lib/models";
 
 const CATEGORIES: ConnCategory[] = ["Local AI", "Backend", "Payments", "Integrations"];
 
@@ -26,6 +27,8 @@ function ConnectorCard({ def }: { def: ConnectorDef }) {
     setStatus(null);
     const base = config[def.pingField] || "";
     const r = await pingOllama(base); // /api/tags works for Ollama; others report reachability
+    // Feed the real model list into the shared store so the whole app sees it.
+    if (r.ok && def.kind === "ollama") models.syncLive(r.models);
     setStatus(r.ok ? `connected · ${r.models.length} models` : `not reachable (${r.message})`);
     setTesting(false);
   };
