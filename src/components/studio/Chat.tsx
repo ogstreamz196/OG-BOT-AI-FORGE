@@ -11,7 +11,7 @@ import { connectors } from "@/lib/connectors";
 import { generateEdit, pingOllama, quickChat } from "@/lib/local-ai";
 import { permissions } from "@/lib/permissions";
 import { brain } from "@/lib/brain";
-import { planChain } from "@/lib/orchestrator";
+import { dispatch } from "@/lib/orchestrator";
 
 type Msg = { role: "you" | "ai" | "sys"; text: string };
 
@@ -106,10 +106,21 @@ export function Chat() {
       if (orchestrate) {
         const health = await pingOllama(ollama);
         const installed = health.models.length ? health.models : model ? [model] : [];
-        const { kind, steps } = planChain(text, installed, { allowChain: b.chain });
+        // A small fast model routes the task to the right specialist; the
+        // deterministic classifier is the fallback if it is slow or replies junk.
+        const plan = await dispatch(
+          text,
+          installed,
+          (m, p) => quickChat(ollama, m, p),
+          { allowChain: b.chain, routerModel: b.routerModel || null },
+        );
+        const { kind, steps } = plan;
         const build = steps.find((s) => s.role === "build");
         const reason = steps.find((s) => s.role === "reason");
         if (build) model = build.model;
+        if (plan.routed && plan.router) {
+          push({ role: "ai", text: `Router (${plan.router}) → ${kind} · ${model}` });
+        }
         if (reason) {
           push({ role: "ai", text: `Reasoning with ${reason.model}…` });
           context = await quickChat(

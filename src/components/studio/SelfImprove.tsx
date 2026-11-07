@@ -167,6 +167,21 @@ export function SelfImprove() {
             }}
           />
         </label>
+        <label className="mb-2 flex items-center justify-between gap-3 rounded border border-border bg-card px-3 py-2 text-sm">
+          <span className="min-w-0 text-foreground">
+            Router model
+            <span className="block text-[11px] text-muted-foreground">
+              Small fast model that assigns each task to a specialist. Blank = auto-pick.
+            </span>
+          </span>
+          <input
+            value={b.routerModel}
+            onChange={(e) => brain.set({ routerModel: e.target.value })}
+            disabled={!isOn("self-tune")}
+            placeholder="auto (e.g. llama3.2:3b)"
+            className="w-40 shrink-0 rounded border border-input bg-background px-2 py-1 font-mono text-[11px] text-foreground outline-none focus:border-primary disabled:opacity-60"
+          />
+        </label>
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}

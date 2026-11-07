@@ -8,9 +8,14 @@ import { SYSTEM_PROMPT } from "./local-ai";
  * "self-tune" permission in the UI. Persisted to localStorage; always reversible.
  */
 
-export type Brain = { systemPrompt: string; chain: boolean };
+export type Brain = {
+  systemPrompt: string;
+  chain: boolean;
+  /** Router/dispatcher model; empty = auto-pick the best small model installed. */
+  routerModel: string;
+};
 
-export const DEFAULT_BRAIN: Brain = { systemPrompt: SYSTEM_PROMPT, chain: false };
+export const DEFAULT_BRAIN: Brain = { systemPrompt: SYSTEM_PROMPT, chain: false, routerModel: "" };
 
 const STORAGE_KEY = "og-brain-v1";
 

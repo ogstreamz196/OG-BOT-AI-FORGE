@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { classifyTask, pickModel, needsReasoning, planChain } from "@/lib/orchestrator";
+import {
+  classifyTask,
+  pickModel,
+  pickRouter,
+  parseRoute,
+  dispatch,
+  needsReasoning,
+  planChain,
+} from "@/lib/orchestrator";
 
 const INSTALLED = [
   "llama3.2:1b",
@@ -65,5 +73,75 @@ describe("needsReasoning", () => {
   it("flags complex, not trivial", () => {
     expect(needsReasoning("add a footer")).toBe(false);
     expect(needsReasoning("use your flagship model")).toBe(true);
+  });
+});
+
+describe("pickRouter", () => {
+  it("prefers a small fast model as the dispatcher", () => {
+    expect(pickRouter(INSTALLED)).toBe("llama3.2:3b");
+  });
+  it("never routes with an embeddings model", () => {
+    expect(pickRouter(["nomic-embed-text", "qwen2.5:14b"])).toBe("qwen2.5:14b");
+    expect(pickRouter([])).toBeNull();
+  });
+});
+
+describe("parseRoute", () => {
+  it("parses a clean JSON reply", () => {
+    expect(parseRoute('{"kind":"code","reason":"edit a web page"}')).toBe("code");
+  });
+  it("tolerates fences and prose", () => {
+    expect(parseRoute('Sure!\n```json\n{"kind":"reason"}\n```')).toBe("reason");
+  });
+  it("falls back to a bare category word", () => {
+    expect(parseRoute("I think this is a vision task")).toBe("vision");
+  });
+  it("returns null for junk", () => {
+    expect(parseRoute("banana")).toBeNull();
+    expect(parseRoute("")).toBeNull();
+  });
+});
+
+describe("dispatch", () => {
+  it("routes via the router model and builds with the specialist", async () => {
+    const calls: string[] = [];
+    const ask = async (model: string) => {
+      calls.push(model);
+      return '{"kind":"code"}';
+    };
+    const plan = await dispatch("make me a thing", INSTALLED, ask);
+    expect(plan.routed).toBe(true);
+    expect(plan.router).toBe("llama3.2:3b");
+    expect(plan.kind).toBe("code");
+    expect(plan.steps.find((s) => s.role === "build")!.model).toMatch(/coder/);
+    expect(calls).toEqual(["llama3.2:3b"]);
+  });
+
+  it("falls back to the deterministic classifier when the router throws", async () => {
+    const ask = async () => {
+      throw new Error("engine down");
+    };
+    const plan = await dispatch("write a python function", INSTALLED, ask);
+    expect(plan.routed).toBe(false);
+    expect(plan.router).toBeNull();
+    expect(plan.kind).toBe("code");
+    expect(plan.steps.length).toBeGreaterThan(0);
+  });
+
+  it("falls back when the router replies with junk", async () => {
+    const plan = await dispatch("add a hero", INSTALLED, async () => "no idea");
+    expect(plan.routed).toBe(false);
+    expect(plan.steps.map((s) => s.role)).toEqual(["build"]);
+  });
+
+  it("honours an explicit router model when installed", async () => {
+    const seen: string[] = [];
+    const ask = async (model: string) => {
+      seen.push(model);
+      return '{"kind":"chat"}';
+    };
+    const plan = await dispatch("hi", INSTALLED, ask, { routerModel: "llama3.1:8b" });
+    expect(plan.router).toBe("llama3.1:8b");
+    expect(seen).toEqual(["llama3.1:8b"]);
   });
 });
