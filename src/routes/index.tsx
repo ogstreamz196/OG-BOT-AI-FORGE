@@ -23,10 +23,12 @@ import {
   Download,
   LifeBuoy,
   WifiOff,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logoAsset from "@/assets/og-bot-logo.webp.asset.json";
 import { Chat } from "@/components/studio/Chat";
+import { Create } from "@/components/studio/Create";
 import { Preview } from "@/components/studio/Preview";
 import { Settings } from "@/components/studio/Settings";
 import { Dashboard } from "@/components/studio/Dashboard";
@@ -74,6 +76,7 @@ export const Route = createFileRoute("/")({
 });
 
 type ToolId =
+  | "create"
   | "connectors"
   | "brand"
   | "ollama"
@@ -97,6 +100,7 @@ const TOOLS: {
   C: React.ComponentType;
   dev?: boolean;
 }[] = [
+  { id: "create", label: "Create (Image · Song · Video)", icon: Sparkles, C: Create },
   { id: "connectors", label: "Connectors", icon: Plug, C: Connectors, dev: true },
   { id: "brand", label: "Theme & Brand", icon: Palette, C: Brand },
   { id: "setup", label: "Setup Guide", icon: LifeBuoy, C: SetupGuide },

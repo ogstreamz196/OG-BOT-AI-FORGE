@@ -43,10 +43,10 @@ function Badge({ label, ok, text }: { label: string; ok: boolean | null; text: s
   );
 }
 
-export function MusicVideo() {
+export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
   const [concept, setConcept] = useState<TrackConcept>({
     genre: "synthwave",
-    theme: "neon night drive",
+    theme: initialPrompt?.trim() || "neon night drive",
     bpm: 110,
     durationSec: 90,
   });

@@ -10,8 +10,8 @@ const SCALES: Record<string, number[]> = {
   Cyberpunk: [110, 130.8, 146.8, 164.8, 196, 220],
 };
 
-export function Music() {
-  const [prompt, setPrompt] = useState("neon night drive");
+export function Music({ initialPrompt }: { initialPrompt?: string } = {}) {
+  const [prompt, setPrompt] = useState(initialPrompt?.trim() || "neon night drive");
   const [style, setStyle] = useState("Synthwave");
   const [tracks, setTracks] = useState<Track[]>([]);
   const [playing, setPlaying] = useState<number | null>(null);

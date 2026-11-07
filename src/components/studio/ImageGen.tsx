@@ -37,8 +37,10 @@ import {
 
 type Shot = { url: string; prompt: string; seed: number; opts: GenOpts };
 
-export function ImageGen() {
-  const [prompt, setPrompt] = useState("a lone astronaut watching two moons rise over a desert");
+export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
+  const [prompt, setPrompt] = useState(
+    initialPrompt?.trim() || "a lone astronaut watching two moons rise over a desert",
+  );
   const [styleId, setStyleId] = useState("cinematic");
   const [aspectId, setAspectId] = useState("16:9");
   const [checkpoint, setCheckpoint] = useState("");
