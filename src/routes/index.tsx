@@ -9,6 +9,7 @@ import {
   Eye,
   Package,
   Music2,
+  Clapperboard,
   Image as ImageIcon,
   ShieldCheck,
   Cpu,
@@ -41,6 +42,7 @@ import { Brand } from "@/components/studio/Brand";
 import { OllamaTester } from "@/components/studio/OllamaTester";
 import { SelfImprove } from "@/components/studio/SelfImprove";
 import { PermissionModal } from "@/components/studio/PermissionModal";
+import { MusicVideo } from "@/components/studio/MusicVideo";
 import { DevSignIn } from "@/components/studio/DevSignIn";
 import { DEV_ROLE, useDevAuth } from "@/lib/dev-auth";
 
@@ -74,6 +76,7 @@ type ToolId =
   | "brand"
   | "ollama"
   | "selfimprove"
+  | "musicvideo"
   | "forge"
   | "image"
   | "music"
@@ -98,6 +101,7 @@ const TOOLS: {
   { id: "forge", label: "Build & Publish", icon: Package, C: Forge },
   { id: "image", label: "Image Studio", icon: ImageIcon, C: ImageGen },
   { id: "music", label: "Music Forge", icon: Music2, C: Music },
+  { id: "musicvideo", label: "Music Video Studio", icon: Clapperboard, C: MusicVideo },
   { id: "workbench", label: "Advanced Editor", icon: Code2, C: Workbench },
   { id: "hardware", label: "Hardware", icon: Cpu, C: Hardware },
   { id: "sentinel", label: "USB Sentinel", icon: ShieldCheck, C: Sentinel },

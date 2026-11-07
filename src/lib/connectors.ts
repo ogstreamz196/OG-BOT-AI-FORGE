@@ -10,7 +10,7 @@ import { useSyncExternalStore } from "react";
  * the UI says so and never persists them in the browser.
  */
 
-export type ConnKind = "ollama" | "comfyui" | "supabase" | "stripe" | "rest" | "email";
+export type ConnKind = "ollama" | "comfyui" | "supabase" | "stripe" | "rest" | "email" | "suno";
 export type ConnCategory = "Local AI" | "Backend" | "Payments" | "Integrations";
 
 export type ConnField = { key: string; label: string; placeholder?: string; secret?: boolean };
@@ -68,6 +68,14 @@ export const CONNECTOR_CATALOG: ConnectorDef[] = [
     category: "Integrations",
     blurb: "Call any REST API or receive webhooks from the apps you build.",
     fields: [{ key: "baseUrl", label: "API base URL", placeholder: "https://api.example.com" }],
+  },
+  {
+    kind: "suno",
+    name: "Suno (music)",
+    category: "Integrations",
+    blurb:
+      "AI music generation. Paste your Suno API endpoint; the key is entered per-session in the Music Video Studio, not stored.",
+    fields: [{ key: "endpoint", label: "API endpoint", placeholder: "https://api.suno.ai/…" }],
   },
   {
     kind: "email",
