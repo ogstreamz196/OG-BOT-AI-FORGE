@@ -69,7 +69,15 @@ export async function quickChat(
   const res = await fetch(`${baseUrl.replace(/\/$/, "")}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model, stream: false, options: { temperature: 0.3 }, messages }),
+    body: JSON.stringify({
+      model,
+      stream: false,
+      // keep_alive holds the model in VRAM between messages (no slow reload);
+      // num_predict caps the short helper outputs (routing/reasoning) so they return fast.
+      keep_alive: "30m",
+      options: { temperature: 0.3, num_predict: 400 },
+      messages,
+    }),
   });
   if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
   const data = (await res.json()) as { message?: { content?: string } };
@@ -96,7 +104,8 @@ export async function generateEdit(
     body: JSON.stringify({
       model,
       stream: false,
-      options: { temperature: 0.2 },
+      keep_alive: "30m", // keep the model warm in VRAM between edits
+      options: { temperature: 0.2, num_predict: 2048 },
       messages: [
         { role: "system", content: opts?.system || SYSTEM_PROMPT },
         { role: "user", content: prompt },

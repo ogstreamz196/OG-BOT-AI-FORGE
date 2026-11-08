@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 // Brand mark served locally by the Worker (the Lovable CDN path does not resolve on Cloudflare).
-const LOGO_SRC = "/favicon.png";
+const LOGO_SRC = "/og-bot-logo.png";
 import { Chat } from "@/components/studio/Chat";
 import { Create } from "@/components/studio/Create";
 import { Preview } from "@/components/studio/Preview";

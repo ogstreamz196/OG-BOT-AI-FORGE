@@ -117,45 +117,45 @@ export function Chat() {
     }
 
     try {
-      // Ask once to let the AI route across all your models (and chain them).
-      const orchestrate = await permissions.request("orchestrate");
       const b = brain.get();
       let model = models.activeTag() ?? "llama3.2:1b";
       let context: string | undefined;
 
-      if (orchestrate) {
-        const health = await pingOllama(ollama);
-        if (health.ok) models.syncLive(health.models);
-        const installed = health.models.length ? health.models : model ? [model] : [];
-        // A small fast model routes the task to the right specialist; the
-        // deterministic classifier is the fallback if it is slow or replies junk.
-        const plan = await dispatch(
-          text,
-          installed,
-          (m, p) => quickChat(ollama, m, p),
-          { allowChain: b.chain, routerModel: b.routerModel || null, byName: b.routeByName },
-        );
-        const { kind, steps } = plan;
-        const build = steps.find((s) => s.role === "build");
-        const reason = steps.find((s) => s.role === "reason");
-        if (build) model = build.model;
-        if (plan.routed && plan.router) {
-          const how = plan.byName ? "named" : kind;
-          push({ role: "ai", text: `Router (${plan.router}) → ${how} · ${model}` });
+      if (b.smartRoute) {
+        // Smart routing (opt-in): a live dispatcher picks a specialist model and
+        // may chain reason→build. Slower (extra model calls), higher quality.
+        const orchestrate = await permissions.request("orchestrate");
+        if (orchestrate) {
+          const health = await pingOllama(ollama);
+          if (health.ok) models.syncLive(health.models);
+          const installed = health.models.length ? health.models : model ? [model] : [];
+          const plan = await dispatch(text, installed, (m, p) => quickChat(ollama, m, p), {
+            allowChain: b.chain,
+            routerModel: b.routerModel || null,
+            byName: b.routeByName,
+          });
+          const { kind, steps } = plan;
+          const build = steps.find((s) => s.role === "build");
+          const reason = steps.find((s) => s.role === "reason");
+          if (build) model = build.model;
+          if (plan.routed && plan.router) {
+            const how = plan.byName ? "named" : kind;
+            push({ role: "ai", text: `Router (${plan.router}) → ${how} · ${model}` });
+          }
+          if (reason) {
+            push({ role: "ai", text: `Reasoning with ${reason.model}…` });
+            context = await quickChat(
+              ollama,
+              reason.model,
+              `Task: ${text}\nGive a short, concrete plan (max 6 bullet points) for implementing this in a small static web app.`,
+            ).catch(() => undefined);
+          }
+          push({ role: "ai", text: `Building with ${model} · ${kind}${reason ? " (chained)" : ""}…` });
+        } else {
+          push({ role: "ai", text: `Generating with ${model}…` });
         }
-        if (reason) {
-          push({ role: "ai", text: `Reasoning with ${reason.model}…` });
-          context = await quickChat(
-            ollama,
-            reason.model,
-            `Task: ${text}\nGive a short, concrete plan (max 6 bullet points) for implementing this in a small static web app.`,
-          ).catch(() => undefined);
-        }
-        push({
-          role: "ai",
-          text: `Building with ${model} · ${kind}${reason ? " (chained)" : ""}…`,
-        });
       } else {
+        // Fast path (default): one warm model, no router round-trips, no reload.
         push({ role: "ai", text: `Generating with ${model}…` });
       }
 

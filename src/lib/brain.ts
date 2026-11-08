@@ -15,6 +15,12 @@ export type Brain = {
   routerModel: string;
   /** When true, the router names the exact build model; otherwise it picks a category. */
   routeByName: boolean;
+  /**
+   * Smart routing: use a live LLM dispatcher to pick a specialist model per task.
+   * Off by default for speed — the fast path builds with one warm model and no
+   * extra round-trips.
+   */
+  smartRoute: boolean;
 };
 
 export const DEFAULT_BRAIN: Brain = {
@@ -22,6 +28,7 @@ export const DEFAULT_BRAIN: Brain = {
   chain: false,
   routerModel: "",
   routeByName: false,
+  smartRoute: false,
 };
 
 const STORAGE_KEY = "og-brain-v1";

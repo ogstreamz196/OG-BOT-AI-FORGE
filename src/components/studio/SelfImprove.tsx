@@ -158,6 +158,22 @@ export function SelfImprove() {
           permission.
         </p>
         <label className="mb-2 flex items-center justify-between gap-3 rounded border border-border bg-card px-3 py-2 text-sm">
+          <span className="min-w-0 text-foreground">
+            Smart routing
+            <span className="block text-[11px] text-muted-foreground">
+              Off = fast: one warm model, instant replies. On = a dispatcher picks a specialist per
+              task (higher quality, slower).
+            </span>
+          </span>
+          <Toggle
+            on={b.smartRoute}
+            onClick={async () => {
+              if (!isOn("self-tune") && !(await permissions.request("self-tune"))) return;
+              brain.set({ smartRoute: !b.smartRoute });
+            }}
+          />
+        </label>
+        <label className="mb-2 flex items-center justify-between gap-3 rounded border border-border bg-card px-3 py-2 text-sm">
           <span className="text-foreground">Chain reasoning → coding on hard tasks</span>
           <Toggle
             on={b.chain}
