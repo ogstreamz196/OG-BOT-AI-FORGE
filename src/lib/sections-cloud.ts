@@ -9,7 +9,8 @@ import { SECTIONS, type Section } from "./web-sections";
  * back to the sections bundled in the app, so it never fails the UI.
  *
  * Worker secrets (optional; falls back to bundled sections if unset):
- *   CLOUDFLARE_API_TOKEN  — a token with D1 read access
+ *   CF_D1_TOKEN           — a Cloudflare API token with D1 read access
+ *                           (CLOUDFLARE_API_TOKEN is also accepted as a fallback)
  *   CF_ACCOUNT_ID         — default: e7548b9cfc59c9791ad6bfbbc676961c
  *   CF_D1_SECTIONS_ID     — default: bd4def99-8402-4e08-acd7-bfe73be00bb0
  */
@@ -28,7 +29,7 @@ type D1Row = { id: string; label: string; keywords: string; html: string; css: s
 /** Serve the important sections, preferring the Cloudflare D1 store. */
 export const getCloudSections = createServerFn({ method: "GET" }).handler(
   async (): Promise<CloudSectionsResult> => {
-    const token = process.env["CLOUDFLARE_API_TOKEN"];
+    const token = process.env["CF_D1_TOKEN"] || process.env["CLOUDFLARE_API_TOKEN"];
     const account = process.env["CF_ACCOUNT_ID"] || DEFAULT_ACCOUNT;
     const db = process.env["CF_D1_SECTIONS_ID"] || DEFAULT_DB;
     if (!token) return { ok: true, source: "bundled", sections: bundled() };
