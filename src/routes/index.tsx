@@ -26,7 +26,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import logoAsset from "@/assets/og-bot-logo.webp.asset.json";
+// Brand mark served locally by the Worker (the Lovable CDN path does not resolve on Cloudflare).
+const LOGO_SRC = "/favicon.png";
 import { Chat } from "@/components/studio/Chat";
 import { Create } from "@/components/studio/Create";
 import { Preview } from "@/components/studio/Preview";
@@ -52,7 +53,7 @@ import { DEV_ROLE, useDevAuth } from "@/lib/dev-auth";
 import { connectors } from "@/lib/connectors";
 import { hydrateCloudSections, syncCloudSections } from "@/lib/cloud";
 
-const logo = logoAsset.url;
+const logo = LOGO_SRC;
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
