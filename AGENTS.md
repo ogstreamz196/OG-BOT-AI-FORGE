@@ -28,3 +28,14 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+## Saving Lovable credits
+
+The owner wants to spend as few Lovable credits as possible.
+
+- Make code changes directly in this repo and push them; they sync to Lovable
+  for free. Do not use Lovable's `send_message` or `create_project` (they run
+  Lovable's AI agent and cost credits) unless the change can only be made in
+  Lovable (database schema, connectors, secrets), and ask the owner first.
+- Publishing (`deploy_project`) and read-only Lovable calls (`get_project`,
+  `read_file`, `list_files`, `get_diff`) are fine.
