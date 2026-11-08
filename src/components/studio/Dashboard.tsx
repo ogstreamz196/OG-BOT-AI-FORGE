@@ -5,6 +5,8 @@ import { Panel, Btn, Stat, inputCls } from "./ui";
 import { useOnline } from "@/lib/online";
 import { devAuth, useDevAuth, DEV_ROLE } from "@/lib/dev-auth";
 import { hasSupabase } from "@/lib/supabase";
+import { connectors, useConnectors } from "@/lib/connectors";
+import { cloudStatus, syncCloudSections } from "@/lib/cloud";
 import {
   FEATURES,
   isUnlocked,
@@ -272,9 +274,28 @@ export function Dashboard() {
 function RemoteAccessPanel() {
   const online = useOnline();
   const dev = useDevAuth();
+  useConnectors();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [cloudBusy, setCloudBusy] = useState(false);
+  const [cloud, setCloud] = useState(cloudStatus());
   const host = typeof window !== "undefined" ? window.location.host : "offline.ogbot.co.uk";
+
+  const cloudOn = connectors.isEnabled("ogbotcloud");
+  const cloudText = cloud
+    ? cloud.ok
+      ? `${cloud.count} sections · ${cloud.source}`
+      : `last sync failed (${cloud.source})`
+    : cloudOn
+      ? "enabled — not synced yet"
+      : "off (using built-in sections)";
+
+  const syncCloud = async () => {
+    setCloudBusy(true);
+    await syncCloudSections();
+    setCloud(cloudStatus());
+    setCloudBusy(false);
+  };
 
   const signedIn = dev.status === "signed-in" && !!dev.email;
   const access = signedIn
@@ -295,6 +316,7 @@ function RemoteAccessPanel() {
     [online ? "Online" : "Offline", online ? "remote access available on any device" : "local fallback only", online],
     ["Auth backend", hasSupabase ? "Supabase configured" : "not configured — local code only", hasSupabase],
     ["DEV session", dev.isDev ? `${DEV_ROLE} active · ${access}` : "not unlocked", dev.isDev],
+    ["OG-BOT Cloud", cloudText, cloudOn && !!cloud?.ok],
     ["Access point", host, true],
   ];
 
@@ -348,6 +370,10 @@ function RemoteAccessPanel() {
             Sign in with Google
           </Btn>
         )}
+        <Btn variant="ghost" onClick={() => void syncCloud()} disabled={cloudBusy || !online}>
+          <RefreshCw className={cn("mr-1 inline h-3 w-3", cloudBusy && "animate-spin")} />
+          Sync cloud
+        </Btn>
         {msg && <span className="font-mono text-[11px] text-muted-foreground">{msg}</span>}
       </div>
       {!hasSupabase && (

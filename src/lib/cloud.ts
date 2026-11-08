@@ -59,12 +59,24 @@ const isOnline = () => typeof navigator === "undefined" || navigator.onLine;
 
 export type SyncResult = { ok: boolean; source: "cloud" | "bundled" | "external" | "skipped"; count: number };
 
+let lastSync: SyncResult | null = null;
+/** The most recent cloud-sync outcome (for status display). */
+export function cloudStatus(): SyncResult | null {
+  return lastSync;
+}
+
 /**
  * Pull the latest important sections. If the OG-BOT Cloud connector names an
  * external hub URL, fetch `${url}/api/sections`; otherwise use this app's own
  * server (which reads Cloudflare D1). Caches and activates them on success.
  */
 export async function syncCloudSections(): Promise<SyncResult> {
+  const r = await runSync();
+  lastSync = r;
+  return r;
+}
+
+async function runSync(): Promise<SyncResult> {
   if (!isOnline()) return { ok: false, source: "skipped", count: 0 };
   const enabled = connectors.isEnabled("ogbotcloud");
   const base = enabled ? (connectors.configOf("ogbotcloud")["baseUrl"] ?? "").trim() : "";
