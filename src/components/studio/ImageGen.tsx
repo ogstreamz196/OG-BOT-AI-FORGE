@@ -10,6 +10,7 @@ import {
   ImageOff,
   Settings2,
   Trash2,
+  Film,
 } from "lucide-react";
 import { Panel, Btn, Bar, inputCls } from "./ui";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,12 @@ import {
   type FluxDiscovery,
 } from "@/lib/image-gen";
 import type { Creation } from "@/lib/gallery";
+import {
+  fetchVideoCapability,
+  svdAnimateWorkflow,
+  DEFAULT_VIDEO,
+  type VideoCapability,
+} from "@/lib/video-gen";
 
 export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
   const [prompt, setPrompt] = useState(
@@ -53,6 +60,7 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
   const [arch, setArch] = useState<Arch>("sdxl");
   const [flux, setFlux] = useState<FluxComponents | null>(null);
   const [fluxDisco, setFluxDisco] = useState<FluxDiscovery | null>(null);
+  const [videoCap, setVideoCap] = useState<VideoCapability | null>(null);
   const [steps, setSteps] = useState(32);
   const [cfg, setCfg] = useState(6.5);
   const [sampler, setSampler] = useState("dpmpp_2m");
@@ -79,14 +87,16 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
     const ok = await pingComfy(comfyUrl);
     setComfyOk(ok);
     if (ok) {
-      const [list, disco] = await Promise.all([
+      const [list, disco, vcap] = await Promise.all([
         fetchCheckpoints(comfyUrl),
         fetchFluxComponents(comfyUrl),
+        fetchVideoCapability(comfyUrl),
       ]);
       setCheckpoints(list);
       setCheckpoint((c) => c || list[0] || "");
       setFluxDisco(disco);
       if (disco.suggested) setFlux((f) => f ?? disco.suggested);
+      setVideoCap(vcap);
     }
   }, [comfyUrl]);
 
@@ -218,6 +228,46 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
   const reuseSeed = (shot: Creation) => {
     setSeed(shot.seed);
     setLockSeed(true);
+  };
+
+  const animate = async (shot: Creation) => {
+    if (busy || !shot.opts || !videoCap?.svd) return;
+    setBusy(true);
+    setErr(null);
+    setStatus("Animating (SVD)…");
+    setElapsed(0);
+    const ac = new AbortController();
+    abortRef.current = ac;
+    const t0 = Date.now();
+    const timer = setInterval(() => setElapsed((Date.now() - t0) / 1000), 200);
+    try {
+      const v = { ...DEFAULT_VIDEO };
+      if (videoCap.suggestedCheckpoint) v.svdCheckpoint = videoCap.suggestedCheckpoint;
+      const graph = svdAnimateWorkflow(shot.opts, v);
+      const q = await queueComfy(comfyUrl, graph);
+      if (!q.ok || !q.promptId) throw new Error(q.message || "ComfyUI rejected the job");
+      setStatus("Rendering clip on your GPU…");
+      const outs = await waitForImages(comfyUrl, q.promptId, { signal: ac.signal, timeoutMs: 300_000 });
+      if (!outs.length) throw new Error("Timed out waiting for the clip");
+      gallery.add(
+        outs.map((img) => ({
+          kind: "video" as const,
+          url: viewUrl(comfyUrl, img),
+          prompt: shot.prompt,
+          seed: shot.seed,
+        })),
+      );
+      usage.record("images");
+      setStatus(null);
+    } catch (e) {
+      if (!(e instanceof DOMException && e.name === "AbortError"))
+        setErr(e instanceof Error ? e.message : "Animation failed");
+      setStatus(null);
+    } finally {
+      clearInterval(timer);
+      setBusy(false);
+      abortRef.current = null;
+    }
   };
 
   const copyWorkflow = async () => {
@@ -592,6 +642,11 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
                   loading="lazy"
                   className="aspect-square w-full object-cover"
                 />
+                {shot.kind === "video" && (
+                  <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[9px] font-semibold text-white">
+                    <Film className="h-3 w-3" /> clip
+                  </span>
+                )}
                 <figcaption className="absolute inset-x-0 bottom-0 flex flex-col gap-1 bg-gradient-to-t from-black/85 to-transparent p-2 opacity-0 transition group-hover:opacity-100">
                   <p className="line-clamp-2 text-[10px] text-white/90">{shot.prompt}</p>
                   <div className="flex items-center gap-1">
@@ -605,13 +660,23 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
                     >
                       <Download className="h-3.5 w-3.5" />
                     </a>
-                    {shot.opts && (
+                    {shot.opts && shot.kind === "image" && (
                       <button
                         onClick={() => vary(shot)}
                         title="Make a variation"
                         className="rounded bg-white/15 p-1.5 text-white hover:bg-white/30"
                       >
                         <RefreshCw className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {shot.opts && shot.kind === "image" && videoCap?.svd && (
+                      <button
+                        onClick={() => void animate(shot)}
+                        disabled={busy}
+                        title="Animate into a clip (SVD)"
+                        className="rounded bg-white/15 p-1.5 text-white hover:bg-white/30 disabled:opacity-40"
+                      >
+                        <Film className="h-3.5 w-3.5" />
                       </button>
                     )}
                     <button
