@@ -47,3 +47,8 @@ each request, without asking. Work on the session branch, run `npx tsc --noEmit`
 and `npx vitest run`, then fast-forward `main` to it (`git push origin HEAD:main`).
 Never force-push. If `main` has moved on, merge it in first. If checks fail,
 fix them before pushing; never push a broken build to `main`.
+
+After pushing to `main`, also publish without asking: wait until Lovable's
+`get_project` shows `latest_commit_sha` equal to the pushed commit, then call
+`deploy_project` for project `0b1ce1b7-6fa9-4766-87ba-ee8cb5504134`
+(live at https://ogcloud.lovable.app). Publishing costs no AI credits.
