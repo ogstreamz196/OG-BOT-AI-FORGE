@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Panel, Btn, inputCls } from "./ui";
+import { usePersistentState } from "@/hooks/use-persistent-state";
 
 type Line = { t: "user" | "agent" | "sys" | "ok"; s: string };
 const STEPS = [
@@ -10,6 +11,10 @@ const STEPS = [
   "Running local test suite… 12 passed",
   "Task complete. No network calls were made.",
 ];
+
+// Delay between simulated agent lines (ms). Lower = faster results.
+const STEP_MS = 150;
+const GREETING: Line[] = [{ t: "sys", s: "OG-BOT agent online · 100% offline · model: og-coder-7b" }];
 
 const COMMANDS = ["/scaffold my-app", "/edit add dark mode toggle", "/export-apk", "/git-commit Updates", "/git-push"];
 
@@ -24,7 +29,7 @@ export function slashReply(cmd: string): string[] | null {
 }
 
 export function Agent() {
-  const [lines, setLines] = useState<Line[]>([{ t: "sys", s: "OG-BOT agent online · 100% offline · model: og-coder-7b" }]);
+  const [lines, setLines] = usePersistentState<Line[]>("ogbot.agent.history", GREETING);
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
@@ -41,21 +46,21 @@ export function Agent() {
       slash.forEach((s, i) => setTimeout(() => {
         setLines((l) => [...l, { t: i === slash.length - 1 ? "ok" : "agent", s }]);
         if (i === slash.length - 1) setBusy(false);
-      }, 500 * (i + 1)));
+      }, STEP_MS * (i + 1)));
       return;
     }
     STEPS.forEach((s, i) =>
       setTimeout(() => {
         setLines((l) => [...l, { t: i === STEPS.length - 1 ? "ok" : "agent", s }]);
         if (i === STEPS.length - 1) setBusy(false);
-      }, 600 * (i + 1)),
+      }, STEP_MS * (i + 1)),
     );
   };
   const color = { user: "text-secondary", agent: "text-foreground", sys: "text-muted-foreground", ok: "text-primary text-glow" };
   const prefix = { user: "you ❯", agent: "bot ›", sys: "sys ·", ok: "bot ✓" };
 
   return (
-    <Panel title="Autonomous Agent Console" className="h-full min-h-[560px]" right={<span className="font-mono text-xs text-primary">{busy ? "● WORKING" : "○ IDLE"}</span>}>
+    <Panel title="Autonomous Agent Console" className="h-full min-h-[560px]" right={<div className="flex items-center gap-2"><Btn variant="ghost" onClick={() => setLines(GREETING)} disabled={busy}>Clear</Btn><span className="font-mono text-xs text-primary">{busy ? "● WORKING" : "○ IDLE"}</span></div>}>
       <div className="flex h-full flex-col gap-2">
         <div className="flex-1 min-h-[440px] overflow-auto rounded border border-border bg-background p-3 font-mono text-xs">
           {lines.map((l, i) => (

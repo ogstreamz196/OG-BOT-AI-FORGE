@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Monitor, Tablet, Smartphone } from "lucide-react";
 import { Panel, Btn } from "./ui";
 import { cn } from "@/lib/utils";
+import { usePersistentState } from "@/hooks/use-persistent-state";
 import hubHtml from "@/projects/og-bot-hub-starter/index.html?raw";
 import hubCss from "@/projects/og-bot-hub-starter/styles.css?raw";
 import hubJs from "@/projects/og-bot-hub-starter/app.js?raw";
@@ -39,13 +40,15 @@ function buildDoc(f: Files) {
 }
 
 export function Workbench() {
-  const [project, setProject] = useState("og-bot-hub-starter");
-  const [files, setFiles] = useState<Files>(PROJECTS[project]!);
+  const [project, setProject] = usePersistentState("ogbot.workbench.project", "og-bot-hub-starter");
+  const [saved, setSaved] = usePersistentState<Record<string, Files>>("ogbot.workbench.files", {});
+  const files = saved[project] ?? PROJECTS[project] ?? BLANK;
+  const setFiles = (f: Files) => setSaved((s) => ({ ...s, [project]: f }));
   const [active, setActive] = useState("index.html");
   const [device, setDevice] = useState<keyof typeof SIZES>("desktop");
   const [nonce, setNonce] = useState(0);
 
-  const pick = (p: string) => { setProject(p); setFiles(PROJECTS[p]!); setActive("index.html"); };
+  const pick = (p: string) => { setProject(p); setActive("index.html"); };
 
   return (
     <div className="grid h-full gap-3 lg:grid-cols-2">
@@ -57,7 +60,7 @@ export function Workbench() {
             <select aria-label="Project" value={project} onChange={(e) => pick(e.target.value)} className="rounded border border-border bg-background px-2 py-1 font-mono text-xs text-foreground">
               {Object.keys(PROJECTS).map((p) => <option key={p}>{p}</option>)}
             </select>
-            <Btn variant="ghost" onClick={() => setFiles(PROJECTS[project]!)}>Reset</Btn>
+            <Btn variant="ghost" onClick={() => setSaved(({ [project]: _, ...rest }) => rest)}>Reset</Btn>
             <Btn variant="ghost" onClick={() => {
               const url = URL.createObjectURL(new Blob([buildDoc(files)], { type: "text/html" }));
               const a = document.createElement("a"); a.href = url; a.download = `${project}.html`;
