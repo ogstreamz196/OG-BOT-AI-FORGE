@@ -105,14 +105,15 @@ const TOOLS: {
   { id: "ollama", label: "Ollama Test", icon: Activity, C: OllamaTester, dev: true },
   { id: "selfimprove", label: "Self-Improve", icon: Brain, C: SelfImprove, dev: true },
   { id: "forge", label: "Build & Publish", icon: Package, C: Forge },
-  { id: "image", label: "Image Studio", icon: ImageIcon, C: ImageGen },
-  { id: "music", label: "Music Forge", icon: Music2, C: Music },
-  { id: "musicvideo", label: "Music Video Studio", icon: Clapperboard, C: MusicVideo },
-  { id: "workbench", label: "Advanced Editor", icon: Code2, C: Workbench },
-  { id: "hardware", label: "Hardware", icon: Cpu, C: Hardware },
-  { id: "sentinel", label: "USB Sentinel", icon: ShieldCheck, C: Sentinel },
-  { id: "database", label: "Database", icon: DbIcon, C: Database },
-  { id: "git", label: "GitHub Sync", icon: Github, C: GitSync },
+  // Image / Song / Video are the primary "Create" view — keep direct studios dev-only to avoid duplicate entry points.
+  { id: "image", label: "Image Studio", icon: ImageIcon, C: ImageGen, dev: true },
+  { id: "music", label: "Music Forge", icon: Music2, C: Music, dev: true },
+  { id: "musicvideo", label: "Music Video Studio", icon: Clapperboard, C: MusicVideo, dev: true },
+  { id: "workbench", label: "Advanced Editor", icon: Code2, C: Workbench, dev: true },
+  { id: "hardware", label: "Hardware", icon: Cpu, C: Hardware, dev: true },
+  { id: "sentinel", label: "USB Sentinel", icon: ShieldCheck, C: Sentinel, dev: true },
+  { id: "database", label: "Database", icon: DbIcon, C: Database, dev: true },
+  { id: "git", label: "GitHub Sync", icon: Github, C: GitSync, dev: true },
 ];
 
 const OVERLAY_TITLE: Record<string, string> = {
