@@ -39,3 +39,11 @@ The owner wants to spend as few Lovable credits as possible.
   Lovable (database schema, connectors, secrets), and ask the owner first.
 - Publishing (`deploy_project`) and read-only Lovable calls (`get_project`,
   `read_file`, `list_files`, `get_diff`) are fine.
+
+## Shipping changes
+
+The owner wants every change on `main` (the branch Lovable syncs from) after
+each request, without asking. Work on the session branch, run `npx tsc --noEmit`
+and `npx vitest run`, then fast-forward `main` to it (`git push origin HEAD:main`).
+Never force-push. If `main` has moved on, merge it in first. If checks fail,
+fix them before pushing; never push a broken build to `main`.
