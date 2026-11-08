@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { QrCode, RefreshCw, Smartphone, Usb, Inbox } from "lucide-react";
+import { QrCode, RefreshCw, Smartphone, Usb, Inbox, Wifi, WifiOff, Globe, ShieldCheck, LogOut } from "lucide-react";
 import QR from "qrcode";
 import { Panel, Btn, Stat, inputCls } from "./ui";
+import { useOnline } from "@/lib/online";
+import { devAuth, useDevAuth, DEV_ROLE } from "@/lib/dev-auth";
+import { hasSupabase } from "@/lib/supabase";
 import {
   FEATURES,
   isUnlocked,
@@ -62,6 +65,8 @@ export function Dashboard() {
         <Stat label="Offline grace" value={`${lic.graceDaysLeft}d`} sub="air-gapped runtime" />
         <Stat label="Total activity" value={String(usage.total())} sub="this device" />
       </div>
+
+      <RemoteAccessPanel />
 
       <div className="grid gap-3 lg:grid-cols-2">
         <Panel
@@ -261,6 +266,97 @@ export function Dashboard() {
 
       <SubmissionsPanel />
     </div>
+  );
+}
+
+function RemoteAccessPanel() {
+  const online = useOnline();
+  const dev = useDevAuth();
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const host = typeof window !== "undefined" ? window.location.host : "offline.ogbot.co.uk";
+
+  const signedIn = dev.status === "signed-in" && !!dev.email;
+  const access = signedIn
+    ? "Google (remote, synced)"
+    : dev.localUnlock
+      ? "Local code (this device)"
+      : "Locked";
+
+  const signIn = async () => {
+    setBusy(true);
+    setMsg(null);
+    const r = await devAuth.signIn();
+    setMsg(r.message);
+    setBusy(false);
+  };
+
+  const rows: [string, string, boolean][] = [
+    [online ? "Online" : "Offline", online ? "remote access available on any device" : "local fallback only", online],
+    ["Auth backend", hasSupabase ? "Supabase configured" : "not configured — local code only", hasSupabase],
+    ["DEV session", dev.isDev ? `${DEV_ROLE} active · ${access}` : "not unlocked", dev.isDev],
+    ["Access point", host, true],
+  ];
+
+  return (
+    <Panel
+      title="Remote Access"
+      right={
+        <span
+          className={cn(
+            "flex items-center gap-1 font-mono text-[11px]",
+            online ? "text-primary" : "text-muted-foreground",
+          )}
+        >
+          {online ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+          {online ? "reachable" : "offline"}
+        </span>
+      }
+    >
+      <p className="mb-3 text-xs text-muted-foreground">
+        <Globe className="mr-1 inline h-3 w-3 text-primary" />
+        When online, any allow-listed Google account unlocks {DEV_ROLE} on any device, anywhere —
+        the unlock is remembered so it keeps working offline. No internet? Use the local dev code.
+      </p>
+      <ul className="space-y-1.5">
+        {rows.map(([k, v, ok]) => (
+          <li
+            key={k}
+            className="flex items-center justify-between gap-2 rounded border border-border bg-card px-3 py-2 text-xs"
+          >
+            <span className="font-mono text-muted-foreground">{k}</span>
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span
+                className={cn("h-1.5 w-1.5 shrink-0 rounded-full", ok ? "bg-primary" : "bg-muted")}
+              />
+              <span className="truncate text-foreground" title={v}>
+                {v}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {signedIn || dev.localUnlock ? (
+          <Btn variant="ghost" onClick={() => void devAuth.lock()}>
+            <LogOut className="mr-1 inline h-3 w-3" />
+            Sign out / lock
+          </Btn>
+        ) : (
+          <Btn onClick={() => void signIn()} disabled={busy || !online || !hasSupabase}>
+            <ShieldCheck className="mr-1 inline h-3 w-3" />
+            Sign in with Google
+          </Btn>
+        )}
+        {msg && <span className="font-mono text-[11px] text-muted-foreground">{msg}</span>}
+      </div>
+      {!hasSupabase && (
+        <p className="mt-2 text-[11px] text-destructive">
+          Auth backend not configured in this build — remote sign-in is unavailable; use the local
+          code.
+        </p>
+      )}
+    </Panel>
   );
 }
 
