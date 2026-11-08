@@ -10,15 +10,15 @@ describe("saved history", () => {
   it("agent chat survives a remount (page reload)", async () => {
     vi.useFakeTimers();
     const first = render(<Agent />);
-    fireEvent.change(screen.getByRole("textbox"), { target: { value: "add login" } });
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "/git-push" } });
     fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
     await act(async () => { vi.advanceTimersByTime(2000); });
-    expect(screen.getByText(/Task complete/)).toBeInTheDocument();
+    expect(screen.getByText("Push complete.")).toBeInTheDocument();
     first.unmount();
     render(<Agent />);
     await act(async () => {});
-    expect(screen.getByText("add login")).toBeInTheDocument();
-    expect(screen.getByText(/Task complete/)).toBeInTheDocument();
+    expect(screen.getByText("you ❯").parentElement).toHaveTextContent("/git-push");
+    expect(screen.getByText("Push complete.")).toBeInTheDocument();
   });
 
   it("workbench code edits survive a remount", async () => {

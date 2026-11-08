@@ -12,7 +12,8 @@ describe("agent slash commands", () => {
 });
 
 describe("model matrix", () => {
-  it("DeepSeek R1 32B needs 14 GB VRAM", () => {
-    expect(MODELS.find((m) => m.name.startsWith("DeepSeek"))?.vram).toBe(14);
+  it("every listed model fits the RTX 5080's 16 GB", () => {
+    expect(MODELS.find((m) => m.name.includes("deepseek-r1:14b"))?.vram).toBe(10.5);
+    expect(MODELS.every((m) => m.vram <= 16)).toBe(true);
   });
 });

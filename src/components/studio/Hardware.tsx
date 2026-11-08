@@ -1,16 +1,14 @@
 import { useEffect, useState } from "react";
 import { Panel, Bar, Stat } from "./ui";
+import { OLLAMA_MODELS } from "@/lib/ollama";
 
-// Mirrors MODEL_MATRIX in the repo's dashboard/compatibility-checker.js
+// Your local Ollama models plus the image/audio engines. vram = GB needed incl. ~1.5 GB working memory.
 export const MODELS = [
-  { name: "Qwen 2.5 Coder 32B (Q4_K_M)", vram: 12, ram: 16, fallback: "qwen2.5-coder:14b" },
-  { name: "DeepSeek R1 32B Reasoning", vram: 14, ram: 32, fallback: "deepseek-r1:14b" },
-  { name: "Qwen 2.5 Coder 14B", vram: 8, ram: 16, fallback: "qwen2.5-coder:7b" },
-  { name: "Qwen 2.5 Coder 7B", vram: 5, ram: 8, fallback: "qwen2.5-coder:1.5b" },
-  { name: "Qwen 2.5 Coder 1.5B (Autocomplete)", vram: 1.5, ram: 4, fallback: null },
-  { name: "SDXL Turbo Image Checkpoint", vram: 8, ram: 16, fallback: "sd-1.5" },
-  { name: "AudioCraft MusicGen Medium", vram: 6, ram: 16, fallback: "musicgen-small" },
+  ...OLLAMA_MODELS.map((m) => ({ name: `${m.label} (${m.tag})`, vram: Math.round((m.gb + 1.5) * 10) / 10 })),
+  { name: "SDXL Turbo Image Checkpoint", vram: 8 },
+  { name: "AudioCraft MusicGen Medium", vram: 6 },
 ];
+// RTX 5080 (16 GB) in an AOOSTAR AG03 dock over Thunderbolt/USB4, on a GPD Pocket 4.
 const TOTAL = 16;
 
 export function Hardware() {
@@ -27,9 +25,9 @@ export function Hardware() {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Stat label="GPU" value={`${s.gpu.toFixed(0)}%`} sub="RTX 4070 (sim)" />
+        <Stat label="GPU" value={`${s.gpu.toFixed(0)}%`} sub="RTX 5080 eGPU (sim)" />
         <Stat label="VRAM" value={`${s.vram.toFixed(1)} GB`} sub={`of ${TOTAL} GB`} />
-        <Stat label="CPU" value={`${s.cpu.toFixed(0)}%`} sub="16 threads" />
+        <Stat label="CPU" value={`${s.cpu.toFixed(0)}%`} sub="Ryzen AI 9 HX 370 · 24 threads" />
         <Stat label="RAM" value={`${s.ram.toFixed(0)}%`} sub="32 GB" />
         <Stat label="GPU Temp" value={`${s.temp.toFixed(0)}°C`} />
       </div>
