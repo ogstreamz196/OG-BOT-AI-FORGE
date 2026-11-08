@@ -21,4 +21,14 @@ describe("connectors store", () => {
     connectors.toggle("ollama");
     expect(connectors.isEnabled("ollama")).toBe(false);
   });
+  it("disconnect disables and clears stored config", () => {
+    connectors.toggle("rest", true);
+    connectors.setField("rest", "baseUrl", "https://api.example.com");
+    connectors.disconnect("rest");
+    expect(connectors.isEnabled("rest")).toBe(false);
+    expect(connectors.configOf("rest")["baseUrl"]).toBeUndefined();
+  });
+  it("includes the OG-BOT Cloud connector", () => {
+    expect(CONNECTOR_CATALOG.map((c) => c.kind)).toContain("ogbotcloud");
+  });
 });

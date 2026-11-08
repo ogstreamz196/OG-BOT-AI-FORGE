@@ -11,7 +11,7 @@ import { useSyncExternalStore } from "react";
  */
 
 export type ConnKind =
-  "ollama" | "comfyui" | "supabase" | "stripe" | "rest" | "email" | "suno" | "github";
+  "ollama" | "comfyui" | "supabase" | "stripe" | "rest" | "email" | "suno" | "github" | "ogbotcloud";
 export type ConnCategory = "Local AI" | "Backend" | "Payments" | "Integrations";
 
 export type ConnField = { key: string; label: string; placeholder?: string; secret?: boolean };
@@ -78,6 +78,16 @@ export const CONNECTOR_CATALOG: ConnectorDef[] = [
       "Read all your repos and open merge requests. The token is a Worker secret (GITHUB_TOKEN), never in the browser.",
     fields: [
       { key: "owner", label: "Default owner/repo", placeholder: "ogstreamz196/offline-ai-forge" },
+    ],
+  },
+  {
+    kind: "ogbotcloud",
+    name: "OG-BOT Cloud",
+    category: "Integrations",
+    blurb:
+      "Your online hub. When the offline AI comes online it pulls important sections and resources from the cloud (Cloudflare D1) so it always uses what it needs. Leave the URL blank to use this app's own cloud.",
+    fields: [
+      { key: "baseUrl", label: "Cloud API base URL (optional)", placeholder: "https://offline.ogbot.co.uk" },
     ],
   },
   {
@@ -175,6 +185,14 @@ export const connectors = {
   toggle(kind: ConnKind, on?: boolean) {
     const value = on ?? !state.enabled[kind];
     set({ ...state, enabled: { ...state.enabled, [kind]: value } });
+  },
+  /** Fully disconnect: disable the connector and clear its stored config. */
+  disconnect(kind: ConnKind) {
+    set({
+      ...state,
+      enabled: { ...state.enabled, [kind]: false },
+      config: { ...state.config, [kind]: {} },
+    });
   },
   setField(kind: ConnKind, key: string, value: string) {
     set({

@@ -49,6 +49,8 @@ import { MusicVideo } from "@/components/studio/MusicVideo";
 import { SetupGuide } from "@/components/studio/SetupGuide";
 import { DevSignIn } from "@/components/studio/DevSignIn";
 import { DEV_ROLE, useDevAuth } from "@/lib/dev-auth";
+import { connectors } from "@/lib/connectors";
+import { hydrateCloudSections, syncCloudSections } from "@/lib/cloud";
 
 const logo = logoAsset.url;
 
@@ -139,6 +141,20 @@ function Studio() {
   useEffect(() => {
     const el = pager.current;
     if (el) el.scrollLeft = el.clientWidth;
+  }, []);
+
+  // OG-BOT Cloud: use cached cloud sections immediately, then refresh from the
+  // cloud when online / when the connector changes.
+  useEffect(() => {
+    hydrateCloudSections();
+    void syncCloudSections();
+    const onOnline = () => void syncCloudSections();
+    window.addEventListener("online", onOnline);
+    const unsub = connectors.subscribe(() => void syncCloudSections());
+    return () => {
+      window.removeEventListener("online", onOnline);
+      unsub();
+    };
   }, []);
 
   // Capture the PWA install prompt (Android/desktop Chromium).

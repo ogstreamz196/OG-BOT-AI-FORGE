@@ -222,12 +222,25 @@ export const SECTIONS: Section[] = [
   },
 ];
 
+/**
+ * Optional cloud override. When the app is online and OG-BOT Cloud is reachable,
+ * the latest sections from the Cloudflare D1 store are set here and preferred
+ * over the bundled set, so the builder "uses what it needs" without a redeploy.
+ */
+let cloudSections: Section[] | null = null;
+export function setCloudSections(list: Section[] | null) {
+  cloudSections = list && list.length ? list : null;
+}
+export function activeSections(): Section[] {
+  return cloudSections ?? SECTIONS;
+}
+
 /** Resolve a free-text phrase to a section, or null. */
 export function resolveSection(phrase: string): Section | null {
   const p = phrase.toLowerCase().trim();
   // Prefer the longest keyword match so "pricing table" beats "table".
   let best: { s: Section; len: number } | null = null;
-  for (const s of SECTIONS) {
+  for (const s of activeSections()) {
     for (const k of [s.id, ...s.keywords]) {
       if (p.includes(k) && (!best || k.length > best.len)) best = { s, len: k.length };
     }

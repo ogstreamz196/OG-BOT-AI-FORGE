@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plug, Check, Loader2, Wifi } from "lucide-react";
+import { Plug, Check, Loader2, Wifi, Unplug, RefreshCw } from "lucide-react";
 import { Panel, Btn, inputCls } from "./ui";
 import { cn } from "@/lib/utils";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/lib/connectors";
 import { pingOllama } from "@/lib/local-ai";
 import { models } from "@/lib/models";
+import { syncCloudSections } from "@/lib/cloud";
 
 const CATEGORIES: ConnCategory[] = ["Local AI", "Backend", "Payments", "Integrations"];
 
@@ -77,8 +78,8 @@ function ConnectorCard({ def }: { def: ConnectorDef }) {
               />
             </label>
           ))}
-          {def.pingField && (
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {def.pingField && (
               <Btn variant="ghost" onClick={test} disabled={testing}>
                 {testing ? (
                   <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />
@@ -87,18 +88,45 @@ function ConnectorCard({ def }: { def: ConnectorDef }) {
                 )}
                 Test connection
               </Btn>
-              {status && (
-                <span
-                  className={cn(
-                    "font-mono text-[11px]",
-                    status.startsWith("connected") ? "text-primary" : "text-destructive",
-                  )}
-                >
-                  {status}
-                </span>
-              )}
-            </div>
-          )}
+            )}
+            {def.kind === "ogbotcloud" && (
+              <Btn
+                variant="ghost"
+                onClick={async () => {
+                  setTesting(true);
+                  const r = await syncCloudSections();
+                  setStatus(
+                    r.ok ? `synced ${r.count} sections (${r.source})` : `sync failed (${r.source})`,
+                  );
+                  setTesting(false);
+                }}
+                disabled={testing}
+              >
+                {testing ? (
+                  <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-1 inline h-3 w-3" />
+                )}
+                Sync now
+              </Btn>
+            )}
+            <Btn variant="ghost" onClick={() => connectors.disconnect(def.kind)}>
+              <Unplug className="mr-1 inline h-3 w-3" />
+              Disconnect
+            </Btn>
+            {status && (
+              <span
+                className={cn(
+                  "font-mono text-[11px]",
+                  status.startsWith("connected") || status.startsWith("synced")
+                    ? "text-primary"
+                    : "text-destructive",
+                )}
+              >
+                {status}
+              </span>
+            )}
+          </div>
         </div>
       )}
     </li>
