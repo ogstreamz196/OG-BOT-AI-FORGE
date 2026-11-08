@@ -118,7 +118,9 @@ export function Agent() {
           t: "err",
           s: notPulled
             ? `${model} isn't installed. On your laptop run:  ollama pull ${model}`
-            : `Couldn't reach Ollama at ${url} (${msg}). Click "Setup" for help.`,
+            : msg.includes("403")
+              ? msg
+              : `Couldn't reach Ollama at ${url} (${msg}). Click "Setup" for help.`,
         });
         if (!notPulled) setConn({ state: "offline", installed: [], error: msg });
       }
@@ -146,7 +148,7 @@ export function Agent() {
   const status = {
     checking: "Connecting…",
     online: `Ollama connected · ${conn.installed.length} model${conn.installed.length === 1 ? "" : "s"} installed`,
-    offline: "Ollama not reachable",
+    offline: conn.error?.includes("403") ? "Ollama is blocking this site · see Setup" : "Ollama not reachable",
   }[conn.state];
   const missing = OLLAMA_MODELS.filter((m) => conn.state === "online" && !isInstalled(m.tag));
 

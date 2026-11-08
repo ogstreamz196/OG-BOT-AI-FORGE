@@ -38,6 +38,11 @@ describe("ollama client", () => {
     expect(body).toMatchObject({ model: "qwen2.5-coder:14b", stream: true });
   });
 
+  it("explains a 403 as a blocked website", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 403 })));
+    await expect(listInstalled("http://x")).rejects.toThrow("OLLAMA_ORIGINS");
+  });
+
   it("reports Ollama's error message", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({ error: "model 'x' not found" }, { status: 404 })));
     await expect(streamChat({ baseUrl: "http://x", model: "x", messages: [], onToken: () => {} })).rejects.toThrow("not found");

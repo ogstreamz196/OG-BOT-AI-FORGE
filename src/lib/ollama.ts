@@ -31,6 +31,10 @@ export const CHAT_MODELS = OLLAMA_MODELS.filter((m) => m.kind !== "embed");
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
+/** Ollama returns 403 when this website isn't in its OLLAMA_ORIGINS allow-list. */
+export const BLOCKED_MSG =
+  'Ollama blocked this website (403). Set OLLAMA_ORIGINS to "https://*.lovable.app", then fully quit and reopen Ollama.';
+
 const clean = (url: string) => url.trim().replace(/\/+$/, "") || DEFAULT_OLLAMA_URL;
 
 /** Ollama lists "dolphin-mistral" as "dolphin-mistral:latest"; treat them as the same. */
@@ -42,6 +46,7 @@ export function sameModel(a: string, b: string) {
 /** Tags of the models installed on the Ollama server. Throws if it can't be reached. */
 export async function listInstalled(baseUrl: string, signal?: AbortSignal): Promise<string[]> {
   const res = await fetch(`${clean(baseUrl)}/api/tags`, { signal: signal ?? null });
+  if (res.status === 403) throw new Error(BLOCKED_MSG);
   if (!res.ok) throw new Error(`Ollama answered ${res.status}`);
   const data = (await res.json()) as { models?: { name: string }[] };
   return (data.models ?? []).map((m) => m.name);
@@ -65,6 +70,7 @@ export async function streamChat(opts: {
     body: JSON.stringify({ model: opts.model, messages: opts.messages, stream: true, keep_alive: "30m" }),
     signal: opts.signal ?? null,
   });
+  if (res.status === 403) throw new Error(BLOCKED_MSG);
   if (!res.ok || !res.body) {
     const text = await res.text().catch(() => "");
     let msg = text;
