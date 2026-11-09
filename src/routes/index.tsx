@@ -10,6 +10,7 @@ import { Sentinel } from "@/components/studio/Sentinel";
 import { Hardware } from "@/components/studio/Hardware";
 import { Database } from "@/components/studio/Database";
 import { GitSync } from "@/components/studio/GitSync";
+import { DevGate, type DevSession } from "@/components/studio/DevGate";
 import { cn } from "@/lib/utils";
 import logoAsset from "@/assets/og-bot-logo.webp.asset.json";
 import battleAsset from "@/assets/og-bot-battle-zone.webp.asset.json";
@@ -45,8 +46,12 @@ export const Route = createFileRoute("/")({
       { property: "og:description", content: "Build, test and package apps with a fully offline local AI workbench." },
     ],
   }),
-  component: Studio,
+  component: GatedStudio,
 });
+
+function GatedStudio() {
+  return <DevGate>{(session) => <Studio session={session} />}</DevGate>;
+}
 
 const TABS = [
   { id: "code", label: "Workbench", icon: Code2, C: Workbench },
@@ -60,7 +65,7 @@ const TABS = [
   { id: "git", label: "GitHub Sync", icon: Github, C: GitSync },
 ];
 
-function Studio() {
+function Studio({ session }: { session: DevSession }) {
   const [tab, setTab] = useState("code");
   const Active = TABS.find((t) => t.id === tab)!.C;
   return (
@@ -80,6 +85,10 @@ function Studio() {
             </button>
           ))}
         </nav>
+        <div className="flex items-center justify-between gap-2 border-t border-border px-4 py-2 md:block md:py-3">
+          <div className="truncate font-mono text-[10px] text-muted-foreground" title={session.email}>D.EV · {session.email}</div>
+          <button onClick={() => void session.signOut()} className="shrink-0 text-xs text-muted-foreground hover:text-primary md:mt-1">Sign out</button>
+        </div>
       </aside>
       <main className="flex flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-border px-4 py-2">
