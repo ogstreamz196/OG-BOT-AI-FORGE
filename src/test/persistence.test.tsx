@@ -30,4 +30,12 @@ describe("saved history", () => {
     await act(async () => {});
     expect(document.querySelector("textarea")!.value).toBe("<h1>SAVED</h1>");
   });
+
+  it("leaving the agent tab doesn't crash when scrollIntoView returns a Promise (new Chrome)", async () => {
+    Element.prototype.scrollIntoView = (() => Promise.resolve()) as unknown as Element["scrollIntoView"];
+    const view = render(<Agent />);
+    await act(async () => {});
+    expect(() => view.unmount()).not.toThrow();
+    Element.prototype.scrollIntoView = () => {};
+  });
 });

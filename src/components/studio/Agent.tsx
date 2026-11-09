@@ -61,7 +61,11 @@ export function Agent() {
   const [showSetup, setShowSetup] = useState(false);
   const abort = useRef<AbortController | null>(null);
   const end = useRef<HTMLDivElement>(null);
-  useEffect(() => end.current?.scrollIntoView({ block: "nearest" }), [lines]);
+  // Braces matter: newer Chrome returns a Promise from scrollIntoView, and React
+  // would try to call it as a cleanup function when the tab closes (crash).
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: "nearest" });
+  }, [lines]);
 
   const check = useCallback(async () => {
     setConn((c) => ({ ...c, state: "checking" }));
