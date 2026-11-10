@@ -230,8 +230,19 @@ export const driveLink = {
     return () => listeners.delete(l);
   },
   /** Make a new pairing key (D.EV only) for the drive's og-drive.json. */
-  async pair(): Promise<{ ok: true; key: string } | { ok: false; message: string }> {
+  async pair(): Promise<
+    { ok: true; key: string } | { ok: false; message: string; needsGoogle?: boolean }
+  > {
     if (!supabase) return { ok: false, message: "Sign-in backend not configured" };
+    // Pairing writes to the database, so it needs a real Google session (the offline
+    // dev code only unlocks the screens on this device).
+    if (!(await accessToken()))
+      return {
+        ok: false,
+        needsGoogle: true,
+        message:
+          "Pairing needs your D.EV Google sign-in (the offline code can't pair). Sign in with Google, then press Pair again.",
+      };
     const { data, error } = await supabase.rpc("create_drive_key");
     if (error || typeof data !== "string")
       return { ok: false, message: error?.message ?? "Sign in with a D.EV Google account first" };

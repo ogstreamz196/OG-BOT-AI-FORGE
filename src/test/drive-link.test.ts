@@ -122,3 +122,14 @@ describe("drive link", () => {
     expect(seen).toEqual(["Bearer tok"]);
   });
 });
+
+describe("pairing", () => {
+  it("asks for Google sign-in instead of failing with a database error when there's no session", async () => {
+    sb.token = null;
+    const { driveLink } = await import("@/lib/drive-link");
+    const r = await driveLink.pair();
+    expect(r).toMatchObject({ ok: false, needsGoogle: true });
+    sb.token = "tok";
+    expect(await driveLink.pair()).toMatchObject({ ok: true });
+  });
+});

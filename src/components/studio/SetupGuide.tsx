@@ -19,6 +19,7 @@ import driveWatcher from "../../../scripts/drive-watcher.ps1?raw";
 import driveServer from "../../../scripts/og-drive-server.py?raw";
 import { useState } from "react";
 import { driveLink, useDriveLink } from "@/lib/drive-link";
+import { devAuth } from "@/lib/dev-auth";
 
 /** The plug-in-and-go kit: copy these into <drive>:\OFFLINE AI\OG-BOT\ */
 export const DRIVE_KIT: { name: string; content: string; what: string }[] = [
@@ -191,9 +192,11 @@ function RecList({ recs }: { recs: Rec[] }) {
 function PairDrive() {
   const d = useDriveLink();
   const [msg, setMsg] = useState<string | null>(null);
+  const [needsGoogle, setNeedsGoogle] = useState(false);
   const pair = async () => {
     setMsg("Creating a pairing key…");
     const r = await driveLink.pair();
+    setNeedsGoogle(!r.ok && !!r.needsGoogle);
     if (!r.ok) return setMsg(r.message);
     saveFile(
       "og-drive.json",
@@ -220,6 +223,15 @@ function PairDrive() {
         <li>Plugged into the same computer, it works with no internet at all.</li>
       </ul>
       <Btn onClick={() => void pair()}>Pair this drive (download og-drive.json)</Btn>
+      {needsGoogle && (
+        <Btn
+          variant="blue"
+          className="ml-2"
+          onClick={() => void devAuth.signIn().then((r) => setMsg(r.message))}
+        >
+          Sign in with Google
+        </Btn>
+      )}
       {msg && <p className="mt-2 font-mono text-[11px] text-muted-foreground">{msg}</p>}
     </Panel>
   );
@@ -268,7 +280,8 @@ export function SetupGuide() {
           </li>
           <li>
             Download all files below into{" "}
-            <span className="font-mono text-foreground">&lt;drive&gt;:\OFFLINE AI\OG-BOT\</span> on your drive (any letter: X:, E:, …).
+            <span className="font-mono text-foreground">&lt;drive&gt;:\OFFLINE AI\OG-BOT\</span> on
+            your drive (any letter: X:, E:, …).
           </li>
           <li>
             Double-click <span className="font-mono text-foreground">install-autostart.bat</span>{" "}
