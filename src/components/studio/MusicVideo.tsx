@@ -17,6 +17,7 @@ import { Panel, Btn, inputCls } from "./ui";
 import { cn } from "@/lib/utils";
 import { connectors, useConnectors } from "@/lib/connectors";
 import { usePersistentState } from "@/hooks/use-persistent-state";
+import { useDriveLink } from "@/lib/drive-link";
 import { pingComfy, queueComfy } from "@/lib/music-video";
 import {
   DEFAULT_SUNO_BODY,
@@ -428,6 +429,15 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sunoTask, sunoStatusUrl, audioUrls.length]);
 
+  // Follow the drive's hardware scan (RTX 5080 → Ultra) unless you switch tier yourself.
+  const drive = useDriveLink();
+  const pickedTier = useRef(false);
+  const scanTier = drive.status?.tier;
+  useEffect(() => {
+    if (scanTier && !pickedTier.current && scanTier !== tier) chooseTier(scanTier);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanTier]);
+
   const chooseTier = (t: Tier) => {
     setTier(t);
     setLyricModel(TIER_DEFAULTS[t].lyric);
@@ -447,7 +457,10 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
           {(Object.keys(TIER_DEFAULTS) as Tier[]).map((t) => (
             <button
               key={t}
-              onClick={() => chooseTier(t)}
+              onClick={() => {
+                pickedTier.current = true;
+                chooseTier(t);
+              }}
               className={cn(
                 "px-2.5 py-1",
                 tier === t

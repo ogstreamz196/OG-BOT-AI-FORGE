@@ -15,9 +15,17 @@ import startOllama from "../../../scripts/start_ollama.bat?raw";
 import installAutostart from "../../../scripts/install-autostart.bat?raw";
 import uninstallAutostart from "../../../scripts/uninstall-autostart.bat?raw";
 import driveWatcher from "../../../scripts/drive-watcher.ps1?raw";
+import driveServer from "../../../scripts/og-drive-server.py?raw";
+import { useState } from "react";
+import { driveLink, useDriveLink } from "@/lib/drive-link";
 
 /** The plug-in-and-go kit: copy these into <drive>:\OFFLINE AI\OG-BOT\ */
 export const DRIVE_KIT: { name: string; content: string; what: string }[] = [
+  {
+    name: "og-drive-server.py",
+    content: driveServer,
+    what: "The drive's brain: hardware scan, starts the engines, remote access, weekly model refresh.",
+  },
   {
     name: "launch-hub.bat",
     content: launchHub,
@@ -178,6 +186,44 @@ function RecList({ recs }: { recs: Rec[] }) {
   );
 }
 
+/** Remote access: pair the drive once so it can tell the studio where it is when online. */
+function PairDrive() {
+  const d = useDriveLink();
+  const [msg, setMsg] = useState<string | null>(null);
+  const pair = async () => {
+    setMsg("Creating a pairing key…");
+    const r = await driveLink.pair();
+    if (!r.ok) return setMsg(r.message);
+    saveFile(
+      "og-drive.json",
+      JSON.stringify({ drive_key: r.key, remote: true, auto_update_models: true }, null, 2),
+    );
+    setMsg(
+      "Saved og-drive.json: put it in OFFLINE AI\\OG-BOT\\ next to og-drive-server.py, then replug the drive. Pairing again replaces the old key.",
+    );
+  };
+  return (
+    <Panel
+      title="Remote access · use the drive from anywhere"
+      right={<span className="font-mono text-[10px] text-muted-foreground">{d.message}</span>}
+    >
+      <ul className="mb-3 list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+        <li>
+          The AI runs on the drive. This website is only the controls, so it works on any phone or
+          computer.
+        </li>
+        <li>
+          When the drive's laptop is online, the drive opens a private Cloudflare tunnel and tells
+          the studio its address. Only your D.EV Google accounts can use it.
+        </li>
+        <li>Plugged into the same computer, it works with no internet at all.</li>
+      </ul>
+      <Btn onClick={() => void pair()}>Pair this drive (download og-drive.json)</Btn>
+      {msg && <p className="mt-2 font-mono text-[11px] text-muted-foreground">{msg}</p>}
+    </Panel>
+  );
+}
+
 export function SetupGuide() {
   return (
     <div className="space-y-3">
@@ -200,6 +246,8 @@ export function SetupGuide() {
         </ul>
       </Panel>
 
+      <PairDrive />
+
       <Panel
         title="Drive kit · plug in and go"
         right={<Download className="h-4 w-4 text-primary" />}
@@ -209,7 +257,7 @@ export function SetupGuide() {
             Install this app (step 4) and open it once online, so it works offline afterwards.
           </li>
           <li>
-            Download all five files below into{" "}
+            Download all files below into{" "}
             <span className="font-mono text-foreground">E:\OFFLINE AI\OG-BOT\</span> on your drive.
           </li>
           <li>
@@ -241,7 +289,7 @@ export function SetupGuide() {
               DRIVE_KIT.forEach((f, i) => setTimeout(() => saveFile(f.name, f.content), i * 400))
             }
           >
-            Download all 5
+            Download all {DRIVE_KIT.length}
           </Btn>
         </div>
         <p className="mt-2 text-[11px] text-muted-foreground">

@@ -13,6 +13,25 @@ set ROOT=%DRIVE%\OFFLINE AI
 set APP=https://offline.ogbot.co.uk
 echo OG-BOT Hub starting from %ROOT% ...
 
+REM --- 0. Drive server (hardware scan, engines, remote access) ---
+REM Uses Python from the drive: OFFLINE AI\python or ComfyUI portable's python_embeded.
+set PY=
+if exist "%ROOT%\python\python.exe" set "PY=%ROOT%\python\python.exe"
+if not defined PY if exist "%ROOT%\ComfyUI_windows_portable\python_embeded\python.exe" set "PY=%ROOT%\ComfyUI_windows_portable\python_embeded\python.exe"
+if not defined PY (python -c "import sys" >nul 2>nul && set PY=python)
+if not defined PY goto no_server
+if not exist "%~dp0og-drive-server.py" goto no_server
+curl.exe -s -o nul http://127.0.0.1:11500/og/status >nul 2>nul
+if %errorlevel%==0 (
+  echo Drive server already running.
+) else (
+  echo Starting the OG-BOT drive server: scanning hardware, starting engines ...
+  start "OG-BOT drive server" /min "%PY%" "%~dp0og-drive-server.py"
+)
+goto open_app
+:no_server
+echo [info] No Python on the drive: starting the engines directly (no remote access).
+
 REM --- 1. Ollama ----------------------------------------------
 set OLLAMA_HOST=127.0.0.1:11434
 set OLLAMA_ORIGINS=*
@@ -47,6 +66,7 @@ if exist "%ROOT%\ComfyUI\main.py" (
 echo [skip] ComfyUI not found in %ROOT%
 :comfy_done
 
+:open_app
 REM --- 3. Open the studio in an app window ----------------------
 set CHROME=%ProgramFiles%\Google\Chrome\Application\chrome.exe
 set EDGE=%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe

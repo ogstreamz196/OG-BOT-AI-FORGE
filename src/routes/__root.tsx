@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { startDriveLink } from "@/lib/drive-link";
 
 function NotFoundComponent() {
   return (
@@ -128,6 +129,7 @@ function RootComponent() {
   // Register the PWA service worker (client only) so the builder is installable
   // and works offline.
   useEffect(() => {
+    startDriveLink(); // find the drive (this computer or remote) and route the AI calls to it
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
     navigator.serviceWorker.register("/sw.js").catch(() => {});
     // After load, tell the SW to precache the exact assets this page used, so a

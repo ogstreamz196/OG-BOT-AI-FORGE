@@ -23,6 +23,20 @@ the launcher sets `OLLAMA_ORIGINS` for you.
    (`<drive>:\OFFLINE AI\ollama\bin\ollama.exe`) and ComfyUI start and the studio
    opens in its own window.
 
+## Remote access + hardware scan (og-drive-server.py)
+`launch-hub.bat` starts `og-drive-server.py` with the drive's own Python
+(`OFFLINE AI\python` or ComfyUI portable's `python_embeded`). It:
+- scans the hardware: RTX 5080 found -> Docked Ultra (<=14B, 16k context, flash
+  attention, one model at a time); otherwise Handheld (7-8B, Radeon 890M);
+- starts Ollama and ComfyUI with those settings;
+- serves `http://127.0.0.1:11500` (`/og/status`, `/ollama/*`, `/comfy/*`);
+- when online: downloads `cloudflared` once if missing, opens a private tunnel and
+  registers its address, so the website reaches the drive from any device
+  (only your D.EV Google accounts get through);
+- once a week when online: refreshes the installed roster models (never >14B).
+Pair once: Setup Guide -> Remote access -> **Pair this drive**, and put the
+downloaded `og-drive.json` in `OFFLINE AI\OG-BOT\`.
+
 Windows blocks USB AutoRun for security, so the watcher (a hidden PowerShell
 script started from your Startup folder) does the launching instead.
 `uninstall-autostart.bat` removes it.

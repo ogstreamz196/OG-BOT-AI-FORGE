@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
-import { QrCode, RefreshCw, Smartphone, Usb, Inbox, Wifi, WifiOff, Globe, ShieldCheck, LogOut } from "lucide-react";
+import {
+  QrCode,
+  RefreshCw,
+  Smartphone,
+  Usb,
+  Inbox,
+  Wifi,
+  WifiOff,
+  Globe,
+  ShieldCheck,
+  LogOut,
+} from "lucide-react";
 import QR from "qrcode";
 import { Panel, Btn, Stat, inputCls } from "./ui";
 import { useOnline } from "@/lib/online";
@@ -19,6 +30,7 @@ import {
 import { USAGE_META, usage, useUsage } from "@/lib/usage";
 import { getSubmissions, type Submission } from "@/lib/submissions-actions";
 import { cn } from "@/lib/utils";
+import { useDriveLink } from "@/lib/drive-link";
 
 function overrideState(id: string, overrides: Record<string, boolean>): "default" | "on" | "off" {
   if (!(id in overrides)) return "default";
@@ -274,6 +286,7 @@ export function Dashboard() {
 function RemoteAccessPanel() {
   const online = useOnline();
   const dev = useDevAuth();
+  const drive = useDriveLink();
   useConnectors();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -313,10 +326,25 @@ function RemoteAccessPanel() {
   };
 
   const rows: [string, string, boolean][] = [
-    [online ? "Online" : "Offline", online ? "remote access available on any device" : "local fallback only", online],
-    ["Auth backend", hasSupabase ? "Supabase configured" : "not configured — local code only", hasSupabase],
+    [
+      online ? "Online" : "Offline",
+      online ? "remote access available on any device" : "local fallback only",
+      online,
+    ],
+    [
+      "Auth backend",
+      hasSupabase ? "Supabase configured" : "not configured — local code only",
+      hasSupabase,
+    ],
     ["DEV session", dev.isDev ? `${DEV_ROLE} active · ${access}` : "not unlocked", dev.isDev],
     ["OG-BOT Cloud", cloudText, cloudOn && !!cloud?.ok],
+    [
+      "Drive",
+      drive.status
+        ? `${drive.message} · ${drive.status.hardware.gpu ?? "no eGPU"} · ${drive.status.tier.toUpperCase()}${drive.status.public_url ? " · online" : ""}`
+        : drive.message,
+      drive.mode === "local" || drive.mode === "remote",
+    ],
     ["Access point", host, true],
   ];
 
