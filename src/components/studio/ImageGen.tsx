@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Panel, Btn, Bar, inputCls } from "./ui";
+import { bumpUsage } from "@/lib/studio-data";
 
 type Img = { prompt: string; seed: number; hue: number };
 
@@ -30,6 +31,7 @@ export function ImageGen() {
       setP((i / steps) * 100);
       if (i >= steps) {
         clearInterval(id);
+        void bumpUsage("images");
         setImgs((x) => [{ prompt, seed: Math.random() * 1000, hue: Math.floor(Math.random() * 360) }, ...x]);
         setP(-1);
       }

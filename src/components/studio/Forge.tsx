@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Panel, Btn, Bar, inputCls } from "./ui";
+import { bumpUsage } from "@/lib/studio-data";
 
 const STAGES = ["Bundling web assets", "Generating Android project", "Compiling resources", "Gradle assemble", "Signing with keystore", "Aligning APK"];
 
@@ -18,6 +19,7 @@ export function Forge() {
       setP(i);
       if (i >= 100) {
         clearInterval(id);
+        void bumpUsage("builds");
         setBuilds((b) => [`${pkg}-v1.0.${b.length}.${target.toLowerCase()} · ${(18 + Math.random() * 6).toFixed(1)} MB`, ...b]);
         setTimeout(() => setP(-1), 800);
       }

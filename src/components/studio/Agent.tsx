@@ -12,6 +12,7 @@ import {
   streamChat,
   type ChatMessage,
 } from "@/lib/ollama";
+import { bumpUsage } from "@/lib/studio-data";
 
 // ai: true marks real model replies (sent back as conversation context).
 type Line = { t: "user" | "agent" | "sys" | "ok" | "err"; s: string; ai?: boolean; model?: string };
@@ -142,7 +143,11 @@ export function Agent() {
     setQ("");
     setBusy(true);
     const slash = slashReply(cmd);
-    if (slash) return runSlash(slash);
+    if (slash) {
+      if (cmd.startsWith("/edit")) void bumpUsage("edits");
+      return runSlash(slash);
+    }
+    void bumpUsage("prompts");
     void ask(cmd, history);
   };
 
