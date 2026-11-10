@@ -140,10 +140,11 @@ function RootComponent() {
           .filter(
             (u) => u.startsWith(location.origin) && /\.(js|css|woff2?|png|svg|webp)(\?|$)/.test(u),
           );
-        navigator.serviceWorker.controller?.postMessage({
-          type: "cache-urls",
-          urls: [...new Set(urls)],
-        });
+        // Use the active worker once it's ready: on the very first visit the page has no
+        // controller yet, so posting to `controller` would drop the request.
+        void navigator.serviceWorker.ready.then((reg) =>
+          reg.active?.postMessage({ type: "cache-urls", urls: [...new Set(urls)] }),
+        );
       } catch {
         /* ignore */
       }
