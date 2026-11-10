@@ -7,7 +7,7 @@ import { usage, useUsage } from "@/lib/usage";
 import { workspace } from "@/lib/workspace";
 import { hasSupabase } from "@/lib/supabase";
 
-const ROLES: ModelRole[] = ["coder", "reasoning", "chat", "vision", "embed", "image", "music"];
+const ROLES: ModelRole[] = ["coder", "reasoning", "chat", "json", "vision", "embed", "image", "music"];
 
 export function Settings() {
   const m = useModels();

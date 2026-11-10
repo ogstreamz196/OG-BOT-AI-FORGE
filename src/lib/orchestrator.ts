@@ -23,51 +23,12 @@ export type TaskKind = "code" | "reason" | "vision" | "flagship" | "chat";
  * whatever is actually installed.
  */
 const PREFS: Record<TaskKind, string[]> = {
-  code: [
-    "qwen2.5-coder:32b",
-    "qwen2.5-coder:14b",
-    "qwen2.5-coder",
-    "codestral:22b",
-    "codestral",
-    "devstral:24b",
-    "devstral",
-    "qwen2.5-coder:7b",
-    "qwen2.5",
-    "llama3.1",
-    "llama3.2",
-  ],
-  reason: [
-    "deepseek-r1:32b",
-    "deepseek-r1:14b",
-    "deepseek-r1:8b",
-    "deepseek-r1",
-    "phi4:14b",
-    "phi4",
-    "qwen2.5:14b",
-    "qwen2.5",
-    "llama3.3",
-  ],
-  vision: ["llama3.2-vision:11b", "llama3.2-vision", "minicpm-v", "llava", "gemma"],
-  flagship: [
-    "llama3.3:70b",
-    "llama3.3",
-    "dolphin-mixtral:8x7b",
-    "mistral-small:24b",
-    "qwen2.5:14b",
-    "deepseek-r1:32b",
-    "qwen2.5-coder:32b",
-  ],
-  chat: [
-    "llama3.2:3b",
-    "dolphin3:8b",
-    "hermes3:8b",
-    "mistral-nemo:12b",
-    "mistral-small:24b",
-    "llama3.1:8b",
-    "qwen2.5",
-    "llama3.2:1b",
-    "llama3.2",
-  ],
+  // 16 GB VRAM (RTX 5080 over USB4): everything stays at ≤14B so all layers fit on the GPU.
+  code: ["qwen2.5-coder:14b", "qwen2.5-coder:7b", "qwen2.5-coder", "qwen2.5:14b", "qwen2.5:7b", "llama3.2:3b"],
+  reason: ["deepseek-r1:14b", "phi4:14b", "deepseek-r1:8b", "deepseek-r1", "phi4", "qwen2.5:14b", "qwen2.5"],
+  vision: ["llama3.2-vision:11b", "llama3.2-vision", "minicpm-v", "llava"],
+  flagship: ["qwen2.5:14b", "deepseek-r1:14b", "phi4:14b", "qwen2.5-coder:14b", "mistral-nemo:12b"],
+  chat: ["llama3.2:3b", "qwen2.5:7b", "dolphin3:8b", "hermes3:8b", "mistral-nemo:12b", "qwen2.5:14b", "llama3.2:1b", "llama3.2"],
 };
 
 /** Small, fast models fit to act as the routing dispatcher, best first. */

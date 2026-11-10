@@ -35,12 +35,13 @@ describe("classifyTask", () => {
 });
 
 describe("pickModel", () => {
-  it("picks the best installed model per task", () => {
-    expect(pickModel("code", INSTALLED)).toBe("qwen2.5-coder:32b");
-    expect(pickModel("reason", INSTALLED)).toBe("deepseek-r1:32b");
-    expect(pickModel("vision", INSTALLED)).toBe("gemma4:12b");
-    expect(pickModel("flagship", INSTALLED)).toBe("llama3.3:70b");
-    expect(pickModel("chat", INSTALLED)).toBe("llama3.2:3b");
+  it("picks the best installed model per task, staying at the 14B tier for 16 GB VRAM", () => {
+    const RIG = ["qwen2.5-coder:14b", "qwen2.5-coder:7b", "qwen2.5:14b", "qwen2.5:7b", "deepseek-r1:14b", "deepseek-r1:8b", "phi4:14b", "dolphin3:8b", "mistral-nemo:12b", "hermes3:8b", "llama3.2-vision:11b", "llama3.2:3b", "llama3.2:1b", "nomic-embed-text:latest", "qwen2.5-coder:32b", "llama3.3:70b"];
+    expect(pickModel("code", RIG)).toBe("qwen2.5-coder:14b");
+    expect(pickModel("reason", RIG)).toBe("deepseek-r1:14b");
+    expect(pickModel("vision", RIG)).toBe("llama3.2-vision:11b");
+    expect(pickModel("flagship", RIG)).toBe("qwen2.5:14b");
+    expect(pickModel("chat", RIG)).toBe("llama3.2:3b");
   });
   it("never picks an embeddings model as fallback", () => {
     expect(pickModel("vision", ["nomic-embed-text", "llama3.2:1b"])).toBe("llama3.2:1b");

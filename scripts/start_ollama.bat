@@ -10,12 +10,18 @@ set DRIVE=%~d0
 
 REM Keep models on this drive (change the path if yours differs):
 set OLLAMA_MODELS=%DRIVE%\OG-BOT\ollama\models
+if exist "%DRIVE%\OFFLINE AI\ollama\models" set OLLAMA_MODELS=%DRIVE%\OFFLINE AI\ollama\models
+
+REM Local only, and keep models loaded in the RTX 5080 between requests:
+set OLLAMA_HOST=127.0.0.1:11434
+set OLLAMA_KEEP_ALIVE=30m
 
 REM Allow browser calls from any origin (studio, localhost, file://):
 set OLLAMA_ORIGINS=*
 
-REM Point to the portable Ollama you installed on the drive, else PATH:
-set OLLAMA_EXE=%DRIVE%\OG-BOT\ollama\app\ollama.exe
+REM Point to the portable Ollama on the drive (E:\OFFLINE AI\ollama\bin first), else PATH:
+set OLLAMA_EXE=%DRIVE%\OFFLINE AI\ollama\bin\ollama.exe
+if not exist "%OLLAMA_EXE%" set OLLAMA_EXE=%DRIVE%\OG-BOT\ollama\app\ollama.exe
 if not exist "%OLLAMA_EXE%" set OLLAMA_EXE=ollama
 
 echo Starting Ollama...

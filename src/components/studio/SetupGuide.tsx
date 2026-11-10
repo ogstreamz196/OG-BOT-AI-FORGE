@@ -42,11 +42,11 @@ type Rec = { title: string; pull: string; note: string };
 
 const LLM_RECS: Rec[] = [
   { title: "Router / dispatcher (fast)", pull: "ollama pull llama3.2:3b", note: "The master AI that assigns tasks. Tiny + instant." },
-  { title: "Coding (best)", pull: "ollama pull qwen2.5-coder:32b", note: "Drives the web builder. 14b/7b if VRAM is tight." },
-  { title: "Reasoning", pull: "ollama pull deepseek-r1:32b", note: "Plans hard tasks before the coder builds." },
-  { title: "Flagship / hardest", pull: "ollama pull llama3.3:70b", note: "The heavy hitter for complex work." },
+  { title: "Coding (lead)", pull: "ollama pull qwen2.5-coder:14b", note: "Drives the web builder. qwen2.5-coder:7b for handheld / low power." },
+  { title: "Reasoning", pull: "ollama pull deepseek-r1:14b", note: "Plans hard tasks before the coder builds. phi4:14b for maths/algorithms." },
+  { title: "Director & lyrics", pull: "ollama pull qwen2.5:14b", note: "Cinematic writing; dolphin3:8b for unfiltered lyrics." },
   { title: "Vision", pull: "ollama pull llama3.2-vision:11b", note: "Understands images and screenshots." },
-  { title: "Prompt enhance / chat", pull: "ollama pull mistral-nemo:12b", note: "Enriches image/song/video prompts." },
+  { title: "Strict JSON / prompt enhance", pull: "ollama pull mistral-nemo:12b", note: "Storyboards and structured output; hermes3:8b is the light option." },
 ];
 
 const IMG_RECS: Rec[] = [

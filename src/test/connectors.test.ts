@@ -10,8 +10,8 @@ describe("connectors store", () => {
       expect.arrayContaining(["ollama", "comfyui", "supabase", "stripe", "rest", "email"]),
     );
   });
-  it("defaults Ollama base URL to localhost", () => {
-    expect(connectors.configOf("ollama")["baseUrl"]).toBe("http://localhost:11434");
+  it("defaults Ollama base URL to 127.0.0.1", () => {
+    expect(connectors.configOf("ollama")["baseUrl"]).toBe("http://127.0.0.1:11434");
   });
   it("toggles and stores config", () => {
     connectors.toggle("ollama", true);

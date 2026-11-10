@@ -32,8 +32,8 @@ export type DirectorOutput = { suno_config: SunoConfig; storyboard: Scene[] };
 export const DEFAULT_DIRECTOR_MODELS = [
   "mistral-nemo:12b",
   "qwen2.5:14b",
-  "llama3.3:70b",
-  "deepseek-r1:8b",
+  "hermes3:8b",
+  "qwen2.5:7b",
 ];
 
 /** Pick the best available director model. */

@@ -57,11 +57,11 @@ describe("models.activeTag", () => {
 });
 
 describe("owner's Ollama models are in the catalog", () => {
-  it("lists every model pulled on the RTX 5080 rig, each fitting 16 GB", async () => {
+  it("lists exactly the models on the RTX 5080 rig, each fitting 16 GB", async () => {
     const { MODEL_CATALOG } = await import("@/lib/models");
     const tags = MODEL_CATALOG.map((m) => m.pull);
-    for (const t of ["qwen2.5-coder:14b", "qwen2.5:14b", "deepseek-r1:14b", "llama3.2:3b", "llama3.2:1b", "llama3.1:8b", "qwen2.5-coder:7b", "dolphin3:8b", "dolphin-mistral", "hermes3:8b", "minicpm-v", "llama3.2-vision:11b", "nomic-embed-text"])
-      expect(tags).toContain(t);
+    const RIG = ["qwen2.5-coder:14b", "qwen2.5-coder:7b", "qwen2.5:14b", "qwen2.5:7b", "deepseek-r1:14b", "deepseek-r1:8b", "phi4:14b", "dolphin3:8b", "mistral-nemo:12b", "hermes3:8b", "llama3.2-vision:11b", "llama3.2:3b", "llama3.2:1b", "nomic-embed-text:latest"];
+    expect(tags.filter((t) => t.includes(":"))).toEqual(RIG);
     expect(MODEL_CATALOG.every((m) => m.vram <= 16)).toBe(true);
   });
 });

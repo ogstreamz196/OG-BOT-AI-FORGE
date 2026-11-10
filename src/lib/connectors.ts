@@ -33,7 +33,7 @@ export const CONNECTOR_CATALOG: ConnectorDef[] = [
     name: "Ollama (local LLM)",
     category: "Local AI",
     blurb: "Local code/reasoning models on your machine. Powers the AI builder — fully offline.",
-    fields: [{ key: "baseUrl", label: "Base URL", placeholder: "http://localhost:11434" }],
+    fields: [{ key: "baseUrl", label: "Base URL", placeholder: "http://127.0.0.1:11434" }],
     pingField: "baseUrl",
     pingPath: "/api/tags",
   },
@@ -42,7 +42,7 @@ export const CONNECTOR_CATALOG: ConnectorDef[] = [
     name: "ComfyUI (local images)",
     category: "Local AI",
     blurb: "Local Stable Diffusion image generation on your GPU.",
-    fields: [{ key: "baseUrl", label: "Base URL", placeholder: "http://localhost:8188" }],
+    fields: [{ key: "baseUrl", label: "Base URL", placeholder: "http://127.0.0.1:8188" }],
     pingField: "baseUrl",
     pingPath: "/system_stats",
   },
@@ -119,8 +119,8 @@ function defaults(): State {
   const config: Record<string, Record<string, string>> = {};
   for (const c of CONNECTOR_CATALOG) config[c.kind] = {};
   // Sensible local defaults.
-  config["ollama"] = { baseUrl: "http://localhost:11434" };
-  config["comfyui"] = { baseUrl: "http://localhost:8188" };
+  config["ollama"] = { baseUrl: "http://127.0.0.1:11434" };
+  config["comfyui"] = { baseUrl: "http://127.0.0.1:8188" };
   // Prefill Supabase from the build env (public values).
   const url = (import.meta.env["VITE_SUPABASE_URL"] as string | undefined) ?? "";
   const anonKey = (import.meta.env["VITE_SUPABASE_ANON_KEY"] as string | undefined) ?? "";
