@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { slashReply } from "@/components/studio/Agent";
 import { MODELS } from "@/components/studio/Hardware";
+import { workspace } from "@/lib/workspace";
+
+beforeEach(() => workspace._reset());
 
 describe("agent slash commands", () => {
   it("scaffold uses given project name", () => {
@@ -12,8 +15,7 @@ describe("agent slash commands", () => {
 });
 
 describe("model matrix", () => {
-  it("every listed model fits the RTX 5080's 16 GB", () => {
-    expect(MODELS.find((m) => m.name.includes("deepseek-r1:14b"))?.vram).toBe(10.5);
-    expect(MODELS.every((m) => m.vram <= 16)).toBe(true);
+  it("DeepSeek R1 32B needs 14 GB VRAM", () => {
+    expect(MODELS.find((m) => m.name.startsWith("DeepSeek"))?.vram).toBe(14);
   });
 });

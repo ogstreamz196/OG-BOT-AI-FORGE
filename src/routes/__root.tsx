@@ -77,21 +77,29 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "theme-color", content: "#0a0e17" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { name: "apple-mobile-web-app-title", content: "OG BOT" },
     ],
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;700;800&family=Luckiest+Guy&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;700;800&family=Lilita+One&family=Unbounded:wght@400;500;600;700;800&family=Luckiest+Guy&display=swap",
       },
       {
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "icon", type: "image/png", href: "/favicon.png"},
+      { rel: "icon", type: "image/png", href: "/favicon.png" },
+      { rel: "icon", type: "image/svg+xml", href: "/icon.svg" },
+      { rel: "apple-touch-icon", href: "/icon.svg" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
     ],
   }),
   shellComponent: RootShell,
@@ -116,6 +124,33 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  // Register the PWA service worker (client only) so the builder is installable
+  // and works offline.
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+    // After load, tell the SW to precache the exact assets this page used, so a
+    // later fully-offline launch (e.g. from the drive) opens with zero network.
+    const precache = () => {
+      try {
+        const urls = performance
+          .getEntriesByType("resource")
+          .map((e) => e.name)
+          .filter(
+            (u) => u.startsWith(location.origin) && /\.(js|css|woff2?|png|svg|webp)(\?|$)/.test(u),
+          );
+        navigator.serviceWorker.controller?.postMessage({
+          type: "cache-urls",
+          urls: [...new Set(urls)],
+        });
+      } catch {
+        /* ignore */
+      }
+    };
+    if (document.readyState === "complete") setTimeout(precache, 800);
+    else window.addEventListener("load", () => setTimeout(precache, 800), { once: true });
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

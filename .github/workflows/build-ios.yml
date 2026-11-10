@@ -1,0 +1,58 @@
+name: Build iOS app (unsigned)
+
+on:
+  workflow_dispatch:
+    inputs:
+      appName:
+        description: App display name
+        required: true
+        default: OG-BOT App
+      appId:
+        description: Bundle id (reverse-DNS)
+        required: true
+        default: com.ogbot.app
+
+# Unsigned simulator build — installable in the iOS Simulator / for testing.
+# A signed .ipa for real devices or the App Store needs an Apple Developer
+# account; add the signing cert + provisioning profile as secrets and switch
+# the xcodebuild step to an archive + export-with-signing (see MIGRATION.md).
+jobs:
+  ios:
+    runs-on: macos-14
+    steps:
+      - name: Checkout project snapshot
+        uses: actions/checkout@v4
+        with:
+          ref: app-build
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Wrap with Capacitor and build (unsigned, simulator)
+        run: |
+          set -e
+          test -f www/index.html || { echo "No www/index.html in app-build branch"; exit 1; }
+          npm init -y
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/ios@6
+          npx cap init "${{ inputs.appName }}" "${{ inputs.appId }}" --web-dir www
+          npx cap add ios
+          npx cap sync ios
+          cd ios/App
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+          APP=$(find build/Build/Products -name "*.app" -maxdepth 3 | head -1)
+          test -n "$APP" || { echo "No .app produced"; exit 1; }
+          cd "$(dirname "$APP")" && zip -r "$GITHUB_WORKSPACE/App-unsigned-sim.zip" "$(basename "$APP")"
+
+      - name: Upload unsigned app
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-app-unsigned
+          path: App-unsigned-sim.zip
+          if-no-files-found: error

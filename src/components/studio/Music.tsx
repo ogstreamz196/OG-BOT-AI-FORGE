@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Play, Square } from "lucide-react";
 import { Panel, Btn, inputCls } from "./ui";
-import { bumpUsage } from "@/lib/studio-data";
+import { usage } from "@/lib/usage";
 
 type Track = { name: string; notes: number[]; bpm: number };
 const SCALES: Record<string, number[]> = {
@@ -10,8 +10,8 @@ const SCALES: Record<string, number[]> = {
   Cyberpunk: [110, 130.8, 146.8, 164.8, 196, 220],
 };
 
-export function Music() {
-  const [prompt, setPrompt] = useState("neon night drive");
+export function Music({ initialPrompt }: { initialPrompt?: string } = {}) {
+  const [prompt, setPrompt] = useState(initialPrompt?.trim() || "neon night drive");
   const [style, setStyle] = useState("Synthwave");
   const [tracks, setTracks] = useState<Track[]>([]);
   const [playing, setPlaying] = useState<number | null>(null);
@@ -21,8 +21,8 @@ export function Music() {
   const gen = () => {
     const s = SCALES[style] ?? [220];
     const notes = Array.from({ length: 32 }, () => s[Math.floor(Math.random() * s.length)] ?? 220);
-    void bumpUsage("music");
     setTracks((t) => [{ name: `${prompt} (${style})`, notes, bpm: 100 + Math.floor(Math.random() * 40) }, ...t]);
+    usage.record("music");
   };
 
   const stop = () => {

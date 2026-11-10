@@ -1,24 +1,54 @@
-# Offline AI Forge
+# OG-BOT · Offline AI App Builder
 
-Build the complete OG-BOT OFFLINE AI developer studio and interactive workbench using the OG-BOT cyber design system (dark navy #0a0e17, pitch neon green #00f59b, royal blue #3b82f6). Include the split-screen code editor with live responsive app preview (desktop, tablet, mobile), autonomous local AI coding agent console, APK forge and mobile packaging station, AI music and audio studio with player, local image generation panel, offline USB hardware sentinel and license manager, hardware compatibility and VRAM monitor, and database manager.
+A fully offline, all-in-one AI **web-app builder** — a Lovable-style studio that
+runs on your own hardware. Describe a change in chat and it edits your site; the
+preview updates live. Powered by your own local models (nothing is sent to the
+cloud), with connectors for the services your sites need.
 
-This project was built with [Lovable](https://lovable.dev).
+Live (personal/testing): **https://offline.ogbot.co.uk**
+(Separate from the main `ogbot.co.uk` site.)
 
-## Build with Lovable
+## What it does
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/0b1ce1b7-6fa9-4766-87ba-ee8cb5504134).
+- **AI Builder (chat):** natural-language edits ("add a hero", "set the title to
+  …", "change the background to #0a0e17"). Uses your local Ollama model when
+  connected; otherwise a deterministic offline edit engine.
+- **Live preview + Code + Layout:** see the site, edit the files, or manage
+  sections (reorder / duplicate / remove).
+- **Section library & templates:** navbar, hero, features, pricing, testimonials,
+  FAQ, gallery, team, contact form, CTA, footer; landing / portfolio / contact
+  starters. Insert from chat or the visual **+ Section** menu.
+- **Theme & Brand:** brand colours + font that cascade across every section (CSS
+  variables) and ship in the export.
+- **Connectors:** local AI (Ollama / ComfyUI), Supabase, Stripe, REST/Webhooks,
+  Email — enable and configure per project.
+- **Build & Publish:** export a single-file HTML or a ZIP; trigger real Android
+  (APK) / iOS / web builds via GitHub Actions.
+- **Settings:** manage local models (download-later catalog), backend status, data.
+- **Offline / installable:** a PWA that caches itself and works with no network;
+  a drive launcher (`scripts/launch-hub.bat`) starts the local engines.
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+## Stack
 
-## Development
+TanStack Start (React 19) + Vite, Tailwind, deployed to **Cloudflare Workers**
+(Nitro `cloudflare-module`). Data in **Supabase** (offline-first). All free-tier.
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+## Develop
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+bun install
+bun run dev      # local dev server
+bun run test     # vitest
+bun run build    # Cloudflare Workers bundle in .output/
+bun run deploy   # build + wrangler deploy (needs CLOUDFLARE_API_TOKEN)
 ```
+
+Deploys run automatically via `.github/workflows/deploy.yml` on push.
+
+## Connect your offline hardware
+
+Run the engines on your machine (e.g. `ollama serve`, ComfyUI), then in the app
+open **Tools → Connectors → Ollama**, set `http://localhost:11434`, and **Test
+connection**. In **Settings**, mark a coding model installed and set it active —
+the chat then generates real code with your local model. See
+[`scripts/README.md`](scripts/README.md) and [`MIGRATION.md`](MIGRATION.md).

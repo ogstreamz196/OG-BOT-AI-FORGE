@@ -1,0 +1,121 @@
+import type { Files } from "./workspace";
+
+/**
+ * Local AI bridge: talks to the user's own Ollama server (http://localhost:11434
+ * by default) from the browser. Works offline because the request never leaves
+ * the machine. All functions degrade gracefully — the caller falls back to the
+ * offline rule engine when no engine is reachable.
+ */
+
+export type EngineStatus = { ok: boolean; models: string[]; message: string };
+
+export async function pingOllama(baseUrl: string): Promise<EngineStatus> {
+  try {
+    const res = await fetch(`${baseUrl.replace(/\/$/, "")}/api/tags`, { method: "GET" });
+    if (!res.ok) return { ok: false, models: [], message: `HTTP ${res.status}` };
+    const data = (await res.json()) as { models?: { name: string }[] };
+    return { ok: true, models: (data.models ?? []).map((m) => m.name), message: "connected" };
+  } catch (e) {
+    return { ok: false, models: [], message: e instanceof Error ? e.message : "unreachable" };
+  }
+}
+
+export type ModelEdit = { files: Files; message: string };
+
+export const SYSTEM_PROMPT = `You are OG-BOT, an offline web app builder. You edit a tiny static web project made of these files: index.html (an HTML fragment or full document), styles.css, and app.js.
+Apply the user's requested change and respond with ONLY a JSON object, no prose, no markdown fences:
+{"files": {"<filename>": "<full new file contents>"}, "message": "<one short sentence>"}
+Include ONLY the files you changed, with their COMPLETE new contents. Keep it a single self-contained web app. Do not add build tools or frameworks.`;
+
+/** Parse a model response into a file edit. Tolerant of code fences and prose. Pure + tested. */
+export function parseModelEdit(text: string): ModelEdit | null {
+  if (!text) return null;
+  // Strip ```json fences if present.
+  let body = text.trim();
+  const fence = body.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) body = fence[1]!.trim();
+  // Find the first balanced-looking JSON object.
+  const start = body.indexOf("{");
+  const end = body.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+  const obj = parsed as { files?: unknown; message?: unknown };
+  if (!obj.files || typeof obj.files !== "object") return null;
+  const files: Files = {};
+  for (const [k, v] of Object.entries(obj.files as Record<string, unknown>)) {
+    if (typeof v === "string") files[k] = v;
+  }
+  if (Object.keys(files).length === 0) return null;
+  return { files, message: typeof obj.message === "string" ? obj.message : "Applied changes." };
+}
+
+/** A quick non-streaming completion — used for the orchestrator's reasoning step. */
+export async function quickChat(
+  baseUrl: string,
+  model: string,
+  prompt: string,
+  system?: string,
+): Promise<string> {
+  const messages = [
+    ...(system ? [{ role: "system", content: system }] : []),
+    { role: "user", content: prompt },
+  ];
+  const res = await fetch(`${baseUrl.replace(/\/$/, "")}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model,
+      stream: false,
+      // keep_alive holds the model in VRAM between messages (no slow reload);
+      // num_predict caps the short helper outputs (routing/reasoning) so they return fast.
+      keep_alive: "30m",
+      options: { temperature: 0.3, num_predict: 400 },
+      messages,
+    }),
+  });
+  if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
+  const data = (await res.json()) as { message?: { content?: string } };
+  return data.message?.content ?? "";
+}
+
+/**
+ * Ask the local model to edit the project. `opts.context` (e.g. a reasoning
+ * model's plan) is prepended, and `opts.system` overrides the system prompt so
+ * the AI's own tuned logic can be used. Throws on network/engine failure.
+ */
+export async function generateEdit(
+  baseUrl: string,
+  model: string,
+  request: string,
+  files: Files,
+  opts?: { context?: string; system?: string },
+): Promise<ModelEdit> {
+  const context = opts?.context ? `Approach to follow:\n${opts.context}\n\n` : "";
+  const prompt = `${context}Current files:\n${JSON.stringify(files, null, 2)}\n\nRequested change: ${request}`;
+  const res = await fetch(`${baseUrl.replace(/\/$/, "")}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model,
+      stream: false,
+      keep_alive: "30m", // keep the model warm in VRAM between edits
+      options: { temperature: 0.2, num_predict: 2048 },
+      messages: [
+        { role: "system", content: opts?.system || SYSTEM_PROMPT },
+        { role: "user", content: prompt },
+      ],
+    }),
+  });
+  if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
+  const data = (await res.json()) as { message?: { content?: string } };
+  const content = data.message?.content ?? "";
+  const edit = parseModelEdit(content);
+  if (!edit) throw new Error("Model returned an unparseable response");
+  return edit;
+}

@@ -1,103 +1,434 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Code2, Bot, Package, Music2, Image, ShieldCheck, Cpu, Database as DbIcon, WifiOff, Github } from "lucide-react";
-import { Workbench } from "@/components/studio/Workbench";
-import { Agent } from "@/components/studio/Agent";
+import { useEffect, useRef, useState } from "react";
+import {
+  Settings as Cog,
+  LayoutDashboard,
+  Grid3x3,
+  X,
+  MessageSquare,
+  Eye,
+  Package,
+  Music2,
+  Clapperboard,
+  Image as ImageIcon,
+  ShieldCheck,
+  Cpu,
+  Database as DbIcon,
+  Github,
+  Code2,
+  Plug,
+  Palette,
+  Activity,
+  Brain,
+  Download,
+  LifeBuoy,
+  WifiOff,
+  Sparkles,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+// Brand mark served locally by the Worker (the Lovable CDN path does not resolve on Cloudflare).
+const LOGO_SRC = "/og-bot-logo.png";
+import { Chat } from "@/components/studio/Chat";
+import { Create } from "@/components/studio/Create";
+import { Preview } from "@/components/studio/Preview";
+import { Settings } from "@/components/studio/Settings";
+import { Dashboard } from "@/components/studio/Dashboard";
 import { Forge } from "@/components/studio/Forge";
-import { Music } from "@/components/studio/Music";
 import { ImageGen } from "@/components/studio/ImageGen";
-import { Sentinel } from "@/components/studio/Sentinel";
+import { Music } from "@/components/studio/Music";
 import { Hardware } from "@/components/studio/Hardware";
+import { Sentinel } from "@/components/studio/Sentinel";
 import { Database } from "@/components/studio/Database";
 import { GitSync } from "@/components/studio/GitSync";
-import { DevGate, type DevSession } from "@/components/studio/DevGate";
-import { cn } from "@/lib/utils";
-import logoAsset from "@/assets/og-bot-logo.webp.asset.json";
-import battleAsset from "@/assets/og-bot-battle-zone.webp.asset.json";
-import trackAsset from "@/assets/og-bot-create-track.webp.asset.json";
-import signalsAsset from "@/assets/og-signals.webp.asset.json";
-import keysAsset from "@/assets/og-keys.webp.asset.json";
-const logo = logoAsset.url;
-const DESC: Record<string, string> = {
-  code: "Edit your app's code on the left and see it live on the right, on desktop, tablet or phone sizes.",
-  agent: "Chat with the offline AI helper. Ask for changes or use quick commands like /scaffold or /export-apk.",
-  forge: "Package your app into an Android (APK/AAB) or iPhone (IPA) file ready to install.",
-  music: "Pick a style and generate a short music track, then play it back right here.",
-  image: "Type a description and generate artwork without needing the internet.",
-  sentinel: "Manage your USB licence key, activate licences and choose which devices can use them.",
-  hw: "Watch your graphics card, memory and temperature live, and see which AI models your machine can run.",
-  db: "Browse and edit your saved data tables, or run simple search queries.",
-  git: "Link your GitHub project, save changes with a note, and push or pull updates.",
-};
+import { Workbench } from "@/components/studio/Workbench";
+import { Connectors } from "@/components/studio/Connectors";
+import { Brand } from "@/components/studio/Brand";
+import { OllamaTester } from "@/components/studio/OllamaTester";
+import { SelfImprove } from "@/components/studio/SelfImprove";
+import { PermissionModal } from "@/components/studio/PermissionModal";
+import { MusicVideo } from "@/components/studio/MusicVideo";
+import { SetupGuide } from "@/components/studio/SetupGuide";
+import { DevSignIn } from "@/components/studio/DevSignIn";
+import { DEV_ROLE, useDevAuth } from "@/lib/dev-auth";
+import { connectors } from "@/lib/connectors";
+import { hydrateCloudSections, syncCloudSections } from "@/lib/cloud";
 
-const BADGES: Record<string, { src: string; alt: string }> = {
-  agent: { src: battleAsset.url, alt: "OG BOT Battle Zone badge" },
-  music: { src: trackAsset.url, alt: "OG BOT Make a Track badge" },
-  hw: { src: signalsAsset.url, alt: "OG Signals badge" },
-  sentinel: { src: keysAsset.url, alt: "OG Keys badge" },
-};
+const logo = LOGO_SRC;
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "OG-BOT · Offline AI Developer Studio" },
-      { name: "description", content: "OG-BOT offline AI studio: code editor with live preview, local coding agent, APK forge, music, images, hardware sentinel and database." },
-      { property: "og:title", content: "OG-BOT · Offline AI Developer Studio" },
-      { property: "og:description", content: "Build, test and package apps with a fully offline local AI workbench." },
+      { title: "OG-BOT · Offline AI App Builder" },
+      {
+        name: "description",
+        content:
+          "OG-BOT: a fully offline, all-in-one AI app builder. Chat to build, preview live, publish to web or mobile — powered by your own local models.",
+      },
+      { property: "og:title", content: "OG-BOT · Offline AI App Builder" },
+      {
+        property: "og:description",
+        content: "Chat to build, preview live, publish anywhere. 100% offline local AI.",
+      },
     ],
   }),
-  component: GatedStudio,
+  component: Studio,
 });
 
-function GatedStudio() {
-  return <DevGate>{(session) => <Studio session={session} />}</DevGate>;
-}
+type ToolId =
+  | "connectors"
+  | "brand"
+  | "ollama"
+  | "selfimprove"
+  | "musicvideo"
+  | "setup"
+  | "forge"
+  | "image"
+  | "music"
+  | "hardware"
+  | "sentinel"
+  | "database"
+  | "git"
+  | "workbench";
+type Overlay = "settings" | "dash" | "tools" | ToolId | null;
 
-const TABS = [
-  { id: "code", label: "Workbench", icon: Code2, C: Workbench },
-  { id: "agent", label: "AI Agent", icon: Bot, C: Agent },
-  { id: "forge", label: "APK Forge", icon: Package, C: Forge },
-  { id: "music", label: "Audio Studio", icon: Music2, C: Music },
-  { id: "image", label: "Image Gen", icon: Image, C: ImageGen },
-  { id: "sentinel", label: "Sentinel", icon: ShieldCheck, C: Sentinel },
-  { id: "hw", label: "Hardware", icon: Cpu, C: Hardware },
-  { id: "db", label: "Database", icon: DbIcon, C: Database },
-  { id: "git", label: "GitHub Sync", icon: Github, C: GitSync },
+const TOOLS: {
+  id: ToolId;
+  label: string;
+  icon: typeof Package;
+  C: React.ComponentType;
+  dev?: boolean;
+}[] = [
+  { id: "connectors", label: "Connectors", icon: Plug, C: Connectors, dev: true },
+  { id: "brand", label: "Theme & Brand", icon: Palette, C: Brand },
+  { id: "setup", label: "Setup Guide", icon: LifeBuoy, C: SetupGuide },
+  { id: "ollama", label: "Ollama Test", icon: Activity, C: OllamaTester, dev: true },
+  { id: "selfimprove", label: "Self-Improve", icon: Brain, C: SelfImprove, dev: true },
+  { id: "forge", label: "Build & Publish", icon: Package, C: Forge },
+  // Image / Song / Video are the primary "Create" view — keep direct studios dev-only to avoid duplicate entry points.
+  { id: "image", label: "Image Studio", icon: ImageIcon, C: ImageGen, dev: true },
+  { id: "music", label: "Music Forge", icon: Music2, C: Music, dev: true },
+  { id: "musicvideo", label: "Music Video Studio", icon: Clapperboard, C: MusicVideo, dev: true },
+  { id: "workbench", label: "Advanced Editor", icon: Code2, C: Workbench, dev: true },
+  { id: "hardware", label: "Hardware", icon: Cpu, C: Hardware, dev: true },
+  { id: "sentinel", label: "USB Sentinel", icon: ShieldCheck, C: Sentinel, dev: true },
+  { id: "database", label: "Database", icon: DbIcon, C: Database, dev: true },
+  { id: "git", label: "GitHub Sync", icon: Github, C: GitSync, dev: true },
 ];
 
-function Studio({ session }: { session: DevSession }) {
-  const [tab, setTab] = useState("code");
-  const Active = TABS.find((t) => t.id === tab)!.C;
+const OVERLAY_TITLE: Record<string, string> = {
+  settings: "Settings",
+  dash: "Developer Dashboard",
+  tools: "Tools",
+};
+
+function Studio() {
+  const [overlay, setOverlay] = useState<Overlay>(null);
+  const [view, setView] = useState<"create" | "build">("create");
+  const [pane, setPane] = useState<0 | 1>(1); // 0 = chat, 1 = preview
+  const pager = useRef<HTMLDivElement>(null);
+
+  const dev = useDevAuth();
+  const [customerPreview, setCustomerPreview] = useState(false);
+  const [devOpen, setDevOpen] = useState(false);
+  const effectiveDev = dev.isDev && !customerPreview;
+  const tapRef = useRef<number[]>([]);
+  const [installEvt, setInstallEvt] = useState<BeforeInstallPromptEvent | null>(null);
+
+  // Land on the preview pane on mobile.
+  useEffect(() => {
+    const el = pager.current;
+    if (el) el.scrollLeft = el.clientWidth;
+  }, []);
+
+  // OG-BOT Cloud: use cached cloud sections immediately, then refresh from the
+  // cloud when online / when the connector changes.
+  useEffect(() => {
+    hydrateCloudSections();
+    void syncCloudSections();
+    const onOnline = () => void syncCloudSections();
+    window.addEventListener("online", onOnline);
+    const unsub = connectors.subscribe(() => void syncCloudSections());
+    return () => {
+      window.removeEventListener("online", onOnline);
+      unsub();
+    };
+  }, []);
+
+  // Capture the PWA install prompt (Android/desktop Chromium).
+  useEffect(() => {
+    const onPrompt = (e: Event) => {
+      e.preventDefault();
+      setInstallEvt(e as BeforeInstallPromptEvent);
+    };
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    return () => window.removeEventListener("beforeinstallprompt", onPrompt);
+  }, []);
+
+  // Discreet DEV entry: Ctrl/Cmd+Shift+D.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        setDevOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Discreet DEV entry: tap the logo 5× within 2s.
+  const tapLogo = () => {
+    const now = Date.now();
+    tapRef.current = [...tapRef.current, now].filter((t) => now - t < 2000);
+    if (tapRef.current.length >= 5) {
+      tapRef.current = [];
+      setDevOpen(true);
+    }
+  };
+
+  const installApp = async () => {
+    if (!installEvt) return;
+    await installEvt.prompt();
+    setInstallEvt(null);
+  };
+
+  const goPane = (i: 0 | 1) => {
+    const el = pager.current;
+    if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
+    setPane(i);
+  };
+
+  const onScroll = () => {
+    const el = pager.current;
+    if (el) setPane(el.scrollLeft > el.clientWidth / 2 ? 1 : 0);
+  };
+
+  const tool = TOOLS.find((t) => t.id === overlay);
+  const OverlayBody =
+    overlay === "settings" ? (
+      <Settings />
+    ) : overlay === "dash" ? (
+      <Dashboard />
+    ) : overlay === "tools" ? (
+      <ToolsGrid onPick={setOverlay} dev={effectiveDev} />
+    ) : tool ? (
+      <tool.C />
+    ) : null;
+  const overlayTitle = tool ? tool.label : (OVERLAY_TITLE[overlay ?? ""] ?? "");
+
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
-      <aside className="border-b border-border bg-panel/95 md:w-56 md:border-b-0 md:border-r">
-        <div className="flex items-center gap-3 px-4 py-4">
-          <img src={logo} alt="OG BOT mascot logo" className="h-12 w-12 object-contain" />
-          <div>
-            <div className="font-display text-2xl leading-none text-foreground">OG BOT</div>
-            <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-muted-foreground">Offline AI Studio</div>
-          </div>
+    <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
+      {/* Top bar */}
+      <header className="flex items-center justify-between border-b border-border px-3 py-2">
+        <div className="flex items-center gap-2">
+          <img
+            src={logo}
+            alt="OG BOT"
+            onClick={tapLogo}
+            className="h-8 w-8 cursor-pointer object-contain select-none"
+          />
+          <div className="font-display text-lg leading-none">OG BOT</div>
+          {effectiveDev && (
+            <span className="ml-1 rounded border border-primary/60 bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold tracking-widest text-primary">
+              {DEV_ROLE}
+            </span>
+          )}
+          <span className="ml-1 hidden items-center gap-1 rounded border border-secondary/60 px-1.5 py-0.5 text-[9px] font-semibold tracking-widest text-secondary sm:flex">
+            <WifiOff className="h-2.5 w-2.5" />
+            OFFLINE
+          </span>
         </div>
-        <nav className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-col">
-          {TABS.map(({ id, label, icon: I }) => (
-            <button key={id} onClick={() => setTab(id)} className={cn("flex shrink-0 items-center gap-2 rounded px-3 py-2 text-sm transition", tab === id ? "bg-primary/10 text-primary border-l-2 border-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground")}>
-              <I className="h-4 w-4" />{label}
+
+        {/* Primary view switch */}
+        <div className="flex items-center rounded-full border border-border bg-card/60 p-0.5">
+          {(
+            [
+              ["create", "Create", Sparkles],
+              ["build", "Build", Code2],
+            ] as const
+          ).map(([v, label, Icon]) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition",
+                view === v
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{label}</span>
             </button>
           ))}
-        </nav>
-        <div className="flex items-center justify-between gap-2 border-t border-border px-4 py-2 md:block md:py-3">
-          <div className="truncate font-mono text-[10px] text-muted-foreground" title={session.email}>D.EV · {session.email}</div>
-          <button onClick={() => void session.signOut()} className="shrink-0 text-xs text-muted-foreground hover:text-primary md:mt-1">Sign out</button>
         </div>
-      </aside>
-      <main className="flex flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-border px-4 py-2">
-          <h1 className="flex items-center gap-2 font-display text-xl uppercase">{BADGES[tab] && <img src={BADGES[tab].src} alt={BADGES[tab].alt} className="h-9 w-9 rounded-md object-cover" />}{TABS.find((t) => t.id === tab)!.label}</h1>
-          <span className="flex items-center gap-1 rounded border border-secondary/60 px-2 py-0.5 text-[10px] font-semibold tracking-widest text-secondary"><span className="h-1.5 w-1.5 rounded-full bg-secondary" /><WifiOff className="h-3 w-3" />AIR-GAPPED</span>
-        </header>
-        <p className="border-b border-border px-4 py-2 text-xs text-muted-foreground">{DESC[tab]}</p>
-        <div className="flex-1 p-4"><Active /></div>
-      </main>
+
+        <div className="flex items-center gap-1">
+          {installEvt && (
+            <button
+              onClick={() => void installApp()}
+              className="flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-bold text-primary-foreground transition hover:opacity-90"
+            >
+              <Download className="h-4 w-4" /> Install
+            </button>
+          )}
+          {effectiveDev && (
+            <button
+              onClick={() => setCustomerPreview(true)}
+              className="hidden items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold text-foreground transition hover:border-primary sm:flex"
+            >
+              <Eye className="h-4 w-4" /> Customer view
+            </button>
+          )}
+          {effectiveDev && (
+            <>
+              <IconBtn label="Tools" onClick={() => setOverlay("tools")}>
+                <Grid3x3 className="h-5 w-5" />
+              </IconBtn>
+              <IconBtn label="Developer Dashboard" onClick={() => setOverlay("dash")}>
+                <LayoutDashboard className="h-5 w-5" />
+              </IconBtn>
+            </>
+          )}
+          {!effectiveDev && (
+            <IconBtn label="Tools" onClick={() => setOverlay("tools")}>
+              <Grid3x3 className="h-5 w-5" />
+            </IconBtn>
+          )}
+          <IconBtn label="Settings" onClick={() => setOverlay("settings")}>
+            <Cog className="h-5 w-5" />
+          </IconBtn>
+        </div>
+      </header>
+
+      {/* Create: the AIO gateway, full-width on every size */}
+      {view === "create" && (
+        <div className="min-h-0 flex-1 overflow-hidden p-3">
+          <Create />
+        </div>
+      )}
+
+      {/* Desktop: two panes side by side */}
+      {view === "build" && (
+        <div className="hidden min-h-0 flex-1 lg:flex">
+          <div className="w-[40%] max-w-[480px] border-r border-border">
+            <Chat />
+          </div>
+          <div className="min-w-0 flex-1">
+            <Preview onPublish={() => setOverlay("forge")} />
+          </div>
+        </div>
+      )}
+
+      {/* Mobile: swipeable pager (chat | preview) */}
+      {view === "build" && (
+      <div className="flex min-h-0 flex-1 flex-col lg:hidden">
+        <div
+          ref={pager}
+          onScroll={onScroll}
+          className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto scroll-smooth [scrollbar-width:none]"
+        >
+          <section className="w-full shrink-0 snap-center overflow-hidden">
+            <Chat />
+          </section>
+          <section className="w-full shrink-0 snap-center overflow-hidden">
+            <Preview onPublish={() => setOverlay("forge")} />
+          </section>
+        </div>
+        {/* segmented pager control */}
+        <div className="flex border-t border-border">
+          {(
+            [
+              [0, "Chat", MessageSquare],
+              [1, "Preview", Eye],
+            ] as const
+          ).map(([i, label, Icon]) => (
+            <button
+              key={label}
+              onClick={() => goPane(i)}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-2 py-2.5 text-xs font-semibold uppercase tracking-wide transition",
+                pane === i ? "bg-primary/10 text-primary" : "text-muted-foreground",
+              )}
+            >
+              <Icon className="h-4 w-4" /> {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      )}
+
+      {/* Full-screen overlay */}
+      {overlay && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-background">
+          <header className="flex items-center justify-between border-b border-border px-4 py-3">
+            <h2 className="font-display text-lg uppercase">{overlayTitle}</h2>
+            <button
+              onClick={() => setOverlay(tool ? "tools" : null)}
+              aria-label="Close"
+              className="rounded p-1.5 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </header>
+          <div className="flex-1 overflow-y-auto p-4">{OverlayBody}</div>
+        </div>
+      )}
+
+      {/* Returning to dev while previewing the customer UI (dev only) */}
+      {dev.isDev && customerPreview && (
+        <button
+          onClick={() => setCustomerPreview(false)}
+          className="fixed bottom-3 left-3 z-50 flex items-center gap-1 rounded-full border border-primary/60 bg-black/70 px-3 py-1.5 text-xs font-bold text-primary backdrop-blur"
+        >
+          <Eye className="h-3.5 w-3.5" /> Exit customer view ({DEV_ROLE})
+        </button>
+      )}
+
+      {devOpen && <DevSignIn onClose={() => setDevOpen(false)} />}
+      <PermissionModal />
+    </div>
+  );
+}
+
+function IconBtn({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="rounded-lg p-2 text-muted-foreground transition hover:bg-accent hover:text-foreground"
+    >
+      {children}
+    </button>
+  );
+}
+
+function ToolsGrid({ onPick, dev }: { onPick: (o: Overlay) => void; dev: boolean }) {
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+      {TOOLS.filter((t) => dev || !t.dev).map(({ id, label, icon: Icon }) => (
+        <button
+          key={id}
+          onClick={() => onPick(id)}
+          className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-5 text-center transition hover:border-primary hover:text-primary"
+        >
+          <Icon className="h-7 w-7" />
+          <span className="text-xs font-semibold">{label}</span>
+        </button>
+      ))}
     </div>
   );
 }
