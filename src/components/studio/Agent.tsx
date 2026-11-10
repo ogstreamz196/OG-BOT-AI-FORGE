@@ -8,6 +8,7 @@ import {
   DEFAULT_OLLAMA_URL,
   OLLAMA_MODELS,
   listInstalled,
+  preloadModel,
   sameModel,
   streamChat,
   type ChatMessage,
@@ -99,6 +100,27 @@ export function Agent() {
   }, [check]);
 
   const isInstalled = (tag: string) => conn.installed.some((i) => sameModel(i, tag));
+
+  // Load the chosen model into the GPU as soon as Ollama is reachable, so "hi" doesn't wait ~30s.
+  const [warm, setWarm] = useState<"idle" | "loading" | "ready">("idle");
+  const installedNow = conn.state === "online" && isInstalled(model);
+  useEffect(() => {
+    if (!installedNow) return setWarm("idle");
+    const ctl = new AbortController();
+    setWarm("loading");
+    preloadModel(url, model, ctl.signal).then(() => setWarm("ready"), () => !ctl.signal.aborted && setWarm("idle"));
+    return () => ctl.abort();
+  }, [installedNow, model, url]);
+
+  // Seconds spent waiting for the first word of a reply.
+  const [waited, setWaited] = useState(0);
+  const lastLine = lines[lines.length - 1];
+  const waitingFirstWord = busy && lastLine?.ai === true && lastLine.s === "";
+  useEffect(() => {
+    if (!waitingFirstWord) return setWaited(0);
+    const id = setInterval(() => setWaited((w) => w + 1), 1000);
+    return () => clearInterval(id);
+  }, [waitingFirstWord]);
   const add = (line: Line) => setLines((l) => [...l, line]);
 
   const runSlash = (slash: string[]) => {
@@ -167,7 +189,7 @@ export function Agent() {
   const dot = { checking: "bg-warning animate-pulse", online: "bg-primary", offline: "bg-destructive" }[conn.state];
   const status = {
     checking: "Connecting…",
-    online: `Ollama connected · ${conn.installed.length} model${conn.installed.length === 1 ? "" : "s"} installed`,
+    online: `Ollama connected · ${conn.installed.length} model${conn.installed.length === 1 ? "" : "s"} installed${warm === "loading" ? " · loading model into GPU…" : warm === "ready" ? " · model ready" : ""}`,
     offline: conn.error?.includes("403") ? "Ollama is blocking this site · see Setup" : "Ollama not reachable",
   }[conn.state];
   const missing = OLLAMA_MODELS.filter((m) => conn.state === "online" && !isInstalled(m.tag));
@@ -232,6 +254,12 @@ export function Agent() {
               {l.s}
             </div>
           ))}
+          {waitingFirstWord && (
+            <div className="text-muted-foreground">
+              {warm === "ready" ? "Thinking…" : "Loading the model into your GPU (first reply only)…"} {waited}s
+              {waited >= 45 && " · taking long: run `ollama ps` on the laptop and check it says 100% GPU"}
+            </div>
+          )}
           {busy && <div className="animate-pulse text-primary">▌</div>}
           <div ref={end} />
         </div>

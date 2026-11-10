@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_MODEL, listInstalled, sameModel, streamChat } from "@/lib/ollama";
+import { DEFAULT_MODEL, listInstalled, preloadModel, sameModel, streamChat } from "@/lib/ollama";
 import { buildContext, ollamaOrigins } from "@/components/studio/Agent";
 
 const ndjson = (chunks: string[]) =>
@@ -41,6 +41,15 @@ describe("ollama client", () => {
   it("explains a 403 as a blocked website", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 403 })));
     await expect(listInstalled("http://x")).rejects.toThrow("OLLAMA_ORIGINS");
+  });
+
+  it("preloads a model with no prompt and a long keep_alive", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ done: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    await preloadModel("http://localhost:11434", "qwen2.5-coder:14b");
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("http://localhost:11434/api/generate");
+    expect(JSON.parse(init.body as string)).toEqual({ model: "qwen2.5-coder:14b", keep_alive: "30m" });
   });
 
   it("reports Ollama's error message", async () => {

@@ -53,6 +53,21 @@ export async function listInstalled(baseUrl: string, signal?: AbortSignal): Prom
 }
 
 /**
+ * Loads a model into GPU memory ahead of time, so the first reply doesn't wait for it.
+ * (Ollama loads the model when it gets a request with no prompt.)
+ */
+export async function preloadModel(baseUrl: string, model: string, signal?: AbortSignal): Promise<void> {
+  const res = await fetch(`${clean(baseUrl)}/api/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model, keep_alive: "30m" }),
+    signal: signal ?? null,
+  });
+  if (!res.ok) throw new Error(`Ollama answered ${res.status}`);
+  await res.text();
+}
+
+/**
  * Streams a chat reply. Calls onToken for each piece of text as it arrives.
  * Resolves with the full reply.
  */
