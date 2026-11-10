@@ -10,6 +10,7 @@ import {
   Copy,
 } from "lucide-react";
 import { Panel, Btn } from "./ui";
+import { BrandMark } from "./BrandMark";
 import launchHub from "../../../scripts/launch-hub.bat?raw";
 import startOllama from "../../../scripts/start_ollama.bat?raw";
 import installAutostart from "../../../scripts/install-autostart.bat?raw";
@@ -227,11 +228,20 @@ function PairDrive() {
 export function SetupGuide() {
   return (
     <div className="space-y-3">
+      <div className="flex items-center gap-4 rounded-2xl border border-border bg-panel/80 p-3">
+        <img
+          src="/og-streamz-brand.webp"
+          alt="OGSTREAMZ presentz"
+          className="h-20 w-20 rounded-xl object-cover sm:h-24 sm:w-24"
+        />
+        <BrandMark size="lg" />
+      </div>
       <Panel title="Setup Guide">
         <p className="mb-3 text-xs text-muted-foreground">
-          OG-BOT is your offline gateway to local AI: chat-build apps, and create images, songs and
-          videos — all on your own GPU. A copy of these steps lives in{" "}
-          <span className="font-mono text-foreground">SETUP-DRIVE.md</span> in the project.
+          OGSTREAMZ presentz OFFLINE FORGE, powered by OG BOT, is your offline gateway to local AI:
+          chat-build apps, and create images, songs and videos — all on your own GPU. A copy of
+          these steps lives in <span className="font-mono text-foreground">SETUP-DRIVE.md</span> in
+          the project.
         </p>
         <ul className="grid gap-2 md:grid-cols-2">
           {STEPS.map(({ icon: Icon, title, body }) => (

@@ -1,3 +1,5 @@
+import { withPoweredBy } from "./powered-by";
+
 /**
  * Dev Workbench engine — pure helpers (tested). Zero-compromise local coding:
  * qwen2.5-coder:14b is the default everywhere (docked on the RTX 5080, or in RAM on the
@@ -173,7 +175,9 @@ export function previewDoc(files: { name: string; content: string }[]): string {
   const doc = /<html/i.test(html.content)
     ? html.content
     : `<!doctype html><html><head><meta charset="utf-8"></head><body>${html.content}</body></html>`;
-  const withCss = css ? doc.replace(/<\/head>/i, `<style>${css}</style></head>`) : doc;
+  const withCss = withPoweredBy(
+    css ? doc.replace(/<\/head>/i, `<style>${css}</style></head>`) : doc,
+  );
   return js
     ? withCss.replace(
         /<\/body>/i,

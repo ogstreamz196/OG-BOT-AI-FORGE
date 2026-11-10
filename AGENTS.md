@@ -52,3 +52,11 @@ After pushing to `main`, also publish without asking: wait until Lovable's
 `get_project` shows `latest_commit_sha` equal to the pushed commit, then call
 `deploy_project` for project `0b1ce1b7-6fa9-4766-87ba-ee8cb5504134`
 (live at https://ogcloud.lovable.app). Publishing costs no AI credits.
+
+## Branding
+
+The app is **OGSTREAMZ presentz OFFLINE FORGE** (see `src/components/studio/BrandMark.tsx`);
+**OG BOT** is the assistant that does the talking (chat greetings, agent, mascot logo).
+Every site or app the studio builds is **"Powered by OG BOT"**: keep the badge from
+`src/lib/powered-by.ts` in every preview and export (`buildDoc`, `standaloneIndex`,
+Dev Workbench `previewDoc`), and add it to any new export path.

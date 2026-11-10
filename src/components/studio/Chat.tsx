@@ -30,7 +30,7 @@ const SUGGESTIONS = [
 const CHAT_GREETING: Msg[] = [
   {
     role: "sys",
-    text: "OG-BOT AI builder · 100% offline. Describe a change and I'll edit your app; the preview updates live.",
+    text: "OG BOT here, powering your OFFLINE FORGE · 100% offline. Describe a change and I'll edit your app; the preview updates live.",
   },
 ];
 

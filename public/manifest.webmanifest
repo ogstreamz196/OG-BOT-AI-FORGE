@@ -1,7 +1,7 @@
 {
-  "name": "OG-BOT Offline AI Builder",
-  "short_name": "OG BOT",
-  "description": "Offline, all-in-one AI web app builder with local models and connectors.",
+  "name": "OGSTREAMZ presentz OFFLINE FORGE",
+  "short_name": "Offline Forge",
+  "description": "Offline, all-in-one AI studio powered by OG BOT: build apps, code, music and video on your own GPU.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

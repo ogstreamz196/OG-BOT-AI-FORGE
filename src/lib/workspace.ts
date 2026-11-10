@@ -5,6 +5,7 @@ import hubJs from "@/projects/og-bot-hub-starter/app.js?raw";
 import { mobileStubs } from "./mobile-stubs";
 import { WEB_TEMPLATES } from "./web-templates";
 import { connectors } from "./connectors";
+import { withPoweredBy } from "./powered-by";
 
 /**
  * Shared workspace store: the single source of truth for the files open in the
@@ -59,8 +60,12 @@ function save() {
   try {
     // Only projects that differ from the built-in templates need saving.
     const changed: Record<string, Files> = {};
-    for (const [name, files] of Object.entries(projects)) if (files !== TEMPLATES[name]) changed[name] = files;
-    localStorage.setItem(WS_KEY, JSON.stringify({ project: state.project, active: state.active, projects: changed }));
+    for (const [name, files] of Object.entries(projects))
+      if (files !== TEMPLATES[name]) changed[name] = files;
+    localStorage.setItem(
+      WS_KEY,
+      JSON.stringify({ project: state.project, active: state.active, projects: changed }),
+    );
   } catch {
     /* storage unavailable (private mode / blocked): keep working in memory */
   }
@@ -72,7 +77,11 @@ function hydrate() {
   try {
     const raw = localStorage.getItem(WS_KEY);
     if (!raw) return;
-    const saved = JSON.parse(raw) as { project?: string; active?: string; projects?: Record<string, Files> };
+    const saved = JSON.parse(raw) as {
+      project?: string;
+      active?: string;
+      projects?: Record<string, Files>;
+    };
     Object.assign(projects, saved.projects ?? {});
     const name = saved.project && projects[saved.project] ? saved.project : state.project;
     const files = { ...projects[name]! };
@@ -176,17 +185,19 @@ export function buildDoc(f: Files) {
     const doc = html
       .replace(/<link[^>]*href=["']styles\.css["'][^>]*>/i, () => `<style>${css}</style>`)
       .replace(/<script[^>]*src=["']app\.js["'][^>]*><\/script>/i, () => `<script>${js}</script>`);
-    return injectAfterBody(doc, cfg);
+    return withPoweredBy(injectAfterBody(doc, cfg));
   }
-  return `<!doctype html><html><head><style>${css}</style></head><body>${cfg}${html}<script>${js}</script></body></html>`;
+  return withPoweredBy(
+    `<!doctype html><html><head><style>${css}</style></head><body>${cfg}${html}<script>${js}</script></body></html>`,
+  );
 }
 
 /** Wrap a fragment index.html in a full document that links styles.css / app.js, for multi-file export. */
 export function standaloneIndex(f: Files) {
   const html = f["index.html"] ?? "";
   const cfg = connectorConfigScript();
-  if (/<html/i.test(html)) return injectAfterBody(html, cfg);
-  return `<!doctype html>
+  if (/<html/i.test(html)) return withPoweredBy(injectAfterBody(html, cfg));
+  return withPoweredBy(`<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -199,5 +210,5 @@ ${html}
 <script src="app.js"></script>
 </body>
 </html>
-`;
+`);
 }

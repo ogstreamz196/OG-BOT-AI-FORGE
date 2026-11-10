@@ -82,3 +82,17 @@
 @utility text-glow { text-shadow: 0 0 10px color-mix(in oklab, var(--primary) 60%, transparent); }
 
 @utility font-display { font-family: var(--font-display); letter-spacing: 0.02em; }
+
+/* OGSTREAMZ chrome lettering (OFFLINE FORGE wordmark): polished steel with a blue flame glow. */
+@utility text-chrome {
+  background: linear-gradient(180deg, #ffffff 0%, #dfe7f2 38%, #8793a6 50%, #f4f7fb 58%, #b9c4d4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.65)) drop-shadow(0 1px 0 rgba(10, 14, 23, 0.9));
+}
+@utility text-presentz {
+  font-style: italic;
+  color: #60a5fa;
+  text-shadow: 0 0 8px rgba(59, 130, 246, 0.8);
+}

@@ -29,6 +29,7 @@ import {
 import { SplitView } from "@/components/studio/SplitView";
 import { DevWorkbench } from "@/components/studio/DevWorkbench";
 import { EngineBadge } from "@/components/studio/EngineBadge";
+import { BrandMark } from "@/components/studio/BrandMark";
 import { cn } from "@/lib/utils";
 // Brand mark served locally by the Worker (the Lovable CDN path does not resolve on Cloudflare).
 const LOGO_SRC = "/og-bot-logo.png";
@@ -66,13 +67,13 @@ interface BeforeInstallPromptEvent extends Event {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "OG-BOT · Offline AI App Builder" },
+      { title: "OFFLINE FORGE · OGSTREAMZ presentz · powered by OG BOT" },
       {
         name: "description",
         content:
-          "OG-BOT: a fully offline, all-in-one AI app builder. Chat to build, preview live, publish to web or mobile — powered by your own local models.",
+          "OGSTREAMZ presentz OFFLINE FORGE, powered by OG BOT: a fully offline, all-in-one AI app builder. Chat to build, preview live, publish to web or mobile — powered by your own local models.",
       },
-      { property: "og:title", content: "OG-BOT · Offline AI App Builder" },
+      { property: "og:title", content: "OFFLINE FORGE · OGSTREAMZ presentz" },
       {
         property: "og:description",
         content: "Chat to build, preview live, publish anywhere. 100% offline local AI.",
@@ -215,11 +216,13 @@ function Studio() {
         <div className="flex items-center gap-2">
           <img
             src={logo}
-            alt="OG BOT"
+            alt="OG BOT, the assistant powering OFFLINE FORGE"
             onClick={tapLogo}
             className="h-8 w-8 cursor-pointer object-contain select-none"
           />
-          <div className="hidden font-display text-lg leading-none sm:block">OG BOT</div>
+          <div className="hidden sm:block">
+            <BrandMark />
+          </div>
           {effectiveDev && (
             <span className="ml-1 hidden rounded border border-primary/60 bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold tracking-widest text-primary sm:inline">
               {DEV_ROLE}
