@@ -60,7 +60,7 @@ describe("owner's Ollama models are in the catalog", () => {
   it("lists exactly the models on the RTX 5080 rig, each fitting 16 GB", async () => {
     const { MODEL_CATALOG } = await import("@/lib/models");
     const tags = MODEL_CATALOG.map((m) => m.pull);
-    const RIG = ["qwen2.5-coder:14b", "qwen2.5-coder:7b", "qwen2.5:14b", "qwen2.5:7b", "deepseek-r1:14b", "deepseek-r1:8b", "phi4:14b", "dolphin3:8b", "mistral-nemo:12b", "hermes3:8b", "llama3.2-vision:11b", "llama3.2:3b", "llama3.2:1b", "nomic-embed-text:latest"];
+    const RIG = ["qwen2.5-coder:14b", "qwen2.5-coder:7b", "qwen2.5:14b", "qwen2.5:7b", "deepseek-r1:14b", "deepseek-r1:8b", "phi4:14b", "dolphin3:8b", "gemma4:12b", "mistral-nemo:12b", "hermes3:8b", "llama3.2-vision:11b", "llama3.2:3b", "nomic-embed-text:latest"];
     expect(tags.filter((t) => t.includes(":"))).toEqual(RIG);
     expect(MODEL_CATALOG.every((m) => m.vram <= 16)).toBe(true);
   });

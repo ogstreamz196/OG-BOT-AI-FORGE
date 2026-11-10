@@ -1,47 +1,67 @@
 @echo off
 REM ============================================================
 REM  OG-BOT Offline AI Hub launcher (portable, zero-cost)
-REM  Put this .bat anywhere on your NVMe drive. It starts your
-REM  local AI engines, then opens the OG-BOT builder (the PWA).
-REM  Nothing here phones home; all AI runs on your GPU.
+REM  Keep this at  <drive>:\OFFLINE AI\OG-BOT\launch-hub.bat
+REM  Starts Ollama + ComfyUI from the drive, then opens the
+REM  OG-BOT studio in its own window (works offline once the
+REM  app is installed in Chrome/Edge). Started automatically by
+REM  the drive watcher, or double-click it yourself.
 REM ============================================================
 setlocal
 set DRIVE=%~d0
-echo OG-BOT Hub starting from drive %DRIVE% ...
+set ROOT=%DRIVE%\OFFLINE AI
+set APP=https://offline.ogbot.co.uk
+echo OG-BOT Hub starting from %ROOT% ...
 
-REM --- 1. Ollama (local code/reasoning models) ---------------
-REM Keep models on the drive so they stay portable:
-set OLLAMA_MODELS=%DRIVE%\ollama
-REM Allow the builder's web origin to call Ollama from the browser:
-set OLLAMA_ORIGINS=https://offline.ogbot.co.uk,https://*.lovable.app,http://localhost:5050,app://.
-where ollama >nul 2>nul
+REM --- 1. Ollama ----------------------------------------------
+set OLLAMA_HOST=127.0.0.1:11434
+set OLLAMA_ORIGINS=*
+set OLLAMA_KEEP_ALIVE=30m
+if exist "%ROOT%\ollama\models" set OLLAMA_MODELS=%ROOT%\ollama\models
+set OLLAMA_EXE=%ROOT%\ollama\bin\ollama.exe
+if not exist "%OLLAMA_EXE%" set OLLAMA_EXE=ollama
+
+curl.exe -s -o nul http://127.0.0.1:11434 >nul 2>nul
 if %errorlevel%==0 (
+  echo Ollama is already running.
+) else (
   echo Starting Ollama ...
-  start "Ollama" cmd /c "ollama serve"
-) else (
-  echo [skip] Ollama not found on PATH - install it or add it to PATH.
+  start "Ollama" /min "%OLLAMA_EXE%" serve
 )
 
-REM --- 2. ComfyUI (local image generation) -------------------
-if exist "%DRIVE%\runtimes\image-engine\main.py" (
+REM --- 2. ComfyUI ---------------------------------------------
+curl.exe -s -o nul http://127.0.0.1:8188 >nul 2>nul
+if %errorlevel%==0 goto comfy_done
+REM --enable-cors-header lets the studio (a web page) talk to ComfyUI.
+set COMFY_ARGS=--listen 127.0.0.1 --port 8188 --enable-cors-header
+if exist "%ROOT%\ComfyUI_windows_portable\python_embeded\python.exe" (
+  echo Starting ComfyUI portable ...
+  start "ComfyUI" /min /d "%ROOT%\ComfyUI_windows_portable" "%ROOT%\ComfyUI_windows_portable\python_embeded\python.exe" -s ComfyUI\main.py --windows-standalone-build %COMFY_ARGS%
+  goto comfy_done
+)
+if exist "%ROOT%\ComfyUI\main.py" (
   echo Starting ComfyUI ...
-  start "ComfyUI" cmd /c "cd /d %DRIVE%\runtimes\image-engine && python main.py --port 8188"
-) else (
-  echo [skip] ComfyUI not found at %DRIVE%\runtimes\image-engine
+  start "ComfyUI" /min /d "%ROOT%\ComfyUI" python main.py %COMFY_ARGS%
+  goto comfy_done
 )
+echo [skip] ComfyUI not found in %ROOT%
+:comfy_done
 
-REM --- 3. Open the OG-BOT builder ----------------------------
-REM Default: open the installed PWA / hosted builder. It is cached
-REM for offline use once you have installed it from the browser.
-echo Opening OG-BOT builder ...
-start "" "https://offline.ogbot.co.uk"
-
-REM --- Optional: serve a local copy from the drive instead ----
-REM If you keep a built copy of the site in %DRIVE%\app-builder\dist,
-REM uncomment the next two lines to run it fully from the drive:
-REM start "OG-BOT site" cmd /c "cd /d %DRIVE%\app-builder\dist && npx --yes serve -l 5050 ."
-REM start "" "http://localhost:5050"
+REM --- 3. Open the studio in an app window ----------------------
+set CHROME=%ProgramFiles%\Google\Chrome\Application\chrome.exe
+set EDGE=%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe
+if exist "%CHROME%" goto open_chrome
+if exist "%EDGE%" goto open_edge
+start "" "%APP%"
+goto opened
+:open_chrome
+start "" "%CHROME%" --app=%APP%
+goto opened
+:open_edge
+start "" "%EDGE%" --app=%APP%
+:opened
 
 echo.
-echo OG-BOT Hub is up. Leave this window open; close it to stop the engines.
+echo OG-BOT Hub is up. Ollama and ComfyUI keep running in their own windows.
+if /i "%~1"=="auto" exit /b 0
 pause

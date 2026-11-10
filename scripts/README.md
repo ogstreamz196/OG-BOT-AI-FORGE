@@ -12,6 +12,21 @@ Browsers allow `localhost` calls even from the HTTPS site, so the cloud-hosted
 UI can drive local models. You just need to allow the site origin in Ollama —
 the launcher sets `OLLAMA_ORIGINS` for you.
 
+## Plug in and go (recommended)
+1. Open `https://offline.ogbot.co.uk` once in Chrome/Edge and use **Install app**,
+   so the studio opens offline from then on.
+2. Copy `launch-hub.bat`, `install-autostart.bat`, `drive-watcher.ps1`,
+   `uninstall-autostart.bat` and `start_ollama.bat` into
+   `<drive>:\OFFLINE AI\OG-BOT\` (or download them from **Setup Guide → Drive kit**).
+3. Double-click `install-autostart.bat` once per laptop (no admin needed).
+4. Plug the drive in: within ~5 seconds Ollama
+   (`<drive>:\OFFLINE AI\ollama\bin\ollama.exe`) and ComfyUI start and the studio
+   opens in its own window.
+
+Windows blocks USB AutoRun for security, so the watcher (a hidden PowerShell
+script started from your Startup folder) does the launching instead.
+`uninstall-autostart.bat` removes it.
+
 ## Two ways to run
 
 ### A. Installed PWA (recommended)

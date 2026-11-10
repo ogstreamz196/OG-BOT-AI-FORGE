@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  TIER_DEFAULTS,
+  comfyFinished,
+  sunoAudioUrls,
+  sunoTaskId,
   comfyBatch,
   fillSunoBody,
   framesFor,
@@ -20,9 +24,10 @@ afterEach(() => vi.unstubAllGlobals());
 
 const scene = (id: number): StoryScene => ({
   scene_id: id,
-  timestamp: "",
+  time_range: "",
+  lyric_sync: "",
   shot_type: "wide",
-  action: "walks",
+  action_description: "walks",
   cinematography: "35mm",
   diffusion_prompt: `prompt "${id}"`,
   negative_prompt: "blurry",
@@ -61,7 +66,7 @@ describe("Stage B: storyboard", () => {
       '{"scenes":[{"shot_type":"low-angle","action":"walks","diffusion_prompt":"city"},{"visual_prompt":"rooftop"}]}',
       5,
     );
-    expect(s.map((x) => x.timestamp)).toEqual(["00:00 - 00:05", "00:05 - 00:10"]);
+    expect(s.map((x) => x.time_range)).toEqual(["00:00 - 00:05", "00:05 - 00:10"]);
     expect(s[1]!.diffusion_prompt).toBe("rooftop");
     expect(s[1]!.negative_prompt).toMatch(/blurry/);
   });
@@ -114,10 +119,10 @@ describe("Stage D: FFmpeg stitch script", () => {
     expect(bat).toContain(">>concat.txt echo file 'scene_01.mp4'");
     expect(bat).toContain(">>concat.txt echo file 'scene_02.mp4'");
     expect(bat).toContain(
-      '"E:\\OFFLINE AI\\ffmpeg\\bin\\ffmpeg.exe" -y -f concat -safe 0 -i concat.txt -c copy full_video.mp4',
+      '"E:\\OFFLINE AI\\ffmpeg\\bin\\ffmpeg.exe" -y -f concat -safe 0 -i concat.txt -c copy assembled_visuals.mp4',
     );
     expect(bat).toContain(
-      "-i full_video.mp4 -i suno_track.mp3 -c:v copy -c:a aac -shortest final_music_video.mp4",
+      "-i assembled_visuals.mp4 -i suno_track.mp3 -c:v copy -c:a aac -shortest final_master_music_video.mp4",
     );
     expect(bat).toContain("\r\n");
   });
@@ -162,5 +167,41 @@ describe("Ollama NDJSON streaming", () => {
     await expect(
       streamOllama({ baseUrl: "http://x", model: "phi4:14b", messages: [], onToken: () => {} }),
     ).rejects.toThrow("ollama pull phi4:14b");
+  });
+});
+
+describe("tiers, Suno status and ComfyUI completion", () => {
+  it("tier defaults: Ultra uses 14B/12B, Handheld 7B/8B", () => {
+    expect(TIER_DEFAULTS.ultra).toMatchObject({
+      lyric: "qwen2.5:14b",
+      director: "mistral-nemo:12b",
+    });
+    expect(TIER_DEFAULTS.handheld).toMatchObject({ lyric: "qwen2.5:7b", director: "hermes3:8b" });
+  });
+  it("finds task ids in common provider replies", () => {
+    expect(sunoTaskId({ code: 200, data: { taskId: "abc" } })).toBe("abc");
+    expect(sunoTaskId({ clips: [{ id: "c1" }] })).toBe("c1");
+    expect(sunoTaskId({ id: 42 })).toBe("42");
+    expect(sunoTaskId("nope")).toBeNull();
+  });
+  it("finds audio urls", () => {
+    expect(
+      sunoAudioUrls('{"audio_url":"https://cdn.x/a.mp3?t=1","other":"https://y/b.wav"}'),
+    ).toEqual(["https://cdn.x/a.mp3?t=1", "https://y/b.wav"]);
+  });
+  it("detects a finished ComfyUI prompt", () => {
+    expect(comfyFinished({ p1: { outputs: { "21": { videos: [] } } } }, "p1")).toBe(true);
+    expect(comfyFinished({}, "p1")).toBe(false);
+  });
+  it("parses the revised scene schema", () => {
+    const [s] = parseStoryboard(
+      '[{"time_range":"x","lyric_sync":"[Intro]","action_description":"car drifts","diffusion_prompt":"car"}]',
+      5,
+    );
+    expect(s).toMatchObject({
+      time_range: "00:00 - 00:05",
+      lyric_sync: "[Intro]",
+      action_description: "car drifts",
+    });
   });
 });

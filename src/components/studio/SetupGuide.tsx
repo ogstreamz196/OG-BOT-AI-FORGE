@@ -1,5 +1,63 @@
-import { Cpu, Plug, Download, ShieldCheck, WifiOff, Clapperboard, Image, Brain, Copy } from "lucide-react";
-import { Panel } from "./ui";
+import {
+  Cpu,
+  Plug,
+  Download,
+  ShieldCheck,
+  WifiOff,
+  Clapperboard,
+  Image,
+  Brain,
+  Copy,
+} from "lucide-react";
+import { Panel, Btn } from "./ui";
+import launchHub from "../../../scripts/launch-hub.bat?raw";
+import startOllama from "../../../scripts/start_ollama.bat?raw";
+import installAutostart from "../../../scripts/install-autostart.bat?raw";
+import uninstallAutostart from "../../../scripts/uninstall-autostart.bat?raw";
+import driveWatcher from "../../../scripts/drive-watcher.ps1?raw";
+
+/** The plug-in-and-go kit: copy these into <drive>:\OFFLINE AI\OG-BOT\ */
+export const DRIVE_KIT: { name: string; content: string; what: string }[] = [
+  {
+    name: "launch-hub.bat",
+    content: launchHub,
+    what: "Starts Ollama + ComfyUI from the drive and opens the studio.",
+  },
+  {
+    name: "install-autostart.bat",
+    content: installAutostart,
+    what: "Run once per laptop: OG-BOT then starts whenever the drive is plugged in.",
+  },
+  {
+    name: "drive-watcher.ps1",
+    content: driveWatcher,
+    what: "The tiny hidden watcher the installer sets up (keep it next to the installer).",
+  },
+  {
+    name: "uninstall-autostart.bat",
+    content: uninstallAutostart,
+    what: "Turns plug-in autostart off again.",
+  },
+  {
+    name: "start_ollama.bat",
+    content: startOllama,
+    what: "Starts only Ollama (E:\\OFFLINE AI\\ollama\\bin), keeping models loaded.",
+  },
+];
+
+function saveFile(name: string, content: string) {
+  // Windows scripts need CRLF line endings.
+  const url = URL.createObjectURL(
+    new Blob([content.replace(/\r?\n/g, "\r\n")], { type: "application/octet-stream" }),
+  );
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
 
 /**
  * Static, self-contained onboarding panel: how to run OG-BOT offline from the
@@ -41,20 +99,60 @@ const STEPS: { icon: typeof Cpu; title: string; body: string }[] = [
 type Rec = { title: string; pull: string; note: string };
 
 const LLM_RECS: Rec[] = [
-  { title: "Router / dispatcher (fast)", pull: "ollama pull llama3.2:3b", note: "The master AI that assigns tasks. Tiny + instant." },
-  { title: "Coding (lead)", pull: "ollama pull qwen2.5-coder:14b", note: "Drives the web builder. qwen2.5-coder:7b for handheld / low power." },
-  { title: "Reasoning", pull: "ollama pull deepseek-r1:14b", note: "Plans hard tasks before the coder builds. phi4:14b for maths/algorithms." },
-  { title: "Director & lyrics", pull: "ollama pull qwen2.5:14b", note: "Cinematic writing; dolphin3:8b for unfiltered lyrics." },
-  { title: "Vision", pull: "ollama pull llama3.2-vision:11b", note: "Understands images and screenshots." },
-  { title: "Strict JSON / prompt enhance", pull: "ollama pull mistral-nemo:12b", note: "Storyboards and structured output; hermes3:8b is the light option." },
+  {
+    title: "Router / dispatcher (fast)",
+    pull: "ollama pull llama3.2:3b",
+    note: "The master AI that assigns tasks. Tiny + instant.",
+  },
+  {
+    title: "Coding (lead)",
+    pull: "ollama pull qwen2.5-coder:14b",
+    note: "Drives the web builder. qwen2.5-coder:7b for handheld / low power.",
+  },
+  {
+    title: "Reasoning",
+    pull: "ollama pull deepseek-r1:14b",
+    note: "Plans hard tasks before the coder builds. phi4:14b for maths/algorithms.",
+  },
+  {
+    title: "Director & lyrics",
+    pull: "ollama pull qwen2.5:14b",
+    note: "Cinematic writing; dolphin3:8b for unfiltered lyrics.",
+  },
+  {
+    title: "Vision",
+    pull: "ollama pull llama3.2-vision:11b",
+    note: "Understands images and screenshots.",
+  },
+  {
+    title: "Strict JSON / prompt enhance",
+    pull: "ollama pull mistral-nemo:12b",
+    note: "Storyboards and structured output; hermes3:8b is the light option.",
+  },
 ];
 
 const IMG_RECS: Rec[] = [
-  { title: "Flux dev (top quality)", pull: "flux1-dev.safetensors → ComfyUI/models/unet", note: "Best fidelity + text. Needs the CLIP + VAE below." },
-  { title: "Flux text encoders", pull: "t5xxl_fp16.safetensors + clip_l.safetensors → models/clip", note: "Shared by all Flux models." },
+  {
+    title: "Flux dev (top quality)",
+    pull: "flux1-dev.safetensors → ComfyUI/models/unet",
+    note: "Best fidelity + text. Needs the CLIP + VAE below.",
+  },
+  {
+    title: "Flux text encoders",
+    pull: "t5xxl_fp16.safetensors + clip_l.safetensors → models/clip",
+    note: "Shared by all Flux models.",
+  },
   { title: "Flux VAE", pull: "ae.safetensors → ComfyUI/models/vae", note: "Decodes Flux latents." },
-  { title: "SDXL base (fast, versatile)", pull: "sd_xl_base_1.0.safetensors → models/checkpoints", note: "Great all-rounder, lighter than Flux." },
-  { title: "Juggernaut XL (photoreal)", pull: "juggernautXL.safetensors → models/checkpoints", note: "Popular realistic SDXL finetune." },
+  {
+    title: "SDXL base (fast, versatile)",
+    pull: "sd_xl_base_1.0.safetensors → models/checkpoints",
+    note: "Great all-rounder, lighter than Flux.",
+  },
+  {
+    title: "Juggernaut XL (photoreal)",
+    pull: "juggernautXL.safetensors → models/checkpoints",
+    note: "Popular realistic SDXL finetune.",
+  },
 ];
 
 function RecList({ recs }: { recs: Rec[] }) {
@@ -102,11 +200,58 @@ export function SetupGuide() {
         </ul>
       </Panel>
 
+      <Panel
+        title="Drive kit · plug in and go"
+        right={<Download className="h-4 w-4 text-primary" />}
+      >
+        <ol className="mb-3 list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
+          <li>
+            Install this app (step 4) and open it once online, so it works offline afterwards.
+          </li>
+          <li>
+            Download all five files below into{" "}
+            <span className="font-mono text-foreground">E:\OFFLINE AI\OG-BOT\</span> on your drive.
+          </li>
+          <li>
+            Double-click <span className="font-mono text-foreground">install-autostart.bat</span>{" "}
+            once on each laptop.
+          </li>
+          <li>
+            From then on, plugging the drive in starts Ollama, ComfyUI and the studio by itself
+            (about 5 seconds).
+          </li>
+        </ol>
+        <ul className="space-y-2">
+          {DRIVE_KIT.map((f) => (
+            <li
+              key={f.name}
+              className="flex flex-wrap items-center gap-2 rounded border border-border bg-card px-3 py-2 text-xs"
+            >
+              <span className="font-mono text-foreground">{f.name}</span>
+              <span className="flex-1 text-muted-foreground">{f.what}</span>
+              <Btn variant="ghost" onClick={() => saveFile(f.name, f.content)}>
+                Download
+              </Btn>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-2">
+          <Btn
+            onClick={() =>
+              DRIVE_KIT.forEach((f, i) => setTimeout(() => saveFile(f.name, f.content), i * 400))
+            }
+          >
+            Download all 5
+          </Btn>
+        </div>
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          Windows blocks USB drives from launching programs by themselves (AutoRun), so a small
+          watcher on the laptop does it instead. No admin rights needed.
+        </p>
+      </Panel>
+
       <div className="grid gap-3 lg:grid-cols-2">
-        <Panel
-          title="Recommended models"
-          right={<Brain className="h-4 w-4 text-primary" />}
-        >
+        <Panel title="Recommended models" right={<Brain className="h-4 w-4 text-primary" />}>
           <p className="mb-2 text-xs text-muted-foreground">
             Language models for the builder + AI routing. Pull what your VRAM allows — the router
             auto-picks the best installed one for each task.
@@ -114,10 +259,7 @@ export function SetupGuide() {
           <RecList recs={LLM_RECS} />
         </Panel>
 
-        <Panel
-          title="Image models (ComfyUI)"
-          right={<Image className="h-4 w-4 text-primary" />}
-        >
+        <Panel title="Image models (ComfyUI)" right={<Image className="h-4 w-4 text-primary" />}>
           <p className="mb-2 text-xs text-muted-foreground">
             Drop these into your ComfyUI <span className="font-mono">models/</span> folders. Image
             Studio auto-detects them. Flux gives the highest quality; SDXL is faster.

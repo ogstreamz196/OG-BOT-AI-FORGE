@@ -23,6 +23,10 @@ import {
   DIRECTOR_ENGINES,
   LYRIC_ENGINES,
   OLLAMA_URL,
+  TIER_DEFAULTS,
+  comfyFinished,
+  sunoAudioUrls,
+  sunoTaskId,
   comfyBatch,
   fillSunoBody,
   lyricsSystemPrompt,
@@ -37,6 +41,7 @@ import {
   storyboardPrompt,
   streamOllama,
   type LyricStyle,
+  type Tier,
   type StoryScene,
   type VideoEngine,
 } from "@/lib/mv-pipeline";
@@ -161,6 +166,8 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
     "og-mv-lyric-model",
     LYRIC_ENGINES[0]!.tag,
   );
+  const [songTitle, setSongTitle] = usePersistentState("og-mv-title", "");
+  const [tier, setTier] = usePersistentState<Tier>("og-mv-tier", "ultra");
   const [raw, setRaw] = usePersistentState("og-mv-lyrics-raw", "");
   const lyrics = parseLyrics(raw);
   const style: LyricStyle = LYRIC_ENGINES.find((e) => e.tag === lyricModel)?.style ?? "cinematic";
@@ -173,6 +180,9 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
   const [sunoBody, setSunoBody] = usePersistentState("og-mv-suno-body", DEFAULT_SUNO_BODY);
   const [sunoKey, setSunoKey] = useState("");
   const [sunoOut, setSunoOut] = useState("");
+  const [sunoStatusUrl, setSunoStatusUrl] = usePersistentState("og-mv-suno-status", "");
+  const [sunoTask, setSunoTask] = useState<string | null>(null);
+  const [audioUrls, setAudioUrls] = useState<string[]>([]);
   const [audioFile, setAudioFile] = usePersistentState("og-mv-audio", "suno_track.mp3");
 
   // ── Stage B state ──
@@ -224,7 +234,14 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
           { role: "system", content: lyricsSystemPrompt(style) },
           {
             role: "user",
-            content: lyricsUserPrompt({ genre, bpm, themes, durationSec: duration, style }),
+            content: lyricsUserPrompt({
+              title: songTitle,
+              genre,
+              bpm,
+              themes,
+              durationSec: duration,
+              style,
+            }),
           },
         ],
         onToken: (t) => setRaw((r) => r + t),
@@ -297,8 +314,31 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
     for (const it of items) {
       const r = await queueComfy(comfyUrl, it.prompt);
       setQueued((q) => ({ ...q, [it.scene_id]: r.ok ? "queued" : r.message }));
+      if (r.ok && r.promptId) setPromptIds((p) => ({ ...p, [it.scene_id]: r.promptId! }));
     }
   };
+
+  // Ask ComfyUI every 5 s which queued scenes have finished, and tick them off automatically.
+  const [promptIds, setPromptIds] = useState<Record<number, string>>({});
+  useEffect(() => {
+    const pending = Object.entries(promptIds).filter(([id]) => !done.includes(Number(id)));
+    if (!pending.length || comfy.state !== "online") return;
+    const t = setInterval(async () => {
+      for (const [id, pid] of pending) {
+        try {
+          const res = await fetch(`${comfyUrl.replace(/\/+$/, "")}/history/${pid}`);
+          if (res.ok && comfyFinished(await res.json(), pid)) {
+            setDone((d) => (d.includes(Number(id)) ? d : [...d, Number(id)]));
+            setQueued((q) => ({ ...q, [Number(id)]: "rendered" }));
+          }
+        } catch {
+          /* ComfyUI busy or restarting: try again next tick */
+        }
+      }
+    }, 5000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [promptIds, done.join(","), comfy.state, comfyUrl]);
 
   const run = async (what: NonNullable<typeof busy>, fn: () => Promise<unknown>) => {
     setBusy(what);
@@ -324,7 +364,7 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
       setSunoOut("");
       try {
         const body = fillSunoBody(sunoBody, {
-          title: lyrics.title || themes.slice(0, 60),
+          title: songTitle.trim() || lyrics.title || themes.slice(0, 60),
           style: lyrics.styleTags || `${genre}, ${bpm} BPM`,
           lyrics: lyrics.lyrics,
         });
@@ -339,6 +379,14 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
         });
         const text = await res.text();
         setSunoOut(`HTTP ${res.status}\n${text.slice(0, 4000)}`);
+        let reply: unknown = null;
+        try {
+          reply = JSON.parse(text);
+        } catch {
+          /* not JSON */
+        }
+        setSunoTask(sunoTaskId(reply));
+        setAudioUrls(sunoAudioUrls(text));
       } catch (e) {
         setErr(
           e instanceof SyntaxError
@@ -352,11 +400,65 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
   const pct = scenes.length ? Math.round((done.length / scenes.length) * 100) : 0;
   const offline = ollama.state !== "online";
 
+  // Optional: poll the provider's status URL ({{id}} = the task id) until audio URLs appear.
+  const checkSuno = async () => {
+    if (!sunoStatusUrl || !sunoTask) return false;
+    try {
+      const res = await fetch(sunoStatusUrl.replace(/\{\{id\}\}/g, encodeURIComponent(sunoTask)), {
+        headers: sunoKey ? { Authorization: `Bearer ${sunoKey}` } : {},
+      });
+      const text = await res.text();
+      setSunoOut(`Status HTTP ${res.status}\n${text.slice(0, 4000)}`);
+      const urls = sunoAudioUrls(text);
+      if (urls.length) setAudioUrls(urls);
+      return urls.length > 0;
+    } catch (e) {
+      setErr(`Suno status check failed: ${e instanceof Error ? e.message : e}`);
+      return true;
+    }
+  };
+  useEffect(() => {
+    if (!sunoTask || !sunoStatusUrl || audioUrls.length) return;
+    let tries = 0;
+    const t = setInterval(async () => {
+      tries += 1;
+      if ((await checkSuno()) || tries >= 36) clearInterval(t); // up to ~6 minutes
+    }, 10_000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sunoTask, sunoStatusUrl, audioUrls.length]);
+
+  const chooseTier = (t: Tier) => {
+    setTier(t);
+    setLyricModel(TIER_DEFAULTS[t].lyric);
+    setDirModel(TIER_DEFAULTS[t].director);
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <Dot label="Ollama" h={ollama} onRetry={() => void checkEngines()} />
         <Dot label="ComfyUI" h={comfy} onRetry={() => void checkEngines()} />
+        <div
+          className="flex overflow-hidden rounded-full border border-border font-mono text-[11px]"
+          role="group"
+          aria-label="Hardware tier"
+        >
+          {(Object.keys(TIER_DEFAULTS) as Tier[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => chooseTier(t)}
+              className={cn(
+                "px-2.5 py-1",
+                tier === t
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {TIER_DEFAULTS[t].label}
+            </button>
+          ))}
+        </div>
         <div className="ml-auto flex gap-2">
           {busy ? (
             <Btn variant="danger" onClick={stop}>
@@ -394,9 +496,18 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
           title="Lyrics & Track Structure"
           icon={<Music2 className="h-4 w-4 text-primary" />}
         >
+          <label className={label}>
+            Song title (optional)
+            <input
+              className={inputCls}
+              value={songTitle}
+              placeholder="Let the model name it"
+              onChange={(e) => setSongTitle(e.target.value)}
+            />
+          </label>
           <div className="grid grid-cols-3 gap-2">
             <label className={label}>
-              Genre
+              Genre / style
               <input
                 className={inputCls}
                 value={genre}
@@ -525,8 +636,37 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
                 className="flex items-center gap-1"
               >
                 <Send className="h-3 w-3" />
-                Generate track on Suno
+                Generate Audio Master
               </Btn>
+              <label className={label}>
+                Status URL (optional, GET; {"{{id}}"} = task id from the reply)
+                {sunoTask ? ` · task ${sunoTask}` : ""}
+                <input
+                  className={inputCls}
+                  placeholder="https://your-suno-provider/api/status?taskId={{id}}"
+                  value={sunoStatusUrl}
+                  onChange={(e) => setSunoStatusUrl(e.target.value)}
+                />
+              </label>
+              {sunoTask && sunoStatusUrl && !audioUrls.length && (
+                <Btn variant="ghost" onClick={() => void checkSuno()}>
+                  Check status now (auto every 10 s)
+                </Btn>
+              )}
+              {audioUrls.map((u) => (
+                <div key={u} className="space-y-1">
+                  <audio controls src={u} className="w-full" />
+                  <a
+                    href={u}
+                    download={audioFile}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-mono text-[10px] text-primary underline"
+                  >
+                    Download as {audioFile}
+                  </a>
+                </div>
+              ))}
               {sunoOut && (
                 <pre className="max-h-40 overflow-auto rounded bg-background p-2 font-mono text-[10px]">
                   {sunoOut}
@@ -615,9 +755,12 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
                       <span>
                         #{s.scene_id} · {s.shot_type}
                       </span>
-                      <span>{s.timestamp}</span>
+                      <span>{s.time_range}</span>
                     </div>
-                    <div>{s.action}</div>
+                    {s.lyric_sync && (
+                      <div className="font-mono text-[10px] text-secondary">{s.lyric_sync}</div>
+                    )}
+                    <div>{s.action_description}</div>
                     <textarea
                       className={cn(inputCls, "mt-1 min-h-[52px] text-[11px]")}
                       value={s.diffusion_prompt}
@@ -678,6 +821,14 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
               <option value="custom">My own workflow (exported from ComfyUI)</option>
             </select>
           </label>
+          <label className={label}>
+            ComfyUI server address
+            <input
+              className={inputCls}
+              value={comfyUrl}
+              onChange={(e) => connectors.setField("comfyui", "baseUrl", e.target.value)}
+            />
+          </label>
           {vEngine === "custom" ? (
             <label className={label}>
               Paste ComfyUI Workflow → Export (API). Use{" "}
@@ -720,7 +871,7 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
                     />
                     <span className="font-mono">scene {s.scene_id}</span>
                     <span className="truncate text-muted-foreground">
-                      {s.timestamp} · {s.shot_type}
+                      {s.time_range} · {s.shot_type}
                     </span>
                     {queued[s.scene_id] && (
                       <span
@@ -757,7 +908,7 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
                   ) : (
                     <Send className="mr-1 inline h-3 w-3" />
                   )}
-                  Queue all in ComfyUI
+                  Send to ComfyUI Queue
                 </Btn>
               </div>
             </>
@@ -804,15 +955,15 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
                   <Copy className="mr-1 inline h-3 w-3" />
                   Copy Batch Script
                 </Btn>
-                <Btn variant="ghost" onClick={() => download("stitch_music_video.bat", script)}>
+                <Btn variant="ghost" onClick={() => download("stitch_video.bat", script)}>
                   <Download className="mr-1 inline h-3 w-3" />
-                  stitch_music_video.bat
+                  stitch_video.bat
                 </Btn>
               </div>
               <p className="text-[11px] text-muted-foreground">
                 Save it in the clips folder and double-click. It picks the newest take of each
                 scene, joins them without re-encoding, then adds <code>{audioFile}</code> as the
-                soundtrack → <code>final_music_video.mp4</code>.
+                soundtrack → <code>final_master_music_video.mp4</code>.
               </p>
             </>
           )}

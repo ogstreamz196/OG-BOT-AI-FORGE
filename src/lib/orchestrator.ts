@@ -27,7 +27,7 @@ const PREFS: Record<TaskKind, string[]> = {
   code: ["qwen2.5-coder:14b", "qwen2.5-coder:7b", "qwen2.5-coder", "qwen2.5:14b", "qwen2.5:7b", "llama3.2:3b"],
   reason: ["deepseek-r1:14b", "phi4:14b", "deepseek-r1:8b", "deepseek-r1", "phi4", "qwen2.5:14b", "qwen2.5"],
   vision: ["llama3.2-vision:11b", "llama3.2-vision", "minicpm-v", "llava"],
-  flagship: ["qwen2.5:14b", "deepseek-r1:14b", "phi4:14b", "qwen2.5-coder:14b", "mistral-nemo:12b"],
+  flagship: ["qwen2.5:14b", "gemma4:12b", "deepseek-r1:14b", "phi4:14b", "qwen2.5-coder:14b", "mistral-nemo:12b"],
   chat: ["llama3.2:3b", "qwen2.5:7b", "dolphin3:8b", "hermes3:8b", "mistral-nemo:12b", "qwen2.5:14b", "llama3.2:1b", "llama3.2"],
 };
 

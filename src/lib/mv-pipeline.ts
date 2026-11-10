@@ -16,19 +16,33 @@ export const OLLAMA_URL = "http://127.0.0.1:11434";
 
 // ── Model presets (all fit 16 GB VRAM fully on the GPU) ──────────────────────
 export const LYRIC_ENGINES = [
-  { tag: "qwen2.5:14b", label: "Qwen 2.5 14B · cinematic", style: "cinematic" as const },
-  { tag: "qwen2.5:7b", label: "Qwen 2.5 7B · cinematic (low power)", style: "cinematic" as const },
+  { tag: "qwen2.5:14b", label: "Qwen 2.5 14B · cinematic (Ultra)", style: "cinematic" as const },
+  {
+    tag: "qwen2.5:7b",
+    label: "Qwen 2.5 7B · fast drafting (Handheld)",
+    style: "cinematic" as const,
+  },
   {
     tag: "dolphin3:8b",
-    label: "Dolphin 3 8B · unfiltered / gritty street",
+    label: "Dolphin 3 8B · unrestricted street / explicit",
     style: "gritty" as const,
   },
 ];
 export const DIRECTOR_ENGINES = [
-  { tag: "mistral-nemo:12b", label: "Mistral Nemo 12B · strict JSON" },
-  { tag: "qwen2.5:14b", label: "Qwen 2.5 14B · cinematic director" },
-  { tag: "hermes3:8b", label: "Hermes 3 8B · JSON (low power)" },
+  { tag: "mistral-nemo:12b", label: "Mistral Nemo 12B · strict JSON (Ultra)" },
+  { tag: "qwen2.5:14b", label: "Qwen 2.5 14B · cinematic director (Ultra)" },
+  { tag: "hermes3:8b", label: "Hermes 3 8B · JSON (Handheld)" },
 ];
+
+/**
+ * Docked Ultra = RTX 5080 eGPU, ≤14B fully in VRAM. Handheld = Ryzen AI 9 / Radeon 890M on
+ * battery, 7–8B models. Switching tier swaps the default engines for each stage.
+ */
+export type Tier = "ultra" | "handheld";
+export const TIER_DEFAULTS: Record<Tier, { label: string; lyric: string; director: string }> = {
+  ultra: { label: "Docked Ultra · RTX 5080", lyric: "qwen2.5:14b", director: "mistral-nemo:12b" },
+  handheld: { label: "Handheld · Ryzen AI 9", lyric: "qwen2.5:7b", director: "hermes3:8b" },
+};
 export type LyricStyle = "cinematic" | "gritty";
 
 /** Ollama lists "foo" as "foo:latest"; treat them as the same model. */
@@ -44,6 +58,7 @@ export function pickInstalled(presets: { tag: string }[], installed: string[]): 
 
 // ── Stage A: lyrics ──────────────────────────────────────────────────────────
 export type LyricsInput = {
+  title?: string;
   genre: string;
   bpm: number;
   themes: string;
@@ -59,7 +74,7 @@ export const SECTION_TAGS = [
   "[Chorus]",
   "[Verse 2]",
   "[Bridge]",
-  "[Heavy Bass Drop]",
+  "[Heavy Beat Drop]",
   "[Guitar Solo]",
   "[Outro]",
 ];
@@ -78,7 +93,7 @@ LYRICS:
 }
 
 export function lyricsUserPrompt(i: LyricsInput): string {
-  return `Genre: ${i.genre}\nBPM: ${i.bpm}\nCore themes: ${i.themes}\nTarget length: about ${Math.round(i.durationSec)} seconds.\nUse section tags that fit the genre (e.g. [Heavy Bass Drop] for bass music, [Guitar Solo] for rock).`;
+  return `${i.title?.trim() ? `Song title: ${i.title.trim()} (use it as the TITLE)\n` : ""}Genre / style: ${i.genre}\nBPM: ${i.bpm}\nCore narrative: ${i.themes}\nTarget length: about ${Math.round(i.durationSec)} seconds.\nUse section tags that fit the genre (e.g. [Heavy Beat Drop] for grime/trap/bass, [Guitar Solo] for rock).`;
 }
 
 const stripThink = (t: string) => t.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
@@ -117,12 +132,44 @@ export function fillSunoBody(
     .replace(/\{\{lyrics\}\}/g, esc(v.lyrics));
 }
 
+/** Find a job/task id in a provider's JSON reply (shapes differ between Suno API providers). */
+export function sunoTaskId(reply: unknown): string | null {
+  const r = reply as Record<string, unknown> | null;
+  if (!r || typeof r !== "object") return null;
+  const d = (r["data"] ?? {}) as Record<string, unknown>;
+  const first = Array.isArray(r["data"])
+    ? (r["data"][0] as Record<string, unknown>)
+    : Array.isArray(r["clips"])
+      ? (r["clips"][0] as Record<string, unknown>)
+      : null;
+  const id =
+    r["taskId"] ??
+    r["task_id"] ??
+    r["id"] ??
+    d["taskId"] ??
+    d["task_id"] ??
+    d["id"] ??
+    first?.["id"];
+  return typeof id === "string" || typeof id === "number" ? String(id) : null;
+}
+
+/** Audio URLs anywhere in a provider's reply (mp3/wav/m4a or *audio_url fields). */
+export function sunoAudioUrls(text: string): string[] {
+  const found = new Set<string>();
+  for (const m of text.matchAll(/"(?:\w*audio_?url\w*|stream_?url)"\s*:\s*"(https?:[^"]+)"/gi))
+    found.add(m[1]!);
+  for (const m of text.matchAll(/https?:\/\/[^\s"']+\.(?:mp3|wav|m4a)(?:\?[^\s"']*)?/gi))
+    found.add(m[0]);
+  return [...found];
+}
+
 // ── Stage B: storyboard ──────────────────────────────────────────────────────
 export type StoryScene = {
   scene_id: number;
-  timestamp: string;
+  time_range: string;
+  lyric_sync: string;
   shot_type: string;
-  action: string;
+  action_description: string;
   cinematography: string;
   diffusion_prompt: string;
   negative_prompt: string;
@@ -151,7 +198,7 @@ export function storyboardPrompt(o: {
   const n = sceneCount(o.durationSec, o.cutSec);
   return `You are a music video director. Break this track into exactly ${n} scenes of ${o.cutSec} seconds each (${mmss(0)} to ${mmss(o.durationSec)}), cutting on the beat at ${o.bpm} BPM and following the lyric sections in order.${o.look ? ` Overall visual style: ${o.look}.` : ""}
 Return ONLY a JSON object of the form {"scenes": [...]} where each scene is:
-{"scene_id": 1, "timestamp": "00:00 - 00:05", "shot_type": "low-angle wide tracking", "action": "what happens", "cinematography": "lens, lighting, colour, film stock", "diffusion_prompt": "a complete standalone text-to-video prompt for this scene, photorealistic, --ar 16:9", "negative_prompt": "what to avoid"}
+{"scene_id": 1, "time_range": "00:00 - 00:05", "lyric_sync": "[Intro] or the lyric line playing", "shot_type": "low-angle dynamic tracking shot", "action_description": "what happens on screen", "cinematography": "lens, lighting, colour, film stock", "diffusion_prompt": "a complete standalone text-to-video prompt for this scene, photorealistic, --ar 16:9", "negative_prompt": "what to avoid"}
 Keep the same main subject, wardrobe and colour palette across scenes for visual consistency.
 
 LYRICS:
@@ -183,12 +230,13 @@ export function parseStoryboard(text: string, cutSec = 5): StoryScene[] {
     .map((s, i) => {
       const r = s as Record<string, unknown>;
       const str = (k: string) => (typeof r[k] === "string" ? (r[k] as string).trim() : "");
-      const action = str("action");
+      const action = str("action_description") || str("action");
       return {
         scene_id: i + 1,
-        timestamp: `${mmss(i * cutSec)} - ${mmss((i + 1) * cutSec)}`,
+        time_range: `${mmss(i * cutSec)} - ${mmss((i + 1) * cutSec)}`,
+        lyric_sync: str("lyric_sync") || str("lyric_cue"),
         shot_type: str("shot_type") || "medium shot",
-        action,
+        action_description: action,
         cinematography: str("cinematography"),
         diffusion_prompt: str("diffusion_prompt") || str("visual_prompt") || action,
         negative_prompt: str("negative_prompt") || DEFAULT_NEGATIVE,
@@ -350,6 +398,17 @@ export function comfyBatch(
   }));
 }
 
+/** True once ComfyUI's /history/{id} reply shows outputs for that prompt (i.e. the clip rendered). */
+export function comfyFinished(history: unknown, promptId: string): boolean {
+  const h = (
+    history as Record<
+      string,
+      { outputs?: Record<string, unknown>; status?: { completed?: boolean } }
+    > | null
+  )?.[promptId];
+  return !!h && (h.status?.completed === true || Object.keys(h.outputs ?? {}).length > 0);
+}
+
 // ── Stage D: Windows FFmpeg stitch script ────────────────────────────────────
 export function stitchBatch(
   scenes: { scene_id: number }[],
@@ -375,12 +434,12 @@ export function stitchBatch(
   L.push('if "%MISSING%"=="1" (echo Render the missing scenes first. & pause & exit /b 1)');
   L.push("del concat.txt 2>nul");
   for (const n of names) L.push(`>>concat.txt echo file '${n}.mp4'`);
-  L.push(`${q(ff)} -y -f concat -safe 0 -i concat.txt -c copy full_video.mp4 || goto :fail`);
+  L.push(`${q(ff)} -y -f concat -safe 0 -i concat.txt -c copy assembled_visuals.mp4 || goto :fail`);
   L.push(
-    `${q(ff)} -y -i full_video.mp4 -i ${q(audio)} -c:v copy -c:a aac -shortest final_music_video.mp4 || goto :fail`,
+    `${q(ff)} -y -i assembled_visuals.mp4 -i ${q(audio)} -c:v copy -c:a aac -shortest final_master_music_video.mp4 || goto :fail`,
   );
   L.push(
-    "echo Done: final_music_video.mp4",
+    "echo Done: final_master_music_video.mp4",
     "pause",
     "exit /b 0",
     ":fail",
