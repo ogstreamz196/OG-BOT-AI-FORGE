@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_MODEL, listInstalled, sameModel, streamChat } from "@/lib/ollama";
-import { buildContext } from "@/components/studio/Agent";
+import { buildContext, ollamaOrigins } from "@/components/studio/Agent";
 
 const ndjson = (chunks: string[]) =>
   new Response(new ReadableStream({
@@ -59,5 +59,12 @@ describe("conversation context", () => {
       { t: "agent", s: "<think>hmm</think>Because.", ai: true },
     ]);
     expect(ctx).toEqual([{ role: "user", content: "why?" }, { role: "assistant", content: "Because." }]);
+  });
+});
+
+describe("setup help", () => {
+  it("OLLAMA_ORIGINS covers the custom domain and Lovable", () => {
+    expect(ollamaOrigins("https://offline.ogbot.co.uk")).toBe("https://offline.ogbot.co.uk,https://*.lovable.app");
+    expect(ollamaOrigins("https://ogcloud.lovable.app")).toBe("https://*.lovable.app");
   });
 });

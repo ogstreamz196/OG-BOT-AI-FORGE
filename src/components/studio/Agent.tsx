@@ -23,6 +23,16 @@ const GREETING: Line[] = [{ t: "sys", s: "OG-BOT agent online · runs on your lo
 const SYSTEM_PROMPT =
   "You are OG-BOT, an expert coding assistant running fully offline on the user's own computer. " +
   "Give direct, working answers. Use fenced code blocks for code. Keep explanations short.";
+const TIMEOUT_MSG =
+  "Ollama didn't answer. Check it's running, and allow this site to access your local network (icon left of the address bar), then Retry.";
+
+/** OLLAMA_ORIGINS value that covers this site plus the Lovable addresses. */
+export function ollamaOrigins(origin = typeof window === "undefined" ? "" : window.location.origin) {
+  const list = ["https://*.lovable.app"];
+  if (origin.startsWith("https://") && !origin.endsWith(".lovable.app")) list.unshift(origin);
+  return list.join(",");
+}
+
 // How many earlier messages to send with each question (more = slower).
 const CONTEXT_LINES = 12;
 
@@ -71,12 +81,13 @@ export function Agent() {
   const check = useCallback(async () => {
     setConn((c) => ({ ...c, state: "checking" }));
     const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), 4000);
+    // Generous: Chrome holds the request while it asks for "local network" permission.
+    const timer = setTimeout(() => ctl.abort(), 8000);
     try {
       const installed = await listInstalled(url, ctl.signal);
       setConn({ state: "online", installed });
     } catch (e) {
-      setConn({ state: "offline", installed: [], error: e instanceof Error ? e.message : String(e) });
+      setConn({ state: "offline", installed: [], error: ctl.signal.aborted ? TIMEOUT_MSG : e instanceof Error ? e.message : String(e) });
     } finally {
       clearTimeout(timer);
     }
@@ -201,7 +212,7 @@ export function Agent() {
             </label>
             <p className="text-muted-foreground">
               1. Install Ollama from ollama.com on the computer with your GPU. 2. Let this site talk to it: quit Ollama, set the environment variable{" "}
-              <code className="text-foreground">OLLAMA_ORIGINS=https://*.lovable.app</code>, then start Ollama again. 3. Pull the models you want.
+              <code className="text-foreground">OLLAMA_ORIGINS={ollamaOrigins()}</code>, then start Ollama again. 3. Pull the models you want.
               4. Use Chrome or Edge, and click Allow if the browser asks to access devices on your network.
             </p>
             {missing.length > 0 && (
