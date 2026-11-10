@@ -35,13 +35,28 @@ export const DIRECTOR_ENGINES = [
 ];
 
 /**
- * Docked Ultra = RTX 5080 eGPU, ≤14B fully in VRAM. Handheld = Ryzen AI 9 / Radeon 890M on
- * battery, 7–8B models. Switching tier swaps the default engines for each stage.
+ * Docked = RTX 5080 eGPU, ≤14B fully in VRAM. Portable = Ryzen AI 9 + 32 GB RAM, same 14B models
+ * on the CPU/Radeon 890M. Heavy video/image rendering is reserved for Docked.
  */
 export type Tier = "ultra" | "handheld";
-export const TIER_DEFAULTS: Record<Tier, { label: string; lyric: string; director: string }> = {
-  ultra: { label: "Docked Ultra · RTX 5080", lyric: "qwen2.5:14b", director: "mistral-nemo:12b" },
-  handheld: { label: "Handheld · Ryzen AI 9", lyric: "qwen2.5:7b", director: "hermes3:8b" },
+export const TIER_DEFAULTS: Record<
+  Tier,
+  { label: string; lyric: string; director: string; render: boolean }
+> = {
+  // Lyrics, storyboards and code run at full size everywhere (14B fits the RAM when portable);
+  // only heavy ComfyUI rendering waits for the RTX 5080 dock.
+  ultra: {
+    label: "Docked · RTX 5080",
+    lyric: "qwen2.5:14b",
+    director: "mistral-nemo:12b",
+    render: true,
+  },
+  handheld: {
+    label: "Portable · Ryzen AI 9",
+    lyric: "qwen2.5:14b",
+    director: "mistral-nemo:12b",
+    render: false,
+  },
 };
 export type LyricStyle = "cinematic" | "gritty";
 

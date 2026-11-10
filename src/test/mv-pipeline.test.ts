@@ -171,12 +171,13 @@ describe("Ollama NDJSON streaming", () => {
 });
 
 describe("tiers, Suno status and ComfyUI completion", () => {
-  it("tier defaults: Ultra uses 14B/12B, Handheld 7B/8B", () => {
+  it("tiers: lyrics/storyboards stay full-size everywhere; only Docked renders media", () => {
     expect(TIER_DEFAULTS.ultra).toMatchObject({
       lyric: "qwen2.5:14b",
       director: "mistral-nemo:12b",
     });
-    expect(TIER_DEFAULTS.handheld).toMatchObject({ lyric: "qwen2.5:7b", director: "hermes3:8b" });
+    expect(TIER_DEFAULTS.handheld).toMatchObject({ lyric: "qwen2.5:14b", director: "mistral-nemo:12b", render: false });
+    expect(TIER_DEFAULTS.ultra.render).toBe(true);
   });
   it("finds task ids in common provider replies", () => {
     expect(sunoTaskId({ code: 200, data: { taskId: "abc" } })).toBe("abc");

@@ -20,7 +20,12 @@ class T(unittest.TestCase):
         u, h = ogds.ollama_env("ultra"), ogds.ollama_env("handheld")
         self.assertEqual(u["OLLAMA_CONTEXT_LENGTH"], "16384"); self.assertEqual(u["OLLAMA_FLASH_ATTENTION"], "1")
         self.assertEqual(u["OLLAMA_MAX_LOADED_MODELS"], "1"); self.assertEqual(u["OLLAMA_HOST"], "127.0.0.1:11434")
-        self.assertEqual(h["OLLAMA_CONTEXT_LENGTH"], "4096"); self.assertEqual(h["OLLAMA_IGPU_ENABLE"], "1")
+        self.assertEqual(h["OLLAMA_CONTEXT_LENGTH"], "8192"); self.assertEqual(h["OLLAMA_IGPU_ENABLE"], "1")
+
+    def test_coder_never_downgrades(self):
+        for tier in ("ultra", "handheld"):
+            self.assertIn("qwen2.5-coder:14b", ogds.ROSTER[tier])
+            self.assertIn("deepseek-r1:14b", ogds.ROSTER[tier])
 
     def test_14b_ceiling(self):
         self.assertFalse(ogds.model_too_big("qwen2.5-coder:14b"))

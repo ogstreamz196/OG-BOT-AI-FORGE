@@ -160,7 +160,8 @@ export const models = {
     if (a && state.live.includes(a)) return a;
     const def = MODEL_CATALOG.find((m) => m.id === a);
     if (def) return def.pull;
-    return state.live[0] ?? null;
+    // Nothing chosen: the coder (qwen2.5-coder:14b first) rather than whatever is listed first.
+    return pickModel("code", state.live) ?? state.live[0] ?? null;
   },
   _reset() {
     state = { installed: {}, active: null, live: [] };

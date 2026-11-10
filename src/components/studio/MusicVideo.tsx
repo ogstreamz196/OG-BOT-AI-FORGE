@@ -356,7 +356,7 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
       const text = await genLyrics();
       if (!text) return;
       const list = await genStory(parseLyrics(text).lyrics || text);
-      if (list && comfy.state === "online") await queueAll(list);
+      if (list && comfy.state === "online" && TIER_DEFAULTS[tier].render) await queueAll(list);
     });
 
   const sendSuno = () =>
@@ -812,7 +812,7 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
         {/* ── Stage C ── */}
         <Stage
           n="C"
-          title="ComfyUI Batch Payload"
+          title="ComfyUI Batch Payload · Ready for RTX 5080 Docked Render"
           icon={<Film className="h-4 w-4 text-primary" />}
           right={
             scenes.length > 0 && (
@@ -834,6 +834,13 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
               <option value="custom">My own workflow (exported from ComfyUI)</option>
             </select>
           </label>
+          {!TIER_DEFAULTS[tier].render && (
+            <p className="rounded border border-warning/50 bg-warning/10 px-2 py-1.5 text-[11px]">
+              Portable mode: video rendering is a Stationary / Docked task. Export{" "}
+              <code>workflow_api.json</code> and <code>stitch_video.bat</code> now; queue the render
+              when the RTX 5080 is connected.
+            </p>
+          )}
           <label className={label}>
             ComfyUI server address
             <input
@@ -914,7 +921,7 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
                 <Btn
                   variant="blue"
                   onClick={() => void run("queue", () => queueAll())}
-                  disabled={!!busy || comfy.state !== "online"}
+                  disabled={!!busy || comfy.state !== "online" || !TIER_DEFAULTS[tier].render}
                 >
                   {busy === "queue" ? (
                     <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />

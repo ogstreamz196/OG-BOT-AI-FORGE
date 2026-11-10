@@ -24,7 +24,11 @@ import {
   LifeBuoy,
   WifiOff,
   Sparkles,
+  Terminal,
 } from "lucide-react";
+import { SplitView } from "@/components/studio/SplitView";
+import { DevWorkbench } from "@/components/studio/DevWorkbench";
+import { EngineBadge } from "@/components/studio/EngineBadge";
 import { cn } from "@/lib/utils";
 // Brand mark served locally by the Worker (the Lovable CDN path does not resolve on Cloudflare).
 const LOGO_SRC = "/og-bot-logo.png";
@@ -127,22 +131,17 @@ const OVERLAY_TITLE: Record<string, string> = {
 
 function Studio() {
   const [overlay, setOverlay] = useState<Overlay>(null);
-  const [view, setView] = useState<"create" | "build">("create");
-  const [pane, setPane] = useState<0 | 1>(1); // 0 = chat, 1 = preview
-  const pager = useRef<HTMLDivElement>(null);
+  const [view, setView] = useState<"create" | "build" | "dev">("create");
 
   const dev = useDevAuth();
   const [customerPreview, setCustomerPreview] = useState(false);
   const [devOpen, setDevOpen] = useState(false);
   const effectiveDev = dev.isDev && !customerPreview;
+  useEffect(() => {
+    if (!effectiveDev && view === "dev") setView("create");
+  }, [effectiveDev, view]);
   const tapRef = useRef<number[]>([]);
   const [installEvt, setInstallEvt] = useState<BeforeInstallPromptEvent | null>(null);
-
-  // Land on the preview pane on mobile.
-  useEffect(() => {
-    const el = pager.current;
-    if (el) el.scrollLeft = el.clientWidth;
-  }, []);
 
   // OG-BOT Cloud: use cached cloud sections immediately, then refresh from the
   // cloud when online / when the connector changes.
@@ -196,17 +195,6 @@ function Studio() {
     setInstallEvt(null);
   };
 
-  const goPane = (i: 0 | 1) => {
-    const el = pager.current;
-    if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
-    setPane(i);
-  };
-
-  const onScroll = () => {
-    const el = pager.current;
-    if (el) setPane(el.scrollLeft > el.clientWidth / 2 ? 1 : 0);
-  };
-
   const tool = TOOLS.find((t) => t.id === overlay);
   const OverlayBody =
     overlay === "settings" ? (
@@ -241,6 +229,7 @@ function Studio() {
             <WifiOff className="h-2.5 w-2.5" />
             OFFLINE
           </span>
+          <EngineBadge />
         </div>
 
         {/* Primary view switch */}
@@ -249,6 +238,7 @@ function Studio() {
             [
               ["create", "Create", Sparkles],
               ["build", "Build", Code2],
+              ...(effectiveDev ? ([["dev", "Dev", Terminal]] as const) : []),
             ] as const
           ).map(([v, label, Icon]) => (
             <button
@@ -312,55 +302,17 @@ function Studio() {
         </div>
       )}
 
-      {/* Desktop: two panes side by side */}
+      {/* Build: chat + live preview. Pick Chat, Split or Preview; fits any screen. */}
       {view === "build" && (
-        <div className="hidden min-h-0 flex-1 lg:flex">
-          <div className="w-[40%] max-w-[480px] border-r border-border">
-            <Chat />
-          </div>
-          <div className="min-w-0 flex-1">
-            <Preview onPublish={() => setOverlay("forge")} />
-          </div>
-        </div>
+        <SplitView
+          id="build"
+          left={<Chat />}
+          right={<Preview onPublish={() => setOverlay("forge")} />}
+        />
       )}
 
-      {/* Mobile: swipeable pager (chat | preview) */}
-      {view === "build" && (
-      <div className="flex min-h-0 flex-1 flex-col lg:hidden">
-        <div
-          ref={pager}
-          onScroll={onScroll}
-          className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto scroll-smooth [scrollbar-width:none]"
-        >
-          <section className="w-full shrink-0 snap-center overflow-hidden">
-            <Chat />
-          </section>
-          <section className="w-full shrink-0 snap-center overflow-hidden">
-            <Preview onPublish={() => setOverlay("forge")} />
-          </section>
-        </div>
-        {/* segmented pager control */}
-        <div className="flex border-t border-border">
-          {(
-            [
-              [0, "Chat", MessageSquare],
-              [1, "Preview", Eye],
-            ] as const
-          ).map(([i, label, Icon]) => (
-            <button
-              key={label}
-              onClick={() => goPane(i)}
-              className={cn(
-                "flex flex-1 items-center justify-center gap-2 py-2.5 text-xs font-semibold uppercase tracking-wide transition",
-                pane === i ? "bg-primary/10 text-primary" : "text-muted-foreground",
-              )}
-            >
-              <Icon className="h-4 w-4" /> {label}
-            </button>
-          ))}
-        </div>
-      </div>
-      )}
+      {/* Dev Workbench: zero-compromise local coding (qwen2.5-coder:14b by default). */}
+      {view === "dev" && effectiveDev && <DevWorkbench />}
 
       {/* Full-screen overlay */}
       {overlay && (

@@ -53,11 +53,12 @@ DEFAULT_CONFIG = {
 }
 
 # The owner's roster. Ultra = RTX 5080 (16 GB): <=14B so every layer stays on CUDA0.
+# Coding never downgrades: qwen2.5-coder:14b and deepseek-r1:14b run in both tiers (in RAM when
+# portable). Heavy media (ComfyUI) only runs docked.
+CORE = ["qwen2.5-coder:14b", "deepseek-r1:14b", "qwen2.5:14b", "mistral-nemo:12b", "dolphin3:8b", "llama3.2:3b"]
 ROSTER = {
-    "ultra": ["qwen2.5-coder:14b", "qwen2.5:14b", "deepseek-r1:14b", "phi4:14b", "gemma4:12b",
-              "mistral-nemo:12b", "llama3.2-vision:11b"],
-    "handheld": ["qwen2.5-coder:7b", "qwen2.5:7b", "deepseek-r1:8b", "dolphin3:8b", "hermes3:8b",
-                 "llama3.2:3b", "nomic-embed-text:latest"],
+    "ultra": CORE + ["phi4:14b", "gemma4:12b", "llama3.2-vision:11b"],
+    "handheld": CORE + ["qwen2.5-coder:7b", "qwen2.5:7b", "deepseek-r1:8b", "hermes3:8b", "nomic-embed-text:latest"],
 }
 MAX_PARAMS_B = 14
 
@@ -152,7 +153,8 @@ def scan_hardware() -> dict:
         "ram_gb": ram_gb(),
         "os": platform.platform(),
         "tier": tier,
-        "max_params_b": MAX_PARAMS_B if tier == "ultra" else 8,
+        "max_params_b": MAX_PARAMS_B,
+        "media_render": tier == "ultra",
         "scanned_at": int(time.time()),
     }
     label = f"{hw['gpu']} {hw['vram_gb']} GB" if best else "no NVIDIA GPU (eGPU not connected)"
@@ -172,7 +174,8 @@ def ollama_env(tier: str) -> dict:
     if tier == "ultra":
         env.update({"OLLAMA_FLASH_ATTENTION": "1", "OLLAMA_KV_CACHE_TYPE": "q8_0", "OLLAMA_CONTEXT_LENGTH": "16384"})
     else:
-        env.update({"OLLAMA_CONTEXT_LENGTH": "4096", "OLLAMA_IGPU_ENABLE": "1"})  # Radeon 890M via Vulkan
+        # Portable: the same 14B models in the 32 GB RAM (AVX-512 CPU + Radeon 890M via Vulkan).
+        env.update({"OLLAMA_CONTEXT_LENGTH": "8192", "OLLAMA_IGPU_ENABLE": "1"})
     models = os.path.join(ROOT, "ollama", "models")
     if os.path.isdir(models):
         env["OLLAMA_MODELS"] = models
@@ -205,6 +208,9 @@ def start_engines(tier: str) -> None:
         else:
             log("Ollama not found in OFFLINE AI\\ollama\\bin or PATH")
     if port_open(COMFY_PORT):
+        return
+    if tier != "ultra":
+        log("Portable mode: ComfyUI (heavy video/image rendering) waits for the RTX 5080 dock")
         return
     args = ["--listen", "127.0.0.1", "--port", str(COMFY_PORT), "--enable-cors-header"]
     portable = os.path.join(ROOT, "ComfyUI_windows_portable")
@@ -353,7 +359,7 @@ def model_too_big(name: str) -> bool:
 
 def status_body() -> dict:
     return {"ok": True, "version": VERSION, "hardware": state["hardware"], "tier": state["tier"],
-            "roster": ROSTER[state["tier"]] if state["tier"] == "handheld" else ROSTER["ultra"] + ROSTER["handheld"],
+            "roster": ROSTER[state["tier"]],
             "services": {"ollama": port_open(OLLAMA_PORT), "comfyui": port_open(COMFY_PORT)},
             "online": state["online"], "public_url": state["public_url"], "registered": state["registered"],
             "last_model_update": state["last_update"], "log": state["log"][-15:]}
@@ -449,7 +455,7 @@ def update_models() -> None:
     except Exception:  # noqa: BLE001
         return
     norm = lambda t: t if ":" in t else f"{t}:latest"  # noqa: E731
-    todo = [m for m in ROSTER["ultra"] + ROSTER["handheld"] if norm(m) in {norm(i) for i in installed} and not model_too_big(m)]
+    todo = [m for m in dict.fromkeys(ROSTER["ultra"] + ROSTER["handheld"]) if norm(m) in {norm(i) for i in installed} and not model_too_big(m)]
     log(f"Weekly model refresh: {len(todo)} roster models")
     for m in todo:
         try:

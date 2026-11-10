@@ -24,11 +24,42 @@ export type TaskKind = "code" | "reason" | "vision" | "flagship" | "chat";
  */
 const PREFS: Record<TaskKind, string[]> = {
   // 16 GB VRAM (RTX 5080 over USB4): everything stays at ≤14B so all layers fit on the GPU.
-  code: ["qwen2.5-coder:14b", "qwen2.5-coder:7b", "qwen2.5-coder", "qwen2.5:14b", "qwen2.5:7b", "llama3.2:3b"],
-  reason: ["deepseek-r1:14b", "phi4:14b", "deepseek-r1:8b", "deepseek-r1", "phi4", "qwen2.5:14b", "qwen2.5"],
+  code: [
+    "qwen2.5-coder:14b",
+    "qwen2.5-coder:7b",
+    "qwen2.5-coder",
+    "qwen2.5:14b",
+    "qwen2.5:7b",
+    "llama3.2:3b",
+  ],
+  reason: [
+    "deepseek-r1:14b",
+    "phi4:14b",
+    "deepseek-r1:8b",
+    "deepseek-r1",
+    "phi4",
+    "qwen2.5:14b",
+    "qwen2.5",
+  ],
   vision: ["llama3.2-vision:11b", "llama3.2-vision", "minicpm-v", "llava"],
-  flagship: ["qwen2.5:14b", "gemma4:12b", "deepseek-r1:14b", "phi4:14b", "qwen2.5-coder:14b", "mistral-nemo:12b"],
-  chat: ["llama3.2:3b", "qwen2.5:7b", "dolphin3:8b", "hermes3:8b", "mistral-nemo:12b", "qwen2.5:14b", "llama3.2:1b", "llama3.2"],
+  flagship: [
+    "qwen2.5:14b",
+    "gemma4:12b",
+    "deepseek-r1:14b",
+    "phi4:14b",
+    "qwen2.5-coder:14b",
+    "mistral-nemo:12b",
+  ],
+  chat: [
+    "llama3.2:3b",
+    "qwen2.5:7b",
+    "dolphin3:8b",
+    "hermes3:8b",
+    "mistral-nemo:12b",
+    "qwen2.5:14b",
+    "llama3.2:1b",
+    "llama3.2",
+  ],
 };
 
 /** Small, fast models fit to act as the routing dispatcher, best first. */
@@ -62,7 +93,15 @@ export function classifyTask(prompt: string): TaskKind {
 }
 
 /** Choose the best installed model for a task kind, with graceful fallback. */
-export function pickModel(kind: TaskKind, installed: string[]): string | null {
+/** 16 GB VRAM ceiling: never auto-pick a model tagged above 14B (e.g. :32b, :70b). */
+export const MAX_PARAMS_B = 14;
+export function overLimit(tag: string): boolean {
+  const m = tag.toLowerCase().match(/:(\d+(?:\.\d+)?)b\b/);
+  return !!m && Number(m[1]) > MAX_PARAMS_B;
+}
+
+export function pickModel(kind: TaskKind, all: string[]): string | null {
+  const installed = all.filter((m) => !overLimit(m));
   if (installed.length === 0) return null;
   for (const pref of PREFS[kind]) {
     const hit = installed.find((m) => m === pref) ?? installed.find((m) => m.startsWith(pref));
