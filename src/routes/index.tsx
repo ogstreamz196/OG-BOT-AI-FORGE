@@ -211,7 +211,7 @@ function Studio() {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
       {/* Top bar */}
-      <header className="flex items-center justify-between border-b border-border px-3 py-2">
+      <header className="flex items-center justify-between gap-2 border-b border-border px-2 py-2 sm:px-3">
         <div className="flex items-center gap-2">
           <img
             src={logo}
@@ -219,9 +219,9 @@ function Studio() {
             onClick={tapLogo}
             className="h-8 w-8 cursor-pointer object-contain select-none"
           />
-          <div className="font-display text-lg leading-none">OG BOT</div>
+          <div className="hidden font-display text-lg leading-none sm:block">OG BOT</div>
           {effectiveDev && (
-            <span className="ml-1 rounded border border-primary/60 bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold tracking-widest text-primary">
+            <span className="ml-1 hidden rounded border border-primary/60 bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold tracking-widest text-primary sm:inline">
               {DEV_ROLE}
             </span>
           )}
@@ -244,6 +244,8 @@ function Studio() {
             <button
               key={v}
               onClick={() => setView(v)}
+              aria-label={label}
+              title={label}
               className={cn(
                 "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition",
                 view === v
