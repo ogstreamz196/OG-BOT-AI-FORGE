@@ -162,17 +162,22 @@ def scan_hardware() -> dict:
     return hw
 
 
+# Docked: bind to the RTX 5080 (CUDA:0) and keep AMD ROCm/HIP and Vulkan out of the way.
+CUDA_ONLY = {"CUDA_VISIBLE_DEVICES": "0", "HIP_VISIBLE_DEVICES": "-1", "GGML_VK_VISIBLE_DEVICES": "-1"}
+
+
 def ollama_env(tier: str) -> dict:
     """Ollama settings per tier. Ultra: big context, quantised KV cache, one 14B model at a time."""
     env = {
         "OLLAMA_HOST": f"127.0.0.1:{OLLAMA_PORT}",
         "OLLAMA_ORIGINS": "*",
-        "OLLAMA_KEEP_ALIVE": "30m",
+        "OLLAMA_KEEP_ALIVE": "24h",
         "OLLAMA_NUM_PARALLEL": "1",
         "OLLAMA_MAX_LOADED_MODELS": "1",
     }
     if tier == "ultra":
         env.update({"OLLAMA_FLASH_ATTENTION": "1", "OLLAMA_KV_CACHE_TYPE": "q8_0", "OLLAMA_CONTEXT_LENGTH": "16384"})
+        env.update(CUDA_ONLY)
     else:
         # Portable: the same 14B models in the 32 GB RAM (AVX-512 CPU + Radeon 890M via Vulkan).
         env.update({"OLLAMA_CONTEXT_LENGTH": "8192", "OLLAMA_IGPU_ENABLE": "1"})
@@ -212,14 +217,14 @@ def start_engines(tier: str) -> None:
     if tier != "ultra":
         log("Portable mode: ComfyUI (heavy video/image rendering) waits for the RTX 5080 dock")
         return
-    args = ["--listen", "127.0.0.1", "--port", str(COMFY_PORT), "--enable-cors-header"]
+    args = ["--listen", "127.0.0.1", "--port", str(COMFY_PORT), "--enable-cors-header", "*"]
     portable = os.path.join(ROOT, "ComfyUI_windows_portable")
     if os.path.exists(os.path.join(portable, "python_embeded", "python.exe")):
         spawn([os.path.join(portable, "python_embeded", "python.exe"), "-s", os.path.join("ComfyUI", "main.py"),
-               "--windows-standalone-build", *args], portable, None, "comfyui.log")
+               "--windows-standalone-build", *args], portable, CUDA_ONLY, "comfyui.log")
         log("Started ComfyUI (portable)")
     elif os.path.exists(os.path.join(ROOT, "ComfyUI", "main.py")):
-        spawn([sys.executable, "main.py", *args], os.path.join(ROOT, "ComfyUI"), None, "comfyui.log")
+        spawn([sys.executable, "main.py", *args], os.path.join(ROOT, "ComfyUI"), CUDA_ONLY, "comfyui.log")
         log("Started ComfyUI")
 
 

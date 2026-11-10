@@ -74,7 +74,7 @@ export async function quickChat(
       stream: false,
       // keep_alive holds the model in VRAM between messages (no slow reload);
       // num_predict caps the short helper outputs (routing/reasoning) so they return fast.
-      keep_alive: "30m",
+      keep_alive: "24h",
       options: { temperature: 0.3, num_predict: 400 },
       messages,
     }),
@@ -104,7 +104,7 @@ export async function generateEdit(
     body: JSON.stringify({
       model,
       stream: false,
-      keep_alive: "30m", // keep the model warm in VRAM between edits
+      keep_alive: "24h", // keep the model warm in VRAM between edits
       options: { temperature: 0.2, num_predict: 2048 },
       messages: [
         { role: "system", content: opts?.system || SYSTEM_PROMPT },

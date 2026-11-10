@@ -948,7 +948,7 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
                 className={inputCls}
                 value={ffmpeg}
                 onChange={(e) => setFfmpeg(e.target.value)}
-                placeholder="E:\OFFLINE AI\ffmpeg\bin\ffmpeg.exe"
+                placeholder="ffmpeg (or <drive>:\OFFLINE AI\ffmpeg\bin\ffmpeg.exe)"
               />
             </label>
             <label className={label}>
@@ -957,7 +957,7 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
                 className={inputCls}
                 value={folder}
                 onChange={(e) => setFolder(e.target.value)}
-                placeholder="E:\OFFLINE AI\ComfyUI\output"
+                placeholder="blank = next to the script (e.g. ComfyUI\output)"
               />
             </label>
           </div>

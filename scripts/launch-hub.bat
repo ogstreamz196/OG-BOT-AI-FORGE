@@ -35,7 +35,9 @@ echo [info] No Python on the drive: starting the engines directly (no remote acc
 REM --- 1. Ollama ----------------------------------------------
 set OLLAMA_HOST=127.0.0.1:11434
 set OLLAMA_ORIGINS=*
-set OLLAMA_KEEP_ALIVE=30m
+set OLLAMA_KEEP_ALIVE=24h
+REM Docked (NVIDIA found): use the RTX 5080 only, keep AMD HIP / Vulkan out of the way.
+where nvidia-smi >nul 2>nul && set "CUDA_VISIBLE_DEVICES=0" && set "HIP_VISIBLE_DEVICES=-1" && set "GGML_VK_VISIBLE_DEVICES=-1"
 if exist "%ROOT%\ollama\models" set OLLAMA_MODELS=%ROOT%\ollama\models
 set OLLAMA_EXE=%ROOT%\ollama\bin\ollama.exe
 if not exist "%OLLAMA_EXE%" set OLLAMA_EXE=ollama
@@ -52,7 +54,7 @@ REM --- 2. ComfyUI ---------------------------------------------
 curl.exe -s -o nul http://127.0.0.1:8188 >nul 2>nul
 if %errorlevel%==0 goto comfy_done
 REM --enable-cors-header lets the studio (a web page) talk to ComfyUI.
-set COMFY_ARGS=--listen 127.0.0.1 --port 8188 --enable-cors-header
+set COMFY_ARGS=--listen 127.0.0.1 --port 8188 --enable-cors-header *
 if exist "%ROOT%\ComfyUI_windows_portable\python_embeded\python.exe" (
   echo Starting ComfyUI portable ...
   start "ComfyUI" /min /d "%ROOT%\ComfyUI_windows_portable" "%ROOT%\ComfyUI_windows_portable\python_embeded\python.exe" -s ComfyUI\main.py --windows-standalone-build %COMFY_ARGS%

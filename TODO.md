@@ -1,7 +1,7 @@
 # OGSTREAMZ presentz OFFLINE FORGE · to-do list
 
 _Powered by OG BOT._ Live at **https://offline.ogbot.co.uk**. Everything runs from the drive
-(`E:\OFFLINE AI\`); the website is only the front end. Last updated 2026-11-10.
+(`<drive>:\OFFLINE AI\`); the website is only the front end. Last updated 2026-11-10.
 
 Legend: **[you]** = needs you (hardware, accounts, settings) · **[dev]** = code work Claude can do ·
 P1 = next, P2 = soon, P3 = polish.
@@ -13,9 +13,9 @@ P1 = next, P2 = soon, P3 = polish.
 - [ ] **[you] Hide Lovable's badge** — Lovable editor → project → Settings → *Hide 'Lovable' badge*
       (it covers the Preview tab on phones).
 - [ ] **[you] Put the drive kit on the drive** — Setup Guide → *Drive kit* → *Download all*, into
-      `E:\OFFLINE AI\OG-BOT\` (keep that folder name: the watcher looks for it).
+      `<drive>:\OFFLINE AI\OG-BOT\` (keep that folder name: the watcher looks for it).
 - [ ] **[you] Python on the drive** for the drive server: ComfyUI portable's `python_embeded`, or the
-      Windows "embeddable" Python unzipped to `E:\OFFLINE AI\python\`.
+      Windows "embeddable" Python unzipped to `<drive>:\OFFLINE AI\python\`.
 - [ ] **[you] Turn on plug-in autostart** — double-click `install-autostart.bat` once per laptop.
 - [ ] **[you] Pair the drive for remote access** — sign in with Google (D.EV) → Setup Guide →
       *Pair this drive* → put `og-drive.json` next to `og-drive-server.py` → replug.
@@ -23,7 +23,7 @@ P1 = next, P2 = soon, P3 = polish.
       Site URL `https://offline.ogbot.co.uk` (redirect URLs are already added).
 - [ ] **[you] Pull any roster models you don't have yet** (all ≤14B):
       `phi4:14b`, `gemma4:12b`, `mistral-nemo:12b`, `qwen2.5:7b`, `deepseek-r1:8b`, `hermes3:8b`.
-- [ ] **[you] For music videos:** ComfyUI portable in `E:\OFFLINE AI\ComfyUI_windows_portable\`
+- [ ] **[you] For music videos:** ComfyUI portable in `<drive>:\OFFLINE AI\ComfyUI_windows_portable\`
       with an LTX-Video or Wan 2.1 checkpoint; `ffmpeg.exe` on the drive (set its path in Stage D).
 - [ ] **[you] Suno:** pick an API provider, then enter its endpoint + key in Music Video Studio → A.
 - [ ] **[you] Optional cleanup:** delete the old Cloudflare Worker `ogstreamz196-og-bot-ai-forge`
@@ -34,7 +34,7 @@ P1 = next, P2 = soon, P3 = polish.
 These are built and unit-tested but have never run on Windows / the real RTX 5080.
 
 - [ ] Plug in the drive → within ~5 s Ollama, ComfyUI and the studio window open by themselves.
-- [ ] `E:\OFFLINE AI\OG-BOT\logs\` and the Hardware tab show **RTX 5080 → Docked Ultra**;
+- [ ] `<drive>:\OFFLINE AI\OG-BOT\logs\` and the Hardware tab show **RTX 5080 → Docked Ultra**;
       unplug the eGPU and restart → **Portable**, no ComfyUI.
 - [ ] `ollama ps` shows **100% GPU** docked and the model badge shows `14.8B · 16k ctx`.
 - [ ] Phone on mobile data → open the site, sign in (D.EV) → Dashboard says
@@ -50,7 +50,7 @@ These are built and unit-tested but have never run on Windows / the real RTX 508
 - [ ] **Suno → drive:** drive server downloads the finished track as `suno_track.mp3` into the
       clips folder, so Stage D needs no manual step.
 - [ ] **Save straight to the drive:** Dev Workbench / Build write files via the drive server
-      (sandboxed to `E:\OFFLINE AI\projects\`) instead of a batch script.
+      (sandboxed to `<drive>:\OFFLINE AI\projects\`) instead of a batch script.
 - [ ] **Real live hardware stats:** GPU %, VRAM used, temperature from `nvidia-smi` via the drive
       server, replacing the simulated gauges in the Hardware tab.
 - [ ] **Apply tier settings even if Ollama was already running** (tray app): offer to restart it

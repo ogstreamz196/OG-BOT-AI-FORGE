@@ -20,6 +20,9 @@ class T(unittest.TestCase):
         u, h = ogds.ollama_env("ultra"), ogds.ollama_env("handheld")
         self.assertEqual(u["OLLAMA_CONTEXT_LENGTH"], "16384"); self.assertEqual(u["OLLAMA_FLASH_ATTENTION"], "1")
         self.assertEqual(u["OLLAMA_MAX_LOADED_MODELS"], "1"); self.assertEqual(u["OLLAMA_HOST"], "127.0.0.1:11434")
+        self.assertEqual(u["OLLAMA_KEEP_ALIVE"], "24h"); self.assertEqual(u["OLLAMA_ORIGINS"], "*")
+        self.assertEqual((u["CUDA_VISIBLE_DEVICES"], u["HIP_VISIBLE_DEVICES"], u["GGML_VK_VISIBLE_DEVICES"]), ("0", "-1", "-1"))
+        self.assertNotIn("HIP_VISIBLE_DEVICES", h)  # portable mode keeps the Radeon 890M available
         self.assertEqual(h["OLLAMA_CONTEXT_LENGTH"], "8192"); self.assertEqual(h["OLLAMA_IGPU_ENABLE"], "1")
 
     def test_coder_never_downgrades(self):
@@ -34,6 +37,10 @@ class T(unittest.TestCase):
         self.assertFalse(ogds.model_too_big("nomic-embed-text:latest"))
         for m in ogds.ROSTER["ultra"] + ogds.ROSTER["handheld"]:
             self.assertFalse(ogds.model_too_big(m), m)
+
+    def test_no_hardcoded_drive_letters(self):
+        src = open(os.path.join(os.path.dirname(__file__), "og-drive-server.py"), encoding="utf-8").read()
+        self.assertNotRegex(src, r'["\'][A-Za-z]:\\\\(?!Windows)')  # only C:\Windows\System32 for nvidia-smi
 
     def test_origins(self):
         for o in ["https://offline.ogbot.co.uk", "https://ogcloud.lovable.app", "http://localhost:8080", "http://127.0.0.1"]:

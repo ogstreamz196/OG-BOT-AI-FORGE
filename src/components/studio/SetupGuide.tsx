@@ -50,7 +50,7 @@ export const DRIVE_KIT: { name: string; content: string; what: string }[] = [
   {
     name: "start_ollama.bat",
     content: startOllama,
-    what: "Starts only Ollama (E:\\OFFLINE AI\\ollama\\bin), keeping models loaded.",
+    what: "Starts only Ollama (<drive>:\\OFFLINE AI\\ollama\\bin, any drive letter), keeping models loaded.",
   },
 ];
 
@@ -268,7 +268,7 @@ export function SetupGuide() {
           </li>
           <li>
             Download all files below into{" "}
-            <span className="font-mono text-foreground">E:\OFFLINE AI\OG-BOT\</span> on your drive.
+            <span className="font-mono text-foreground">&lt;drive&gt;:\OFFLINE AI\OG-BOT\</span> on your drive (any letter: X:, E:, …).
           </li>
           <li>
             Double-click <span className="font-mono text-foreground">install-autostart.bat</span>{" "}

@@ -46,13 +46,13 @@ export const TIER_DEFAULTS: Record<
   // Lyrics, storyboards and code run at full size everywhere (14B fits the RAM when portable);
   // only heavy ComfyUI rendering waits for the RTX 5080 dock.
   ultra: {
-    label: "Docked · RTX 5080",
+    label: "eGPU Docked Ultra",
     lyric: "qwen2.5:14b",
     director: "mistral-nemo:12b",
     render: true,
   },
   handheld: {
-    label: "Portable · Ryzen AI 9",
+    label: "Pocket 4 Standalone Mobile",
     lyric: "qwen2.5:14b",
     director: "mistral-nemo:12b",
     render: false,
@@ -484,7 +484,7 @@ export async function streamOllama(o: {
       model: o.model,
       messages: o.messages,
       stream: true,
-      keep_alive: "30m",
+      keep_alive: "24h",
       ...(o.json ? { format: "json" } : {}),
       options: { temperature: o.temperature ?? 0.7, num_ctx: 8192 },
     }),

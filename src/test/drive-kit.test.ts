@@ -43,3 +43,20 @@ describe("launcher starts the drive server", () => {
     expect(l).toContain(":open_app");
   });
 });
+
+describe("drive-letter independence (works on X:, E:, …)", () => {
+  it("no drive kit file or generated stitch script hardcodes a drive letter", async () => {
+    const { stitchBatch } = await import("@/lib/mv-pipeline");
+    const letter = /(?<![%\w])[A-Za-z]:\\(?!Windows\\)/; // %ProgramFiles% / C:\Windows\System32 are fine
+    for (const f of DRIVE_KIT) expect(f.content, f.name).not.toMatch(letter);
+    expect(stitchBatch([{ scene_id: 1 }, { scene_id: 2 }])).not.toMatch(letter);
+    expect(stitchBatch([{ scene_id: 1 }])).toContain('cd /d "%~dp0"');
+  });
+  it("docked runs keep models loaded 24h and stay on CUDA only", () => {
+    const l = DRIVE_KIT.find((f) => f.name === "launch-hub.bat")!.content;
+    expect(l).toContain("set OLLAMA_KEEP_ALIVE=24h");
+    expect(l).toContain('set "HIP_VISIBLE_DEVICES=-1"');
+    expect(l).toContain('set "GGML_VK_VISIBLE_DEVICES=-1"');
+    expect(l).toContain("--enable-cors-header *");
+  });
+});
