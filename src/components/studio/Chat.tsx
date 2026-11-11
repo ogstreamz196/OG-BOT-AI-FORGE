@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { usePersistentState } from "@/hooks/use-persistent-state";
-import { Send, Sparkles, Cpu, Bot, User } from "lucide-react";
+import { Send, Sparkles, Cpu } from "lucide-react";
 import { inputCls } from "./ui";
 import { cn } from "@/lib/utils";
 import { slashReply } from "./Agent";
@@ -193,136 +193,214 @@ export function Chat() {
     });
   }, []);
 
+  const fresh = msgs.length <= 1 && !busy;
+
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="og-glass flex h-full min-h-0 flex-col">
       <style>{CHAT_CSS}</style>
 
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border bg-gradient-to-r from-primary/10 to-transparent px-4 py-2.5">
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-7 w-7 items-center justify-center rounded-full bg-primary/15 text-primary">
-            <Sparkles className="h-4 w-4" />
+      <div className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="relative shrink-0">
+            <span
+              className="og-gradient absolute -inset-[2px] rounded-full opacity-80 blur-[1px]"
+              aria-hidden
+            />
+            <img
+              src="/og-bot-logo.png"
+              alt=""
+              className="relative h-9 w-9 rounded-full border border-background bg-background object-cover"
+            />
             <span
               className={cn(
-                "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background",
-                busy ? "bg-warning" : activeTag ? "bg-primary" : "bg-secondary",
+                "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background",
+                busy
+                  ? "animate-pulse bg-warning"
+                  : activeTag
+                    ? "bg-success"
+                    : "bg-muted-foreground",
               )}
+              aria-hidden
             />
           </span>
-          <div className="leading-tight">
-            <div className="font-display text-sm uppercase text-foreground">AI Builder</div>
-            <div className="font-mono text-[10px] text-muted-foreground">
-              {busy ? "working…" : "ready"}
+          <div className="min-w-0 leading-tight">
+            <div className="flex items-center gap-1.5">
+              <span className="font-brand text-sm font-semibold tracking-wide text-foreground">
+                OG BOT
+              </span>
+              <span className="og-eyebrow !text-[9px] !tracking-[0.2em] text-primary">builder</span>
+            </div>
+            <div className="truncate text-[11px] text-muted-foreground">
+              {busy ? (
+                "Crafting your change…"
+              ) : (
+                <>
+                  Editing <span className="text-foreground/80">{ws.project}</span>
+                </>
+              )}
             </div>
           </div>
         </div>
-        <span className="flex items-center gap-1 rounded-full border border-border bg-card/60 px-2.5 py-1 font-mono text-[10px] text-muted-foreground">
-          <Cpu className="h-3 w-3" />
-          {activeTag
-            ? `${activeTag}${liveCount > 1 ? ` · ${liveCount} models` : ""}`
-            : "no model · offline"}
+        <span
+          className="og-hairline flex shrink-0 items-center gap-1.5 rounded-full bg-background/40 px-3 py-1 font-mono text-[10px] text-muted-foreground"
+          title={activeTag ? "Local model in use" : "No local model connected"}
+        >
+          <Cpu className="h-3 w-3 text-primary" />
+          {activeTag ? `${activeTag}${liveCount > 1 ? ` · ${liveCount}` : ""}` : "offline"}
         </span>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 min-h-0 space-y-3 overflow-y-auto px-3 py-4">
-        {msgs.map((msg, i) =>
-          msg.role === "sys" ? (
-            <div key={i} className="og-fade flex justify-center">
-              <div className="rounded-full bg-muted/50 px-3 py-1 text-center text-[11px] text-muted-foreground">
-                {msg.text}
-              </div>
-            </div>
-          ) : (
-            <div
-              key={i}
-              className={cn(
-                "og-fade flex items-end gap-2",
-                msg.role === "you" ? "flex-row-reverse" : "flex-row",
-              )}
-            >
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
+        {fresh ? (
+          <div className="og-fade mx-auto flex max-w-md flex-col items-center pt-4 text-center">
+            <div className="relative mb-4">
               <span
-                className={cn(
-                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
-                  msg.role === "you"
-                    ? "bg-primary/20 text-primary"
-                    : "bg-secondary/20 text-secondary",
-                )}
-              >
-                {msg.role === "you" ? (
-                  <User className="h-3.5 w-3.5" />
-                ) : (
-                  <Bot className="h-3.5 w-3.5" />
-                )}
-              </span>
-              <div
-                className={cn(
-                  "max-w-[80%] rounded-2xl px-3.5 py-2 text-sm shadow-sm",
-                  msg.role === "you"
-                    ? "rounded-br-md bg-primary text-primary-foreground"
-                    : "rounded-bl-md border border-border bg-card text-foreground",
-                )}
-              >
-                {msg.text}
+                className="og-gradient absolute inset-0 rounded-full opacity-40 blur-2xl"
+                aria-hidden
+              />
+              <img
+                src="/og-bot-logo.png"
+                alt=""
+                className="relative h-16 w-16 rounded-full border border-border object-cover"
+              />
+            </div>
+            <p className="og-eyebrow mb-1">OFFLINE FORGE</p>
+            <h2 className="font-brand text-xl font-semibold text-foreground">
+              What shall we build?
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Describe it in your own words. I'll write it, and the preview updates as I go. Every
+              change can be undone.
+            </p>
+            <div className="mt-5 grid w-full grid-cols-2 gap-2 text-left">
+              {SUGGESTIONS.slice(0, 6).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => run(s)}
+                  className="og-hairline group flex flex-col items-start gap-1 rounded-xl bg-card/50 px-3 py-2.5 text-left text-xs text-foreground/90 transition hover:bg-primary/10"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-primary transition group-hover:scale-110" />
+                  {s.startsWith("/") ? "Start a landing page" : s}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="mx-auto max-w-3xl space-y-4">
+            {msgs.map((msg, i) =>
+              msg.role === "sys" ? (
+                <div key={i} className="og-fade flex items-center gap-3 px-2">
+                  <span className="h-px flex-1 bg-gradient-to-r from-transparent to-border" />
+                  <span className="max-w-[80%] text-center text-[11px] text-muted-foreground">
+                    {msg.text}
+                  </span>
+                  <span className="h-px flex-1 bg-gradient-to-l from-transparent to-border" />
+                </div>
+              ) : msg.role === "you" ? (
+                <div key={i} className="og-fade flex justify-end">
+                  <div className="og-gradient max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm px-4 py-2.5 text-sm text-primary-foreground shadow-lg shadow-primary/20">
+                    {msg.text}
+                  </div>
+                </div>
+              ) : (
+                <div
+                  key={i}
+                  className={cn(
+                    "og-fade flex items-start gap-2.5",
+                    msgs[i - 1]?.role === "ai" && "-mt-2.5",
+                  )}
+                >
+                  {msgs[i - 1]?.role === "ai" ? (
+                    <span className="w-7 shrink-0" aria-hidden />
+                  ) : (
+                    <img
+                      src="/og-bot-logo.png"
+                      alt=""
+                      className="mt-0.5 h-7 w-7 shrink-0 rounded-full border border-border object-cover"
+                    />
+                  )}
+                  <div className="min-w-0 max-w-[88%]">
+                    {msgs[i - 1]?.role !== "ai" && (
+                      <div className="og-eyebrow mb-1 !text-[9px]">OG BOT</div>
+                    )}
+                    <div className="og-hairline whitespace-pre-wrap rounded-2xl rounded-tl-sm bg-card/70 px-4 py-2.5 text-sm leading-relaxed text-foreground">
+                      {msg.text}
+                    </div>
+                  </div>
+                </div>
+              ),
+            )}
+            {busy && (
+              <div className="og-fade flex items-start gap-2.5">
+                <img
+                  src="/og-bot-logo.png"
+                  alt=""
+                  className="mt-0.5 h-7 w-7 shrink-0 rounded-full border border-border object-cover"
+                />
+                <div className="og-hairline rounded-2xl rounded-tl-sm bg-card/70 px-4 py-3">
+                  <span className="og-typing">
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                </div>
               </div>
-            </div>
-          ),
-        )}
-        {busy && (
-          <div className="og-fade flex items-end gap-2">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary/20 text-secondary">
-              <Bot className="h-3.5 w-3.5" />
-            </span>
-            <div className="rounded-2xl rounded-bl-md border border-border bg-card px-3.5 py-3">
-              <span className="og-typing">
-                <i />
-                <i />
-                <i />
-              </span>
-            </div>
+            )}
           </div>
         )}
         <div ref={end} />
       </div>
 
       {/* Composer */}
-      <div className="border-t border-border p-3">
-        <div className="mb-2 flex flex-wrap gap-1.5">
-          {SUGGESTIONS.map((s) => (
+      <div className="px-3 pb-3 pt-1">
+        {!fresh && (
+          <div className="og-scroll-x mb-2 flex gap-1.5 overflow-x-auto pb-1">
+            {SUGGESTIONS.map((s) => (
+              <button
+                key={s}
+                onClick={() => run(s)}
+                disabled={busy}
+                className="shrink-0 rounded-full border border-border/70 bg-background/40 px-3 py-1 text-[11px] text-muted-foreground transition hover:border-primary hover:text-foreground disabled:opacity-40"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="og-hairline rounded-2xl bg-background/60 p-2 shadow-2xl shadow-black/40 transition focus-within:shadow-primary/20">
+          <div className="flex items-end gap-2">
+            <textarea
+              rows={2}
+              aria-label="Message OG BOT"
+              className={cn(
+                inputCls,
+                "max-h-40 min-h-[44px] resize-none border-0 bg-transparent px-2 font-sans text-sm focus:border-0 focus:ring-0",
+              )}
+              placeholder={`Describe a change to ${ws.project}…`}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  run();
+                }
+              }}
+            />
             <button
-              key={s}
-              onClick={() => run(s)}
-              className="rounded-full border border-border bg-card/40 px-2.5 py-1 text-[11px] text-muted-foreground transition hover:border-primary hover:bg-primary/10 hover:text-primary"
+              onClick={() => run()}
+              disabled={busy || !q.trim()}
+              className="og-gradient shrink-0 rounded-xl p-3 text-primary-foreground shadow-lg shadow-primary/30 transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
+              aria-label="Send"
             >
-              {s}
+              <Send className="h-4 w-4" />
             </button>
-          ))}
-        </div>
-        <div className="flex items-end gap-2 rounded-2xl border border-border bg-card/60 p-1.5 transition focus-within:border-primary">
-          <textarea
-            rows={1}
-            className={cn(
-              inputCls,
-              "max-h-32 resize-none border-0 bg-transparent focus:border-0 focus:ring-0",
-            )}
-            placeholder={`Describe a change to ${ws.project}…`}
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                run();
-              }
-            }}
-          />
-          <button
-            onClick={() => run()}
-            disabled={busy || !q.trim()}
-            className="shrink-0 rounded-xl bg-primary p-2.5 text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
-            aria-label="Send"
-          >
-            <Send className="h-4 w-4" />
-          </button>
+          </div>
+          <div className="flex items-center justify-between px-2 pt-1 text-[10px] text-muted-foreground/80">
+            <span>Enter to send · Shift + Enter for a new line</span>
+            <span className="hidden sm:inline">Undo any change in the preview toolbar</span>
+          </div>
         </div>
       </div>
     </div>
@@ -330,6 +408,7 @@ export function Chat() {
 }
 
 const CHAT_CSS = `
+.og-scroll-x{scrollbar-width:none}.og-scroll-x::-webkit-scrollbar{display:none}
 .og-fade{animation:ogFade .25s ease-out}
 @keyframes ogFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 .og-typing{display:inline-flex;gap:4px;align-items:center}

@@ -83,19 +83,29 @@ export function Preview({ onPublish }: { onPublish?: () => void }) {
     }
   };
 
+  const iconBtn =
+    "rounded-lg p-1.5 text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent";
+  const doc = buildDoc(files);
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
-        <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
+      <div className="og-glass flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
+        <div
+          role="tablist"
+          aria-label="Preview mode"
+          className="og-hairline order-1 flex items-center gap-0.5 rounded-xl bg-background/40 p-1"
+        >
           {(["preview", "code", "layout"] as const).map((mo) => (
             <button
               key={mo}
+              role="tab"
+              aria-selected={mode === mo}
               onClick={() => setMode(mo)}
               className={cn(
-                "flex items-center gap-1 rounded px-2.5 py-1 text-xs font-semibold capitalize transition",
+                "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition",
                 mode === mo
-                  ? "bg-primary text-primary-foreground"
+                  ? "og-gradient text-primary-foreground shadow-md shadow-primary/25"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -110,107 +120,117 @@ export function Preview({ onPublish }: { onPublish?: () => void }) {
             </button>
           ))}
         </div>
-        <div className="flex flex-wrap items-center gap-1">
-          {mode === "preview" &&
-            (
-              [
-                ["desktop", Monitor],
-                ["tablet", Tablet],
-                ["mobile", Smartphone],
-              ] as const
-            ).map(([k, Icon]) => (
-              <button
-                key={k}
-                aria-label={k}
-                onClick={() => setDevice(k)}
-                className={cn(
-                  "rounded p-1.5",
-                  device === k
-                    ? "bg-secondary text-secondary-foreground"
-                    : "text-muted-foreground hover:text-primary",
-                )}
-              >
-                <Icon className="h-4 w-4" />
-              </button>
-            ))}
-          <button
-            aria-label="Undo last change"
-            title="Undo last change (AI edit, section or typing)"
-            disabled={!workspace.canUndo()}
-            onClick={() => workspace.undo()}
-            className="rounded p-1.5 text-muted-foreground transition hover:text-primary disabled:opacity-30"
-          >
-            <Undo2 className="h-4 w-4" />
-          </button>
-          <button
-            aria-label="Redo"
-            title="Redo"
-            disabled={!workspace.canRedo()}
-            onClick={() => workspace.redo()}
-            className="rounded p-1.5 text-muted-foreground transition hover:text-primary disabled:opacity-30"
-          >
-            <Redo2 className="h-4 w-4" />
-          </button>
-          <div className="relative" ref={addRef}>
+        <div className="order-3 flex flex-wrap items-center gap-1.5 max-sm:w-full sm:order-2">
+          {mode === "preview" && (
+            <div className="og-hairline flex items-center gap-0.5 rounded-xl bg-background/40 p-1 max-sm:hidden">
+              {(
+                [
+                  ["desktop", Monitor],
+                  ["tablet", Tablet],
+                  ["mobile", Smartphone],
+                ] as const
+              ).map(([k, Icon]) => (
+                <button
+                  key={k}
+                  aria-label={k}
+                  title={k}
+                  aria-pressed={device === k}
+                  onClick={() => setDevice(k)}
+                  className={cn(
+                    "rounded-lg p-1.5 transition",
+                    device === k
+                      ? "bg-primary/20 text-primary"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="og-hairline flex items-center gap-0.5 rounded-xl bg-background/40 p-1">
             <button
-              onClick={() => setAddOpen((o) => !o)}
-              aria-label="Add section"
-              aria-expanded={addOpen}
-              className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs font-semibold text-foreground transition hover:border-primary hover:text-primary"
+              aria-label="Undo last change"
+              title="Undo last change (AI edit, section or typing)"
+              disabled={!workspace.canUndo()}
+              onClick={() => workspace.undo()}
+              className={iconBtn}
             >
-              <Plus className="h-3.5 w-3.5" /> Section
+              <Undo2 className="h-4 w-4" />
             </button>
-            {addOpen && (
-              <>
-                <div className="absolute right-0 z-50 mt-1 max-h-72 w-48 overflow-y-auto rounded-xl border border-border bg-panel/95 p-1 shadow-xl backdrop-blur">
+            <button
+              aria-label="Redo"
+              title="Redo"
+              disabled={!workspace.canRedo()}
+              onClick={() => workspace.redo()}
+              className={iconBtn}
+            >
+              <Redo2 className="h-4 w-4" />
+            </button>
+            <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
+            <div className="relative" ref={addRef}>
+              <button
+                onClick={() => setAddOpen((o) => !o)}
+                aria-label="Add section"
+                title="Add section"
+                aria-expanded={addOpen}
+                className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-foreground transition hover:bg-accent"
+              >
+                <Plus className="h-3.5 w-3.5" /> Section
+              </button>
+              {addOpen && (
+                <div className="og-glass og-hairline absolute right-0 z-50 mt-2 max-h-72 w-52 overflow-y-auto rounded-xl p-1 shadow-2xl shadow-black/50">
                   {SECTIONS.map((s) => (
                     <button
                       key={s.id}
                       onClick={() => addSection(s.id)}
-                      className="block w-full rounded px-3 py-2 text-left text-xs text-foreground transition hover:bg-primary/15 hover:text-primary"
+                      className="block w-full rounded-lg px-3 py-2 text-left text-xs text-foreground transition hover:bg-primary/15 hover:text-primary"
                     >
                       {s.label}
                     </button>
                   ))}
                 </div>
-              </>
-            )}
+              )}
+            </div>
+            <button
+              aria-label="Reload"
+              title="Reload preview"
+              onClick={() => setNonce((n) => n + 1)}
+              className={iconBtn}
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+            <button
+              onClick={exportZip}
+              disabled={zipping}
+              className={iconBtn}
+              aria-label="Export ZIP"
+              title="Download as ZIP"
+            >
+              <Download className="h-4 w-4" />
+            </button>
           </div>
-          <button
-            aria-label="Reload"
-            onClick={() => setNonce((n) => n + 1)}
-            className="rounded p-1.5 text-muted-foreground hover:text-primary"
-          >
-            <RefreshCw className="h-4 w-4" />
-          </button>
-          <button
-            onClick={exportZip}
-            disabled={zipping}
-            className="rounded p-1.5 text-muted-foreground hover:text-primary disabled:opacity-40"
-            aria-label="Export ZIP"
-          >
-            <Download className="h-4 w-4" />
-          </button>
-          <button
-            onClick={onPublish}
-            className="flex items-center gap-1 rounded-lg bg-secondary px-2.5 py-1.5 text-xs font-bold uppercase text-secondary-foreground transition hover:opacity-90"
-          >
-            <Rocket className="h-3.5 w-3.5" /> Publish
-          </button>
         </div>
+        <button
+          onClick={onPublish}
+          className="og-gradient order-2 ml-auto flex items-center sm:order-3 sm:ml-0 gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold uppercase tracking-wider text-primary-foreground shadow-lg shadow-primary/30 transition hover:brightness-110"
+        >
+          <Rocket className="h-3.5 w-3.5" /> Publish
+        </button>
       </div>
 
       {/* body */}
       {mode === "preview" ? (
-        <div className="flex flex-1 min-h-0 justify-center overflow-auto bg-muted/40 p-3">
-          <iframe
-            key={nonce}
-            title="preview"
-            sandbox="allow-scripts allow-forms"
-            srcDoc={buildDoc(files)}
-            style={{ width: SIZES[device] }}
-            className="h-full min-h-[480px] max-w-full rounded-xl border border-border bg-background shadow-xl transition-all"
-          />
+        <div className="og-stage flex min-h-0 flex-1 justify-center overflow-auto p-2 sm:p-6">
+          <DeviceFrame device={device} project={project}>
+            <iframe
+              key={nonce}
+              title="preview"
+              sandbox="allow-scripts allow-forms"
+              srcDoc={doc}
+              className="h-full w-full border-0 bg-background"
+            />
+          </DeviceFrame>
         </div>
       ) : mode === "code" ? (
         <div className="flex flex-1 min-h-0 flex-col p-3">
@@ -234,7 +254,7 @@ export function Preview({ onPublish }: { onPublish?: () => void }) {
             spellCheck={false}
             value={files[active] ?? ""}
             onChange={(e) => workspace.writeFile(active, e.target.value)}
-            className="flex-1 min-h-0 resize-none rounded border border-border bg-background p-3 font-mono text-xs leading-relaxed text-foreground outline-none focus:border-primary"
+            className="og-hairline min-h-0 flex-1 resize-none rounded-xl border-0 bg-[#0a0d18] p-4 font-mono text-xs leading-relaxed text-foreground shadow-inner outline-none focus:ring-1 focus:ring-primary/60"
           />
         </div>
       ) : (
@@ -244,6 +264,64 @@ export function Preview({ onPublish }: { onPublish?: () => void }) {
           onEdit={editHtml}
         />
       )}
+    </div>
+  );
+}
+
+/** A browser window, tablet or phone around the live preview. */
+function DeviceFrame({
+  device,
+  project,
+  children,
+}: {
+  device: keyof typeof SIZES;
+  project: string;
+  children: React.ReactNode;
+}) {
+  if (device === "desktop") {
+    return (
+      <div className="og-hairline flex h-full min-h-[480px] w-full flex-col overflow-hidden rounded-2xl bg-panel shadow-2xl shadow-black/60 transition-all">
+        <div className="flex items-center gap-3 border-b border-border/60 px-3 py-2">
+          <span className="flex gap-1.5" aria-hidden>
+            <i className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
+            <i className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
+            <i className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
+          </span>
+          <span className="mx-auto flex max-w-sm flex-1 items-center justify-center gap-1.5 truncate rounded-md bg-background/60 px-3 py-1 font-mono text-[10px] text-muted-foreground">
+            <span className="text-success" aria-hidden>
+              ●
+            </span>
+            {project}.preview
+          </span>
+          <span className="w-10" aria-hidden />
+        </div>
+        <div className="min-h-0 flex-1">{children}</div>
+      </div>
+    );
+  }
+  const phone = device === "mobile";
+  return (
+    <div
+      style={{ width: SIZES[device] }}
+      className={cn(
+        "relative h-full max-h-[900px] min-h-[480px] max-w-full shrink-0 bg-gradient-to-b from-[#2a2f45] to-[#141827] p-2.5 shadow-2xl shadow-black/70 ring-1 ring-white/10 transition-all max-sm:!w-full max-sm:max-h-none max-sm:rounded-2xl max-sm:bg-none max-sm:p-0",
+        phone ? "rounded-[2.6rem]" : "rounded-[1.8rem]",
+      )}
+    >
+      {phone && (
+        <span
+          className="absolute left-1/2 top-4 z-10 h-5 w-24 -translate-x-1/2 rounded-full bg-black max-sm:hidden"
+          aria-hidden
+        />
+      )}
+      <div
+        className={cn(
+          "h-full overflow-hidden bg-background max-sm:rounded-2xl",
+          phone ? "rounded-[2.1rem]" : "rounded-[1.3rem]",
+        )}
+      >
+        {children}
+      </div>
     </div>
   );
 }

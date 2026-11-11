@@ -133,8 +133,17 @@ export function SplitView({
                 save(mode, p);
               }
             }}
-            className="w-1.5 shrink-0 cursor-col-resize touch-none bg-border transition hover:bg-primary focus:bg-primary focus:outline-none"
-          />
+            className="group relative w-2 shrink-0 cursor-col-resize touch-none bg-gradient-to-b from-transparent via-border/80 to-transparent transition hover:via-primary focus:via-primary focus:outline-none"
+          >
+            <span
+              aria-hidden
+              className="pointer-events-none absolute left-1/2 top-1/2 flex h-10 w-3 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center gap-1 rounded-full border border-border bg-panel shadow-lg transition group-hover:border-primary group-focus:border-primary"
+            >
+              <i className="h-0.5 w-0.5 rounded-full bg-muted-foreground" />
+              <i className="h-0.5 w-0.5 rounded-full bg-muted-foreground" />
+              <i className="h-0.5 w-0.5 rounded-full bg-muted-foreground" />
+            </span>
+          </div>
         )}
         <section
           aria-label={rightLabel}
@@ -143,23 +152,29 @@ export function SplitView({
           {right}
         </section>
       </div>
-      <div role="tablist" aria-label="Window" className="flex shrink-0 border-t border-border">
-        {options.map(([m, label, Icon]) => (
-          <button
-            key={m}
-            role="tab"
-            aria-selected={shown === m}
-            onClick={() => choose(m)}
-            className={cn(
-              "flex flex-1 items-center justify-center gap-2 py-2 text-xs font-semibold uppercase tracking-wide transition",
-              shown === m
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <Icon className="h-4 w-4" /> {label}
-          </button>
-        ))}
+      <div className="og-glass flex shrink-0 justify-center border-t border-border/60 px-3 py-2">
+        <div
+          role="tablist"
+          aria-label="Window"
+          className="og-hairline flex w-full max-w-md gap-1 rounded-full bg-background/40 p-1"
+        >
+          {options.map(([m, label, Icon]) => (
+            <button
+              key={m}
+              role="tab"
+              aria-selected={shown === m}
+              onClick={() => choose(m)}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-2 rounded-full py-1.5 text-xs font-semibold uppercase tracking-wider transition",
+                shown === m
+                  ? "og-gradient text-primary-foreground shadow-md shadow-primary/30"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Icon className="h-4 w-4" /> {label}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
