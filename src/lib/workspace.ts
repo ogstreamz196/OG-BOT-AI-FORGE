@@ -93,6 +93,26 @@ function hydrate() {
   }
 }
 
+// Undo / redo for every change (AI edits, sections, theme, typing), per project, this session.
+const HISTORY_MAX = 40;
+const past: Record<string, Files[]> = {};
+const future: Record<string, Files[]> = {};
+let lastTyping = { file: "", at: 0 };
+
+/** Remember the files as they are now, before a change. Typing in one file is grouped. */
+function remember(typingIn?: string) {
+  const now = Date.now();
+  if (typingIn && lastTyping.file === typingIn && now - lastTyping.at < 1500) {
+    lastTyping.at = now;
+    return;
+  }
+  lastTyping = typingIn ? { file: typingIn, at: now } : { file: "", at: 0 };
+  const stack = (past[state.project] ??= []);
+  stack.push(state.files);
+  if (stack.length > HISTORY_MAX) stack.shift();
+  future[state.project] = [];
+}
+
 function set(next: Partial<Workspace>) {
   state = { ...state, ...next, rev: state.rev + 1 };
   projects[state.project] = state.files;
@@ -120,11 +140,38 @@ export const workspace = {
     set({ project: name, files: { ...projects[name]! }, active: "index.html" });
   },
   reset() {
+    remember();
     set({ files: { ...(TEMPLATES[state.project] ?? BLANK) } });
   },
   setActive: (active: string) => set({ active }),
-  writeFile: (name: string, content: string) => set({ files: { ...state.files, [name]: content } }),
-  writeFiles: (patch: Files) => set({ files: { ...state.files, ...patch } }),
+  writeFile: (name: string, content: string) => {
+    if (state.files[name] === content) return;
+    remember(name);
+    set({ files: { ...state.files, [name]: content } });
+  },
+  writeFiles: (patch: Files) => {
+    remember();
+    set({ files: { ...state.files, ...patch } });
+  },
+  canUndo: () => (past[state.project]?.length ?? 0) > 0,
+  canRedo: () => (future[state.project]?.length ?? 0) > 0,
+  /** Step back one change (e.g. an AI edit you don't like). */
+  undo() {
+    const prev = past[state.project]?.pop();
+    if (!prev) return false;
+    (future[state.project] ??= []).push(state.files);
+    lastTyping = { file: "", at: 0 };
+    set({ files: prev, active: state.active in prev ? state.active : "index.html" });
+    return true;
+  },
+  redo() {
+    const next = future[state.project]?.pop();
+    if (!next) return false;
+    (past[state.project] ??= []).push(state.files);
+    lastTyping = { file: "", at: 0 };
+    set({ files: next, active: state.active in next ? state.active : "index.html" });
+    return true;
+  },
   /** Test helper: restore initial state. */
   _reset() {
     hydrated = true;
@@ -134,6 +181,9 @@ export const workspace = {
       /* ignore */
     }
     for (const k of Object.keys(projects)) delete projects[k];
+    for (const k of Object.keys(past)) delete past[k];
+    for (const k of Object.keys(future)) delete future[k];
+    lastTyping = { file: "", at: 0 };
     Object.assign(projects, TEMPLATES);
     state = {
       project: "blank-app",

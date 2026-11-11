@@ -17,12 +17,18 @@ import installAutostart from "../../../scripts/install-autostart.bat?raw";
 import uninstallAutostart from "../../../scripts/uninstall-autostart.bat?raw";
 import driveWatcher from "../../../scripts/drive-watcher.ps1?raw";
 import driveServer from "../../../scripts/og-drive-server.py?raw";
+import selfRepair from "../../../scripts/og_self_repair.py?raw";
 import { useState } from "react";
 import { driveLink, useDriveLink } from "@/lib/drive-link";
 import { devAuth } from "@/lib/dev-auth";
 
 /** The plug-in-and-go kit: copy these into <drive>:\OFFLINE AI\OG-BOT\ */
 export const DRIVE_KIT: { name: string; content: string; what: string }[] = [
+  {
+    name: "og_self_repair.py",
+    content: selfRepair,
+    what: "OG BOT's self-repair: fixes errors in this app with your own coding model, checks and publishes them.",
+  },
   {
     name: "og-drive-server.py",
     content: driveServer,
@@ -193,6 +199,7 @@ function PairDrive() {
   const d = useDriveLink();
   const [msg, setMsg] = useState<string | null>(null);
   const [needsGoogle, setNeedsGoogle] = useState(false);
+  const [ghToken, setGhToken] = useState("");
   const pair = async () => {
     setMsg("Creating a pairing key…");
     const r = await driveLink.pair();
@@ -200,7 +207,17 @@ function PairDrive() {
     if (!r.ok) return setMsg(r.message);
     saveFile(
       "og-drive.json",
-      JSON.stringify({ drive_key: r.key, remote: true, auto_update_models: true }, null, 2),
+      JSON.stringify(
+        {
+          drive_key: r.key,
+          remote: true,
+          auto_update_models: true,
+          // Self-repair: lets OG BOT push its checked fixes to the app's repo.
+          ...(ghToken.trim() ? { github_token: ghToken.trim(), repo: "ogstreamz196/OG-BOT-AI-FORGE" } : {}),
+        },
+        null,
+        2,
+      ),
     );
     setMsg(
       "Saved og-drive.json: put it in OFFLINE AI\\OG-BOT\\ next to og-drive-server.py, then replug the drive. Pairing again replaces the old key.",
@@ -222,6 +239,19 @@ function PairDrive() {
         </li>
         <li>Plugged into the same computer, it works with no internet at all.</li>
       </ul>
+      <label className="mb-2 block text-[11px] text-muted-foreground">
+        Self-repair key (optional): a GitHub fine-grained token for <span className="font-mono">ogstreamz196/OG-BOT-AI-FORGE</span> with
+        Contents: read and write. It goes only into og-drive.json on your drive (never stored here), so OG BOT can publish its own fixes.
+        Anyone holding the drive could use it, so keep the drive safe.
+        <input
+          type="password"
+          autoComplete="off"
+          className="mt-1 w-full rounded border border-input bg-background px-2 py-1.5 font-mono text-xs"
+          placeholder="github_pat_…"
+          value={ghToken}
+          onChange={(e) => setGhToken(e.target.value)}
+        />
+      </label>
       <Btn onClick={() => void pair()}>Pair this drive (download og-drive.json)</Btn>
       {needsGoogle && (
         <Btn

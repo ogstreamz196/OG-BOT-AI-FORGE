@@ -31,6 +31,7 @@ import { USAGE_META, usage, useUsage } from "@/lib/usage";
 import { getSubmissions, type Submission } from "@/lib/submissions-actions";
 import { cn } from "@/lib/utils";
 import { useDriveLink } from "@/lib/drive-link";
+import { SelfRepairPanel } from "./SelfRepair";
 
 function overrideState(id: string, overrides: Record<string, boolean>): "default" | "on" | "off" {
   if (!(id in overrides)) return "default";
@@ -81,6 +82,7 @@ export function Dashboard() {
       </div>
 
       <RemoteAccessPanel />
+      <SelfRepairPanel />
 
       <div className="grid gap-3 lg:grid-cols-2">
         <Panel

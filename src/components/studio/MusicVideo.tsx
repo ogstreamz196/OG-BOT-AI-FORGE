@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { connectors, useConnectors } from "@/lib/connectors";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import { useDriveLink } from "@/lib/drive-link";
+import { report } from "@/lib/error-log";
 import { pingComfy, queueComfy } from "@/lib/music-video";
 import {
   DEFAULT_SUNO_BODY,
@@ -217,8 +218,10 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
   const [err, setErr] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
   const stop = () => abort.current?.abort();
-  const fail = (e: unknown, ctl: AbortController) =>
+  const fail = (e: unknown, ctl: AbortController) => {
     setErr(ctl.signal.aborted ? "Stopped." : e instanceof Error ? e.message : String(e));
+    if (!ctl.signal.aborted) report("engine", e, { tool: "musicvideo" });
+  };
 
   const genLyrics = async (): Promise<string | null> => {
     const ctl = new AbortController();

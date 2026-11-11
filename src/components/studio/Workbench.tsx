@@ -58,6 +58,8 @@ export function Workbench() {
             <select aria-label="Project" value={project} onChange={(e) => workspace.open(e.target.value)} className="rounded border border-border bg-background px-2 py-1 font-mono text-xs text-foreground">
               {workspace.projectNames().map((p) => <option key={p}>{p}</option>)}
             </select>
+            <Btn variant="ghost" disabled={!workspace.canUndo()} onClick={() => workspace.undo()}>Undo</Btn>
+            <Btn variant="ghost" disabled={!workspace.canRedo()} onClick={() => workspace.redo()}>Redo</Btn>
             <Btn variant="ghost" onClick={() => workspace.reset()}>Reset</Btn>
             <Btn variant="ghost" onClick={() => download(new Blob([buildDoc(files)], { type: "text/html" }), `${project}.html`)}>Export HTML</Btn>
             <Btn variant="ghost" onClick={exportZip} disabled={zipping}>{zipping ? "Zipping…" : "Export ZIP"}</Btn>

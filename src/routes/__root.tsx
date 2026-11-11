@@ -13,6 +13,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { startDriveLink } from "@/lib/drive-link";
+import { installErrorLog, report } from "@/lib/error-log";
 
 function NotFoundComponent() {
   return (
@@ -41,6 +42,7 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   const router = useRouter();
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
+    report("crash", error, { boundary: "root error screen" }); // OG BOT gets the full log
   }, [error]);
 
   return (
@@ -130,6 +132,7 @@ function RootComponent() {
   // and works offline.
   useEffect(() => {
     startDriveLink(); // find the drive (this computer or remote) and route the AI calls to it
+    installErrorLog(); // every error gets a detailed log; known ones are fixed on the spot
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
     navigator.serviceWorker.register("/sw.js").catch(() => {});
     // After load, tell the SW to precache the exact assets this page used, so a

@@ -35,7 +35,7 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 HERE = os.path.dirname(os.path.abspath(__file__))          # ...\OFFLINE AI\OG-BOT
 ROOT = os.path.dirname(HERE)                               # ...\OFFLINE AI
 PORT = 11500
@@ -65,6 +65,13 @@ MAX_PARAMS_B = 14
 ALLOWED_ORIGINS = re.compile(
     r"^(https://offline\.ogbot\.co\.uk|https://[a-z0-9-]+\.lovable\.app|http://(localhost|127\.0\.0\.1)(:\d+)?)$"
 )
+
+sys.path.insert(0, HERE)
+try:
+    from og_self_repair import SelfRepair  # OG BOT fixes the app it lives in
+except Exception:  # noqa: BLE001
+    SelfRepair = None  # type: ignore[assignment,misc]
+repair = None  # set in main()
 
 state: dict = {"hardware": {}, "tier": "handheld", "public_url": None, "online": False,
                "registered": False, "last_update": None, "log": []}
@@ -302,8 +309,62 @@ def make_handler(cfg: dict):
             self.reply(401, {"error": "sign in with a D.EV account"})
             return False
 
+        def body_json(self) -> dict:
+            n = int(self.headers.get("Content-Length") or 0)
+            if n > 200_000:
+                return {}
+            try:
+                return json.loads(self.rfile.read(n) or b"{}")
+            except Exception:  # noqa: BLE001
+                return {}
+
         def route(self):
             path = urlsplit(self.path).path
+            if path.startswith("/og/repair") or path == "/og/errors":
+                if not self.allowed():
+                    return
+                if repair is None:
+                    self.reply(503, {"error": "self-repair module missing (og_self_repair.py)"})
+                elif path == "/og/errors" and self.command == "POST":
+                    for e in (self.body_json().get("errors") or [])[:50]:
+                        if isinstance(e, dict):
+                            repair.report(e)
+                    self.reply(200, {"ok": True})
+                elif path == "/og/repair" and self.command == "GET":
+                    self.reply(200, repair.status())
+                elif path == "/og/repair/settings" and self.command == "POST":
+                    b = self.body_json()
+                    for k in ("auto", "push_main"):
+                        if isinstance(b.get(k), bool):
+                            repair.settings[k] = b[k]
+                    repair.save()
+                    self.reply(200, repair.status())
+                elif path == "/og/repair/undo" and self.command == "POST":
+                    self.reply(200, {"result": repair.undo_last()})
+                elif path == "/og/repair/revert" and self.command == "POST":
+                    self.reply(200, {"result": repair.revert(str(self.body_json().get("commit", "")) or None)})
+                elif path == "/og/repair/diff" and self.command == "GET":
+                    from urllib.parse import parse_qs
+                    commit = (parse_qs(urlsplit(self.path).query).get("commit") or [""])[0]
+                    self.reply(200, {"diff": repair.diff(commit)})
+                elif path == "/og/repair/idea" and self.command == "POST":
+                    b = self.body_json()
+                    text = str(b.get("text", "")).strip()
+                    self.reply(200 if text else 400, repair.add_idea(text, str(b.get("view", ""))) if text else {"error": "empty idea"})
+                elif path == "/og/repair/hint" and self.command == "POST":
+                    b = self.body_json()
+                    ok = repair.set_hint(str(b.get("fingerprint", "")), str(b.get("hint", "")))
+                    self.reply(200 if ok else 404, repair.status() if ok else {"error": "unknown error"})
+                elif path == "/og/repair/retry" and self.command == "POST":
+                    fp = str(self.body_json().get("fingerprint", ""))
+                    if fp in repair.errors:
+                        repair.errors[fp]["status"] = "new"
+                        repair.settings["auto"] = True
+                        repair.save()
+                    self.reply(200, repair.status())
+                else:
+                    self.reply(404, {"error": "not found"})
+                return
             if path == "/og/status":
                 if self.command == "GET" and self.allowed():
                     self.reply(200, status_body())
@@ -367,7 +428,8 @@ def status_body() -> dict:
             "roster": ROSTER[state["tier"]],
             "services": {"ollama": port_open(OLLAMA_PORT), "comfyui": port_open(COMFY_PORT)},
             "online": state["online"], "public_url": state["public_url"], "registered": state["registered"],
-            "last_model_update": state["last_update"], "log": state["log"][-15:]}
+            "last_model_update": state["last_update"], "log": state["log"][-15:],
+            "self_repair": repair.readiness() if repair else None}
 
 
 # ── 4. going online: tunnel + registration ─────────────────────────────────────
@@ -494,8 +556,22 @@ def online_loop(cfg: dict) -> None:
         time.sleep(30)
 
 
+def repair_loop() -> None:
+    while True:
+        time.sleep(60)
+        if repair and port_open(OLLAMA_PORT):
+            try:
+                repair.tick()
+            except Exception as e:  # noqa: BLE001
+                log(f"Self-repair error: {e}")
+
+
 def main() -> None:
+    global repair
     cfg = load_config()
+    if SelfRepair:
+        repair = SelfRepair(HERE, ROOT, cfg, log)
+        threading.Thread(target=repair_loop, daemon=True).start()
     log(f"OG-BOT drive server {VERSION} · {ROOT}")
     state["hardware"] = scan_hardware()
     state["tier"] = state["hardware"]["tier"]

@@ -58,6 +58,7 @@ import { DevSignIn } from "@/components/studio/DevSignIn";
 import { DEV_ROLE, useDevAuth } from "@/lib/dev-auth";
 import { connectors } from "@/lib/connectors";
 import { hydrateCloudSections, syncCloudSections } from "@/lib/cloud";
+import { crumb } from "@/lib/error-log";
 
 const logo = LOGO_SRC;
 
@@ -142,6 +143,8 @@ function Studio() {
   useEffect(() => {
     if (!effectiveDev && view === "dev") setView("create");
   }, [effectiveDev, view]);
+  // Breadcrumbs for the error log: which screen each error happened on.
+  useEffect(() => crumb("view", overlay ?? view), [view, overlay]);
   // Create → Build: a website/app request opens Build, where OG BOT starts on it.
   useEffect(() => buildHandoff.onSend(() => setView("build")), []);
   const tapRef = useRef<number[]>([]);

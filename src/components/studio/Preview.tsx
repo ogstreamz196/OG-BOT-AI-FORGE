@@ -14,6 +14,8 @@ import {
   ArrowDown,
   Copy,
   Trash2,
+  Undo2,
+  Redo2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buildDoc, useWorkspace, workspace } from "@/lib/workspace";
@@ -131,6 +133,24 @@ export function Preview({ onPublish }: { onPublish?: () => void }) {
                 <Icon className="h-4 w-4" />
               </button>
             ))}
+          <button
+            aria-label="Undo last change"
+            title="Undo last change (AI edit, section or typing)"
+            disabled={!workspace.canUndo()}
+            onClick={() => workspace.undo()}
+            className="rounded p-1.5 text-muted-foreground transition hover:text-primary disabled:opacity-30"
+          >
+            <Undo2 className="h-4 w-4" />
+          </button>
+          <button
+            aria-label="Redo"
+            title="Redo"
+            disabled={!workspace.canRedo()}
+            onClick={() => workspace.redo()}
+            className="rounded p-1.5 text-muted-foreground transition hover:text-primary disabled:opacity-30"
+          >
+            <Redo2 className="h-4 w-4" />
+          </button>
           <div className="relative" ref={addRef}>
             <button
               onClick={() => setAddOpen((o) => !o)}

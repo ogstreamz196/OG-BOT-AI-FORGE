@@ -10,6 +10,7 @@ describe("drive kit (plug in and go)", () => {
       "install-autostart.bat",
       "launch-hub.bat",
       "og-drive-server.py",
+      "og_self_repair.py",
       "start_ollama.bat",
       "uninstall-autostart.bat",
     ]);

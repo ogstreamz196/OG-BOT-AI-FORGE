@@ -43,6 +43,7 @@ import {
   type DevMode,
   type GenFile,
 } from "@/lib/dev-workbench";
+import { report } from "@/lib/error-log";
 
 type Turn = { role: "user" | "assistant"; text: string; model?: string };
 
@@ -160,7 +161,10 @@ export function DevWorkbench() {
         },
       });
     } catch (e) {
-      if (!ctl.signal.aborted) setErr(e instanceof Error ? e.message : String(e));
+      if (!ctl.signal.aborted) {
+        setErr(e instanceof Error ? e.message : String(e));
+        report("engine", e, { tool: "dev", model, mode });
+      }
     } finally {
       if (frame) cancelAnimationFrame(frame);
       flush();
