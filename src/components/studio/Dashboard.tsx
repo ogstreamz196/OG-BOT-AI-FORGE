@@ -10,6 +10,14 @@ import {
   Globe,
   ShieldCheck,
   LogOut,
+  HardDrive,
+  Bot,
+  Cpu,
+  Bug,
+  History,
+  LifeBuoy,
+  Activity,
+  Plug,
 } from "lucide-react";
 import QR from "qrcode";
 import { Panel, Btn, Stat, inputCls } from "./ui";
@@ -32,6 +40,17 @@ import { getSubmissions, type Submission } from "@/lib/submissions-actions";
 import { cn } from "@/lib/utils";
 import { useDriveLink } from "@/lib/drive-link";
 import { SelfRepairPanel } from "./SelfRepair";
+import { useEngineStatus } from "@/lib/engine-status";
+import { useErrorLog } from "@/lib/error-log";
+
+export const DASH_TABS = [
+  ["overview", "Overview"],
+  ["repair", "OG BOT repairs"],
+  ["licence", "Licence & devices"],
+  ["features", "Features"],
+  ["activity", "Activity"],
+] as const;
+export type DashTab = (typeof DASH_TABS)[number][0];
 
 function overrideState(id: string, overrides: Record<string, boolean>): "default" | "on" | "off" {
   if (!(id in overrides)) return "default";
@@ -63,157 +82,210 @@ function ActivationQR({ payload }: { payload: string }) {
   );
 }
 
-export function Dashboard() {
+/** Developer Dashboard: tabs so each job is one tap away instead of one long scroll. */
+export function Dashboard({ onOpen }: { onOpen?: (tool: string) => void } = {}) {
   const lic = useLicense();
   const u = useUsage();
   const [migrateTo, setMigrateTo] = useState("");
+  const [tab, setTab] = useState<DashTab>(() => {
+    try {
+      const t = typeof window !== "undefined" ? localStorage.getItem("og-dash-tab") : null;
+      return DASH_TABS.some(([id]) => id === t) ? (t as DashTab) : "overview";
+    } catch {
+      return "overview";
+    }
+  });
+  const pick = (t: DashTab) => {
+    setTab(t);
+    try {
+      localStorage.setItem("og-dash-tab", t);
+    } catch {
+      /* private mode */
+    }
+  };
 
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat
-          label="Tier"
-          value={TIER_LABEL[lic.tier]}
-          sub={lic.activated ? "activated" : "not activated"}
-        />
-        <Stat label="Expires" value={lic.expires} sub="subscription" />
-        <Stat label="Offline grace" value={`${lic.graceDaysLeft}d`} sub="air-gapped runtime" />
-        <Stat label="Total activity" value={String(usage.total())} sub="this device" />
-      </div>
+    <div className="mx-auto max-w-6xl space-y-3">
+      <nav
+        role="tablist"
+        aria-label="Dashboard sections"
+        className="sticky top-0 z-10 -mx-1 flex gap-1 overflow-x-auto bg-background/95 px-1 pb-2 backdrop-blur"
+      >
+        {DASH_TABS.map(([id, label]) => (
+          <button
+            key={id}
+            role="tab"
+            aria-selected={tab === id}
+            onClick={() => pick(id)}
+            className={cn(
+              "shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition",
+              tab === id
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border text-muted-foreground hover:border-primary hover:text-foreground",
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
 
-      <RemoteAccessPanel />
-      <SelfRepairPanel />
+      {tab === "overview" && (
+        <>
+          <HealthOverview onTab={pick} {...(onOpen ? { onOpen } : {})} />
+          <RemoteAccessPanel />
+        </>
+      )}
+      {tab === "repair" && <SelfRepairPanel />}
 
-      <div className="grid gap-3 lg:grid-cols-2">
-        <Panel
-          title="Customer & Subscription"
-          right={
-            <span className="font-mono text-[11px] text-muted-foreground">remote management</span>
-          }
-        >
-          <div className="space-y-3 text-xs">
-            <label className="block text-muted-foreground">
-              Customer
-              <input
-                className={inputCls}
-                value={lic.customer}
-                onChange={(e) => license.setCustomer(e.target.value)}
-              />
-            </label>
-            <div className="flex gap-2">
-              <label className="flex-1 text-muted-foreground">
-                Tier
-                <select
-                  aria-label="Tier"
-                  value={lic.tier}
-                  onChange={(e) => license.setTier(e.target.value as (typeof TIERS)[number])}
-                  className={inputCls}
-                >
-                  {TIERS.map((t) => (
-                    <option key={t} value={t}>
-                      {TIER_LABEL[t]}
-                    </option>
+      {tab === "licence" && (
+        <>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <Stat
+              label="Tier"
+              value={TIER_LABEL[lic.tier]}
+              sub={lic.activated ? "activated" : "not activated"}
+            />
+            <Stat label="Expires" value={lic.expires} sub="subscription" />
+            <Stat label="Offline grace" value={`${lic.graceDaysLeft}d`} sub="air-gapped runtime" />
+            <Stat label="Total activity" value={String(usage.total())} sub="this device" />
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-2">
+            <Panel
+              title="Customer & Subscription"
+              right={
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  remote management
+                </span>
+              }
+            >
+              <div className="space-y-3 text-xs">
+                <label className="block text-muted-foreground">
+                  Customer
+                  <input
+                    className={inputCls}
+                    value={lic.customer}
+                    onChange={(e) => license.setCustomer(e.target.value)}
+                  />
+                </label>
+                <div className="flex gap-2">
+                  <label className="flex-1 text-muted-foreground">
+                    Tier
+                    <select
+                      aria-label="Tier"
+                      value={lic.tier}
+                      onChange={(e) => license.setTier(e.target.value as (typeof TIERS)[number])}
+                      className={inputCls}
+                    >
+                      {TIERS.map((t) => (
+                        <option key={t} value={t}>
+                          {TIER_LABEL[t]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex-1 text-muted-foreground">
+                    Expiry
+                    <input
+                      type="date"
+                      className={inputCls}
+                      value={lic.expires}
+                      onChange={(e) => license.setExpires(e.target.value)}
+                    />
+                  </label>
+                </div>
+                <label className="block text-muted-foreground">
+                  Offline grace (days): {lic.graceDaysLeft}
+                  <input
+                    type="range"
+                    min={0}
+                    max={30}
+                    value={lic.graceDaysLeft}
+                    onChange={(e) => license.setGrace(+e.target.value)}
+                    className="w-full accent-primary"
+                  />
+                </label>
+              </div>
+            </Panel>
+
+            <Panel
+              title="Device Identity & Onboarding"
+              right={
+                <Btn variant="ghost" onClick={() => license.regenerateKey()}>
+                  <RefreshCw className="mr-1 inline h-3 w-3" />
+                  New key
+                </Btn>
+              }
+            >
+              <div className="flex flex-wrap items-center gap-4">
+                <ActivationQR payload={`ogbot://activate?key=${lic.deviceKey}&mac=${lic.mac}`} />
+                <dl className="min-w-0 flex-1 space-y-1 font-mono text-xs">
+                  {(
+                    [
+                      ["Device Key", lic.deviceKey],
+                      ["Host MAC", lic.mac],
+                      ["USB Serial", lic.usbSerial],
+                    ] as const
+                  ).map(([k, v]) => (
+                    <div key={k}>
+                      <dt className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        {k}
+                      </dt>
+                      <dd className="truncate text-foreground" title={v}>
+                        {v}
+                      </dd>
+                    </div>
                   ))}
-                </select>
-              </label>
-              <label className="flex-1 text-muted-foreground">
-                Expiry
-                <input
-                  type="date"
-                  className={inputCls}
-                  value={lic.expires}
-                  onChange={(e) => license.setExpires(e.target.value)}
-                />
-              </label>
-            </div>
-            <label className="block text-muted-foreground">
-              Offline grace (days): {lic.graceDaysLeft}
-              <input
-                type="range"
-                min={0}
-                max={30}
-                value={lic.graceDaysLeft}
-                onChange={(e) => license.setGrace(+e.target.value)}
-                className="w-full accent-primary"
-              />
-            </label>
+                  <p className="pt-1 text-[11px] text-muted-foreground">
+                    Scan on first launch to bind this USB to the account.
+                  </p>
+                </dl>
+              </div>
+            </Panel>
           </div>
-        </Panel>
+        </>
+      )}
 
-        <Panel
-          title="Device Identity & Onboarding"
-          right={
-            <Btn variant="ghost" onClick={() => license.regenerateKey()}>
-              <RefreshCw className="mr-1 inline h-3 w-3" />
-              New key
-            </Btn>
-          }
-        >
-          <div className="flex flex-wrap items-center gap-4">
-            <ActivationQR payload={`ogbot://activate?key=${lic.deviceKey}&mac=${lic.mac}`} />
-            <dl className="min-w-0 flex-1 space-y-1 font-mono text-xs">
-              {(
-                [
-                  ["Device Key", lic.deviceKey],
-                  ["Host MAC", lic.mac],
-                  ["USB Serial", lic.usbSerial],
-                ] as const
-              ).map(([k, v]) => (
-                <div key={k}>
-                  <dt className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                    {k}
-                  </dt>
-                  <dd className="truncate text-foreground" title={v}>
-                    {v}
-                  </dd>
-                </div>
-              ))}
-              <p className="pt-1 text-[11px] text-muted-foreground">
-                Scan on first launch to bind this USB to the account.
-              </p>
-            </dl>
-          </div>
-        </Panel>
-      </div>
-
-      <Panel title="Feature Permissions · Section Gating">
-        <p className="mb-3 text-xs text-muted-foreground">
-          Each module follows the tier default unless you grant or revoke it here. Click to cycle
-          default → granted → revoked.
-        </p>
-        <ul className="grid gap-2 md:grid-cols-2">
-          {FEATURES.map((f: Feature) => {
-            const st = overrideState(f.id, lic.overrides);
-            const unlocked = isUnlocked(f.id, lic);
-            return (
-              <li
-                key={f.id}
-                className="flex items-center justify-between rounded border border-border bg-card px-3 py-2"
-              >
-                <div className="min-w-0">
-                  <div className="truncate font-mono text-xs text-foreground">{f.label}</div>
-                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                    min {TIER_LABEL[f.minTier]} · {unlocked ? "unlocked" : "locked"}
-                  </div>
-                </div>
-                <button
-                  onClick={() => license.cycleOverride(f.id)}
-                  className={cn(
-                    "rounded px-2 py-1 font-mono text-[11px] uppercase",
-                    st === "on" && "bg-primary/20 text-primary",
-                    st === "off" && "bg-destructive/20 text-destructive",
-                    st === "default" && "bg-muted text-muted-foreground",
-                  )}
+      {tab === "features" && (
+        <Panel title="Feature Permissions · Section Gating">
+          <p className="mb-3 text-xs text-muted-foreground">
+            Each module follows the tier default unless you grant or revoke it here. Click to cycle
+            default → granted → revoked.
+          </p>
+          <ul className="grid gap-2 md:grid-cols-2">
+            {FEATURES.map((f: Feature) => {
+              const st = overrideState(f.id, lic.overrides);
+              const unlocked = isUnlocked(f.id, lic);
+              return (
+                <li
+                  key={f.id}
+                  className="flex items-center justify-between rounded border border-border bg-card px-3 py-2"
                 >
-                  {st === "on" ? "Granted" : st === "off" ? "Revoked" : "Default"}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </Panel>
+                  <div className="min-w-0">
+                    <div className="truncate font-mono text-xs text-foreground">{f.label}</div>
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                      min {TIER_LABEL[f.minTier]} · {unlocked ? "unlocked" : "locked"}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => license.cycleOverride(f.id)}
+                    className={cn(
+                      "rounded px-2 py-1 font-mono text-[11px] uppercase",
+                      st === "on" && "bg-primary/20 text-primary",
+                      st === "off" && "bg-destructive/20 text-destructive",
+                      st === "default" && "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {st === "on" ? "Granted" : st === "off" ? "Revoked" : "Default"}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </Panel>
+      )}
 
-      <div className="grid gap-3 lg:grid-cols-2">
+      {tab === "licence" && (
         <Panel title="Remote Device Management">
           <div className="space-y-2">
             {lic.slots.map((s) => (
@@ -254,33 +326,195 @@ export function Dashboard() {
             </div>
           </div>
         </Panel>
+      )}
 
-        <Panel
-          title="Local Usage Ledger"
-          right={
-            <Btn variant="ghost" onClick={() => usage.reset()}>
-              Reset
-            </Btn>
-          }
-        >
-          <ul className="space-y-2 text-xs">
-            {USAGE_META.map((m) => (
-              <li
-                key={m.key}
-                className="flex items-center justify-between rounded border border-border bg-card px-3 py-2 font-mono"
-              >
-                <span className="text-muted-foreground">{m.label}</span>
-                <span className="text-lg text-foreground">{u[m.key] ?? 0}</span>
+      {tab === "activity" && (
+        <div className="grid gap-3 lg:grid-cols-2">
+          <Panel
+            title="Local Usage Ledger"
+            right={
+              <Btn variant="ghost" onClick={() => usage.reset()}>
+                Reset
+              </Btn>
+            }
+          >
+            <ul className="space-y-2 text-xs">
+              {USAGE_META.map((m) => (
+                <li
+                  key={m.key}
+                  className="flex items-center justify-between rounded border border-border bg-card px-3 py-2 font-mono"
+                >
+                  <span className="text-muted-foreground">{m.label}</span>
+                  <span className="text-lg text-foreground">{u[m.key] ?? 0}</span>
+                </li>
+              ))}
+              <li className="px-1 pt-1 text-[11px] text-muted-foreground">
+                Tracked privately since {u.since}. Never leaves this device.
               </li>
-            ))}
-            <li className="px-1 pt-1 text-[11px] text-muted-foreground">
-              Tracked privately since {u.since}. Never leaves this device.
-            </li>
-          </ul>
-        </Panel>
-      </div>
+            </ul>
+          </Panel>
+          <SubmissionsPanel />
+        </div>
+      )}
+    </div>
+  );
+}
 
-      <SubmissionsPanel />
+/** One glance: is everything working, and the one tap to fix what isn't. */
+function HealthOverview({
+  onTab,
+  onOpen,
+}: {
+  onTab: (t: DashTab) => void;
+  onOpen?: (tool: string) => void;
+}) {
+  const drive = useDriveLink();
+  const engine = useEngineStatus();
+  const errors = useErrorLog();
+  const [repairs, setRepairs] = useState<{ open: number; fixed: number; busy: boolean } | null>(
+    null,
+  );
+  const base = drive.mode === "local" || drive.mode === "remote" ? drive.base : null;
+  useEffect(() => {
+    if (!base) {
+      setRepairs(null);
+      return;
+    }
+    let live = true;
+    const load = async () => {
+      try {
+        const j = (await (await fetch(`${base}/og/repair`)).json()) as {
+          busy: boolean;
+          errors: { status: string }[];
+        };
+        if (live)
+          setRepairs({
+            busy: j.busy,
+            open: j.errors.filter((e) =>
+              ["new", "fixing", "failed", "needs_owner"].includes(e.status),
+            ).length,
+            fixed: j.errors.filter((e) => e.status === "fixed" || e.status === "auto_fixed").length,
+          });
+      } catch {
+        if (live) setRepairs(null);
+      }
+    };
+    void load();
+    const id = setInterval(() => void load(), 15_000);
+    return () => {
+      live = false;
+      clearInterval(id);
+    };
+  }, [base]);
+
+  const driveOk = drive.mode === "local" || drive.mode === "remote";
+  const unsent = errors.filter((e) => !e.sent && e.kind !== "healed").length;
+  const cards: {
+    icon: typeof HardDrive;
+    label: string;
+    value: string;
+    sub: string;
+    ok: boolean | null;
+    go: () => void;
+  }[] = [
+    {
+      icon: HardDrive,
+      label: "Drive",
+      value:
+        drive.mode === "local"
+          ? "Plugged in"
+          : drive.mode === "remote"
+            ? "Remote"
+            : drive.mode === "checking"
+              ? "Checking…"
+              : "Not found",
+      sub: drive.message,
+      ok: drive.mode === "checking" ? null : driveOk,
+      go: () => onOpen?.("setup"),
+    },
+    {
+      icon: Cpu,
+      label: "AI engine",
+      value: engine.online ? "Running" : "Offline",
+      sub: engine.online
+        ? `${engine.model}${engine.facts.loaded ? " · loaded" : ""}`
+        : "start the drive kit, then test",
+      ok: engine.online,
+      go: () => onOpen?.("ollama"),
+    },
+    {
+      icon: Bot,
+      label: "OG BOT repairs",
+      value: repairs
+        ? repairs.busy
+          ? "Working…"
+          : repairs.open
+            ? `${repairs.open} open`
+            : "All clear"
+        : "—",
+      sub: repairs ? `${repairs.fixed} fixed so far` : "needs the drive",
+      ok: repairs ? repairs.open === 0 : null,
+      go: () => onTab("repair"),
+    },
+    {
+      icon: Bug,
+      label: "This device",
+      value: errors.length ? `${errors.length} logged` : "No errors",
+      sub: unsent ? `${unsent} waiting to send to the drive` : "all sent",
+      ok: unsent === 0,
+      go: () => onTab("repair"),
+    },
+  ];
+  const quick: [string, string, typeof HardDrive][] = [
+    ["hardware", "Live hardware", Cpu],
+    ["git", "Change history", History],
+    ["ollama", "Test the engine", Activity],
+    ["connectors", "Connectors", Plug],
+    ["setup", "Setup guide", LifeBuoy],
+  ];
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {cards.map(({ icon: Icon, label, value, sub, ok, go }) => (
+          <button
+            key={label}
+            onClick={go}
+            className="rounded-xl border border-border bg-card p-3 text-left transition hover:border-primary"
+          >
+            <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Icon className="h-3 w-3" />
+                {label}
+              </span>
+              <span
+                className={cn(
+                  "h-2 w-2 rounded-full",
+                  ok === null ? "bg-muted-foreground" : ok ? "bg-primary" : "bg-destructive",
+                )}
+                aria-hidden
+              />
+            </div>
+            <div className="mt-1 font-display text-lg">{value}</div>
+            <div className="truncate text-[11px] text-muted-foreground" title={sub}>
+              {sub}
+            </div>
+          </button>
+        ))}
+      </div>
+      {onOpen && (
+        <div className="flex flex-wrap gap-2">
+          {quick.map(([id, label, Icon]) => (
+            <button
+              key={id}
+              onClick={() => onOpen(id)}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold transition hover:border-primary hover:text-primary"
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

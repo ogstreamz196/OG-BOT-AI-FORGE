@@ -169,6 +169,78 @@ def scan_hardware() -> dict:
     return hw
 
 
+def parse_gpu_live(out: str) -> dict | None:
+    """First row of `nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu`."""
+    for line in out.strip().splitlines():
+        p = [x.strip() for x in line.split(",")]
+        try:
+            return {"gpu_pct": float(p[0]), "vram_used_gb": round(float(p[1]) / 1024, 1),
+                    "vram_total_gb": round(float(p[2]) / 1024, 1), "temp_c": float(p[3])}
+        except (ValueError, IndexError):
+            continue
+    return None
+
+
+_cpu_prev: tuple[float, float] | None = None
+
+
+def _cpu_times() -> tuple[float, float] | None:
+    """(idle, total) since boot."""
+    try:
+        if IS_WIN:
+            idle, kern, user = (ctypes.c_ulonglong(), ctypes.c_ulonglong(), ctypes.c_ulonglong())
+            ctypes.windll.kernel32.GetSystemTimes(ctypes.byref(idle), ctypes.byref(kern), ctypes.byref(user))  # type: ignore[attr-defined]
+            return float(idle.value), float(kern.value + user.value)  # kernel time includes idle
+        with open("/proc/stat") as f:
+            v = [float(x) for x in f.readline().split()[1:]]
+        return v[3] + (v[4] if len(v) > 4 else 0), sum(v)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def cpu_pct() -> float | None:
+    global _cpu_prev
+    now = _cpu_times()
+    prev, _cpu_prev = _cpu_prev, now
+    if not now or not prev or now[1] <= prev[1]:
+        return None
+    return round(100 * (1 - (now[0] - prev[0]) / (now[1] - prev[1])), 1)
+
+
+def ram_pct() -> float | None:
+    try:
+        if IS_WIN:
+            class MS(ctypes.Structure):
+                _fields_ = [("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong),
+                            ("ullTotalPhys", ctypes.c_ulonglong), ("a", ctypes.c_ulonglong * 6)]
+            m = MS()
+            m.dwLength = ctypes.sizeof(MS)
+            ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m))  # type: ignore[attr-defined]
+            return float(m.dwMemoryLoad)
+        info = {}
+        with open("/proc/meminfo") as f:
+            for line in f:
+                k, v = line.split(":", 1)
+                info[k] = float(v.split()[0])
+        return round(100 * (1 - info["MemAvailable"] / info["MemTotal"]), 1)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def live_stats() -> dict:
+    """Real load right now, for the Hardware screen's gauges."""
+    gpu = None
+    smi = find_exe("nvidia-smi", r"C:\Windows\System32\nvidia-smi.exe")
+    if smi:
+        try:
+            out = subprocess.run([smi, "--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu",
+                                  "--format=csv,noheader,nounits"], capture_output=True, text=True, timeout=5).stdout
+            gpu = parse_gpu_live(out)
+        except Exception:  # noqa: BLE001
+            gpu = None
+    return {"gpu": gpu, "cpu_pct": cpu_pct(), "ram_pct": ram_pct(), "ram_gb": ram_gb(), "at": int(time.time())}
+
+
 # Docked: bind to the RTX 5080 (CUDA:0) and keep AMD ROCm/HIP and Vulkan out of the way.
 CUDA_ONLY = {"CUDA_VISIBLE_DEVICES": "0", "HIP_VISIBLE_DEVICES": "-1", "GGML_VK_VISIBLE_DEVICES": "-1"}
 
@@ -320,7 +392,11 @@ def make_handler(cfg: dict):
 
         def route(self):
             path = urlsplit(self.path).path
-            if path.startswith("/og/repair") or path == "/og/errors":
+            if path == "/og/live":
+                if self.allowed():
+                    self.reply(200, live_stats())
+                return
+            if path.startswith("/og/repair") or path in ("/og/errors", "/og/git/log"):
                 if not self.allowed():
                     return
                 if repair is None:
@@ -330,6 +406,8 @@ def make_handler(cfg: dict):
                         if isinstance(e, dict):
                             repair.report(e)
                     self.reply(200, {"ok": True})
+                elif path == "/og/git/log" and self.command == "GET":
+                    self.reply(200, repair.history())
                 elif path == "/og/repair" and self.command == "GET":
                     self.reply(200, repair.status())
                 elif path == "/og/repair/settings" and self.command == "POST":

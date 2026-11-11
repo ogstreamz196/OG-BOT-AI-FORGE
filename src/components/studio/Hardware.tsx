@@ -17,6 +17,52 @@ export const MODELS = [
 const DEFAULT_VRAM = 16;
 const PROFILES = [4, 6, 8, 12, 16, 24, 32];
 
+type Live = {
+  gpu: { gpu_pct: number; vram_used_gb: number; vram_total_gb: number; temp_c: number } | null;
+  cpu_pct: number | null;
+  ram_pct: number | null;
+  ram_gb: number | null;
+  models: { name: string; vram_gb: number }[];
+};
+
+/** Real load from the drive every 2 s (null when the drive isn't reachable). */
+function useLiveLoad(): Live | null {
+  const d = useDriveLink();
+  const base = d.mode === "local" || d.mode === "remote" ? d.base : null;
+  const [live, setLive] = useState<Live | null>(null);
+  useEffect(() => {
+    if (!base) {
+      setLive(null);
+      return;
+    }
+    let stop = false;
+    const tick = async () => {
+      try {
+        const r = await fetch(`${base}/og/live`);
+        if (!r.ok) throw new Error(String(r.status));
+        const j = (await r.json()) as Omit<Live, "models">;
+        let models: Live["models"] = [];
+        try {
+          const ps = (await (await fetch(`${base}/ollama/api/ps`)).json()) as { models?: { name: string; size_vram?: number }[] };
+          models = (ps.models ?? []).map((m) => ({ name: m.name, vram_gb: (m.size_vram ?? 0) / 2 ** 30 }));
+        } catch {
+          /* engine not running yet */
+        }
+        if (!stop) setLive({ ...j, models });
+      } catch {
+        if (!stop) setLive(null);
+      }
+    };
+    void tick();
+    const id = setInterval(() => void tick(), 2000);
+    return () => {
+      stop = true;
+      clearInterval(id);
+    };
+  }, [base]);
+  return live;
+}
+
 function DriveScan() {
   const d = useDriveLink();
   const hw = d.status?.hardware;
@@ -75,21 +121,10 @@ export function Hardware() {
       ? "estimated from GPU"
       : "RTX 5080 eGPU profile";
 
-  const [s, setS] = useState({ gpu: 34, vram: 6.1, cpu: 22, ram: 41, temp: 58 });
-  useEffect(() => {
-    const id = setInterval(() => {
-      const j = (v: number, d: number, lo: number, hi: number) =>
-        Math.min(hi, Math.max(lo, v + (Math.random() - 0.5) * d));
-      setS((p) => ({
-        gpu: j(p.gpu, 14, 5, 99),
-        vram: j(p.vram, 0.6, 2, TOTAL),
-        cpu: j(p.cpu, 10, 3, 95),
-        ram: j(p.ram, 4, 20, 90),
-        temp: j(p.temp, 3, 40, 85),
-      }));
-    }, 1000);
-    return () => clearInterval(id);
-  }, [TOTAL]);
+  const live = useLiveLoad();
+  const g = live?.gpu ?? null;
+  const vramTotal = g?.vram_total_gb ?? TOTAL;
+  const pct = (v: number | null | undefined) => (v == null ? "—" : `${v.toFixed(0)}%`);
   const tone = (v: number): "destructive" | "warning" | "primary" =>
     v > 85 ? "destructive" : v > 65 ? "warning" : "primary";
 
@@ -97,23 +132,23 @@ export function Hardware() {
     <div className="space-y-3">
       <DriveScan />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Stat label="GPU" value={`${s.gpu.toFixed(0)}%`} sub={hw?.gpuName ?? "Detecting…"} />
+        <Stat label="GPU" value={pct(g?.gpu_pct)} sub={g ? "live from the drive" : (hw?.gpuName ?? "Detecting…")} />
         <Stat
           label="VRAM"
-          value={`${Math.min(s.vram, TOTAL).toFixed(1)} GB`}
-          sub={`of ${TOTAL} GB · ${vramSource}`}
+          value={g ? `${g.vram_used_gb.toFixed(1)} GB` : "—"}
+          sub={`of ${vramTotal} GB · ${g ? "live" : vramSource}`}
         />
         <Stat
           label="CPU"
-          value={`${s.cpu.toFixed(0)}%`}
-          sub={hw?.threads ? `${hw.threads} threads (detected)` : "threads unknown"}
+          value={pct(live?.cpu_pct)}
+          sub={hw?.threads ? `${hw.threads} threads` : "threads unknown"}
         />
         <Stat
           label="RAM"
-          value={`${s.ram.toFixed(0)}%`}
-          sub={hw?.ramGB ? `${hw.ramGB >= 8 ? "≥8" : hw.ramGB} GB (detected)` : "not reported"}
+          value={pct(live?.ram_pct)}
+          sub={live?.ram_gb ? `of ${live.ram_gb} GB` : hw?.ramGB ? `${hw.ramGB >= 8 ? "≥8" : hw.ramGB} GB` : "not reported"}
         />
-        <Stat label="GPU Temp" value={`${s.temp.toFixed(0)}°C`} />
+        <Stat label="GPU Temp" value={g ? `${g.temp_c.toFixed(0)}°C` : "—"} />
       </div>
       <Panel
         title="Detected Device"
@@ -159,30 +194,52 @@ export function Hardware() {
           ))}
         </dl>
         <p className="mt-2 text-[11px] text-muted-foreground">
-          Browsers don't expose VRAM or live utilisation; VRAM is estimated from the GPU name
-          (override above) and the load gauges are simulated.
+          The live gauges come from the drive (nvidia-smi, CPU and memory counters). Without the
+          drive, VRAM is estimated from the GPU name (override above).
         </p>
       </Panel>
       <div className="grid gap-3 lg:grid-cols-2">
-        <Panel title="Live Load (simulated)">
-          <div className="space-y-3 text-xs">
-            {(
-              [
-                ["GPU", s.gpu],
-                ["VRAM", (s.vram / TOTAL) * 100],
-                ["CPU", s.cpu],
-                ["RAM", s.ram],
-              ] as const
-            ).map(([k, v]) => (
-              <div key={k}>
-                <div className="mb-1 flex justify-between font-mono">
-                  <span>{k}</span>
-                  <span>{v.toFixed(0)}%</span>
+        <Panel
+          title="Live load"
+          right={<span className="font-mono text-[10px] text-muted-foreground">{live ? "from the drive · every 2 s" : "drive not connected"}</span>}
+        >
+          {live ? (
+            <div className="space-y-3 text-xs">
+              {(
+                [
+                  ["GPU", g?.gpu_pct],
+                  ["VRAM", g ? (g.vram_used_gb / g.vram_total_gb) * 100 : null],
+                  ["CPU", live.cpu_pct],
+                  ["RAM", live.ram_pct],
+                ] as const
+              ).map(([k, v]) => (
+                <div key={k}>
+                  <div className="mb-1 flex justify-between font-mono">
+                    <span>{k}</span>
+                    <span>{v == null ? (k === "GPU" || k === "VRAM" ? "no NVIDIA GPU" : "—") : `${v.toFixed(0)}%`}</span>
+                  </div>
+                  <Bar value={v ?? 0} tone={tone(v ?? 0)} />
                 </div>
-                <Bar value={v} tone={tone(v)} />
+              ))}
+              <div className="border-t border-border pt-2">
+                <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Loaded in memory now</p>
+                {live.models.length ? (
+                  <ul className="space-y-1 font-mono">
+                    {live.models.map((m) => (
+                      <li key={m.name} className="flex justify-between gap-2">
+                        <span className="truncate">{m.name}</span>
+                        <span className="text-muted-foreground">{m.vram_gb.toFixed(1)} GB in VRAM</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-muted-foreground">No model loaded. The first message loads one (takes a few seconds).</p>
+                )}
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">Plug in the drive (or sign in as D.EV to reach it remotely) to see real GPU, VRAM, CPU and RAM load here.</p>
+          )}
         </Panel>
         <Panel title="Model Compatibility">
           <ul className="space-y-2 text-xs">

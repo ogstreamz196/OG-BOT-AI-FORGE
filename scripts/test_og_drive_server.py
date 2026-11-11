@@ -115,6 +115,22 @@ class SelfRepairTests(unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("git"), "needs git")
+class LiveStatsTests(unittest.TestCase):
+    def test_parse_gpu_live(self):
+        g = ogds.parse_gpu_live("37, 6144, 16303, 61\n")
+        self.assertEqual(g, {"gpu_pct": 37.0, "vram_used_gb": 6.0, "vram_total_gb": 15.9, "temp_c": 61.0})
+        self.assertIsNone(ogds.parse_gpu_live("[N/A], x\n"))
+
+    def test_live_stats_shape(self):
+        ogds.live_stats()
+        s = ogds.live_stats()
+        self.assertIn("gpu", s)
+        if s["cpu_pct"] is not None:
+            self.assertTrue(0 <= s["cpu_pct"] <= 100)
+        if s["ram_pct"] is not None:
+            self.assertTrue(0 <= s["ram_pct"] <= 100)
+
+
 class OwnerIdeasTests(unittest.TestCase):
     def test_hint_and_idea_go_into_the_prompt(self):
         import tempfile
@@ -198,9 +214,17 @@ class SelfRepairEndToEnd(unittest.TestCase):
             # one click undo of that exact fix reverts it on main
             self.assertEqual(r.revert(rec["commit"]), "reverted and pushed")
             self.assertEqual(r.errors["abc12345"]["status"], "reverted")
-            self.assertEqual(r.revert(rec["commit"]), "nothing to undo")
+            self.assertEqual(r.revert(rec["commit"]), "already undone")
             out = sp.run(["git", "--git-dir", origin, "show", "main:src/components/studio/Create.tsx"], capture_output=True, text=True).stdout
             self.assertIn("brokenThing", out)
+            # the change history lists real commits, and the owner can revert any of them
+            h = r.history()
+            subjects = [c["subject"] for c in h["commits"]]
+            self.assertIn("seed", subjects)
+            self.assertTrue(any(s.startswith("Revert") for s in subjects), subjects)
+            seed_sha = next(c["sha"] for c in h["commits"] if c["subject"] == "seed")
+            self.assertEqual(r.revert(seed_sha), "reverted and pushed")
+            self.assertEqual(r.revert("deadbeef"), "nothing to undo")
 
 
 if __name__ == "__main__":

@@ -60,3 +60,14 @@ The app is **OGSTREAMZ presentz OFFLINE FORGE** (see `src/components/studio/Bran
 Every site or app the studio builds is **"Powered by OG BOT"**: keep the badge from
 `src/lib/powered-by.ts` in every preview and export (`buildDoc`, `standaloneIndex`,
 Dev Workbench `previewDoc`), and add it to any new export path.
+
+## OG BOT self-repair (the app fixes itself)
+- Every error on the site is logged with full context (`src/lib/error-log.ts`) and sent to the
+  drive. The drive's OG BOT (`scripts/og_self_repair.py`, local 14B models) edits this repo's
+  `src/`, runs `tsc` + tests, and pushes passing fixes to `main` as author "OG BOT".
+- `docs/OGBOT_MEMORY.md` is what OG BOT reads before every change. When you move a screen,
+  rename a file, or add a rule the checks enforce, update its file map and rules too.
+- The owner steers it from Dashboard → OG BOT repairs (tasks, ideas, view, revert) and sees or
+  undoes any commit in Tools → Change history (drive endpoints `/og/git/log`, `/og/repair/*`).
+- Don't add the drive kit's Python files to anything that runs in the browser; keep both kit
+  files listed in `src/test/drive-kit.test.ts`.

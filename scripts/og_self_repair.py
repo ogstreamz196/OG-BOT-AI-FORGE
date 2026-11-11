@@ -407,16 +407,51 @@ class SelfRepair:
         self.busy = False
         self.save()
 
+    def history(self, limit: int = 25) -> dict:
+        """Recent commits on main (anyone's: OG BOT, Lovable, Claude, the owner), newest first."""
+        g = self.git()
+        if self.busy:
+            return {"commits": [], "error": "OG BOT is busy fixing something; try again in a minute"}
+        problem = self.ensure_clone() if g else "Git isn't on the drive yet"
+        if problem:
+            return {"commits": [], "error": problem}
+        code, out = _run([g, "log", f"-{int(limit)}", "--no-merges", "--format=%H%x1f%h%x1f%an%x1f%ct%x1f%s", "origin/main"], self.repo, 60)
+        commits = []
+        for line in out.splitlines() if code == 0 else []:
+            p = line.split("\x1f")
+            if len(p) == 5:
+                commits.append({"sha": p[0], "short": p[1], "author": p[2], "time": int(p[3]), "subject": p[4]})
+        undone = {r.get("commit") for r in self.repairs if r.get("status") == "undone"}
+        for c in commits:
+            c["reverted"] = c["short"] in undone
+        return {"commits": commits, "repo": self.cfg.get("repo", "")}
+
     def revert(self, commit: str | None = None) -> str:
-        """Undo one of OG BOT's fixes (the latest one when no commit is given) and publish the undo."""
+        """Undo a change on main and publish the undo: one of OG BOT's fixes (the latest when no
+        commit is given), or any recent commit the owner picks from the change history."""
+        if self.busy:
+            return "OG BOT is busy fixing something; try again in a minute"
         rec = next((r for r in reversed(self.repairs) if r.get("commit") and r.get("status") == "fixed" and (not commit or r["commit"] == commit)), None)
         g = self.git()
-        if not rec or not g or self.ensure_clone():
+        if not g or self.ensure_clone():
             return "nothing to undo"
-        code, out = _run([g, "-c", "user.name=OG BOT", "-c", "user.email=ogbot@ogbot.co.uk", "revert", "--no-edit", rec["commit"]], self.repo)
+        if commit and any(r.get("status") == "undone" and r.get("commit") and commit.startswith(r["commit"]) for r in self.repairs):
+            return "already undone"
+        if rec:
+            target = rec["commit"]
+        elif commit and re.fullmatch(r"[0-9a-f]{6,40}", commit) and _run([g, "merge-base", "--is-ancestor", commit, "HEAD"], self.repo)[0] == 0:
+            target = commit
+        else:
+            return "nothing to undo"
+        code, out = _run([g, "-c", "user.name=OG BOT", "-c", "user.email=ogbot@ogbot.co.uk", "revert", "--no-edit", target], self.repo)
         if code:
+            _run([g, "revert", "--abort"], self.repo)
             return f"revert failed (a later change touched the same lines): {out[-200:]}"
         code, out = _run([g, "push", "origin", "HEAD:main"], self.repo)
+        if not rec:
+            self.repairs.append({"commit": target[:12], "status": "undone", "message": "owner reverted " + target[:7], "finished": int(time.time())})
+            self.save()
+            return "reverted and pushed" if code == 0 else f"push failed: {out[-200:]}"
         rec["status"] = "undone"
         err = self.errors.get(rec.get("fingerprint", ""))
         if err:

@@ -102,28 +102,142 @@ type ToolId =
   | "workbench";
 type Overlay = "settings" | "dash" | "tools" | ToolId | null;
 
+type ToolGroup = "Make" | "Publish" | "Drive & engine" | "Advanced";
+const TOOL_GROUPS: ToolGroup[] = ["Make", "Publish", "Drive & engine", "Advanced"];
+
 const TOOLS: {
   id: ToolId;
   label: string;
+  hint: string;
+  group: ToolGroup;
   icon: typeof Package;
   C: React.ComponentType;
   dev?: boolean;
 }[] = [
-  { id: "connectors", label: "Connectors", icon: Plug, C: Connectors, dev: true },
-  { id: "brand", label: "Theme & Brand", icon: Palette, C: Brand },
-  { id: "setup", label: "Setup Guide", icon: LifeBuoy, C: SetupGuide },
-  { id: "ollama", label: "Ollama Test", icon: Activity, C: OllamaTester, dev: true },
-  { id: "selfimprove", label: "Self-Improve", icon: Brain, C: SelfImprove, dev: true },
-  { id: "forge", label: "Build & Publish", icon: Package, C: Forge },
   // Image / Song / Video are the primary "Create" view — keep direct studios dev-only to avoid duplicate entry points.
-  { id: "image", label: "Image Studio", icon: ImageIcon, C: ImageGen, dev: true },
-  { id: "music", label: "Music Forge", icon: Music2, C: Music, dev: true },
-  { id: "musicvideo", label: "Music Video Studio", icon: Clapperboard, C: MusicVideo, dev: true },
-  { id: "workbench", label: "Advanced Editor", icon: Code2, C: Workbench, dev: true },
-  { id: "hardware", label: "Hardware", icon: Cpu, C: Hardware, dev: true },
-  { id: "sentinel", label: "USB Sentinel", icon: ShieldCheck, C: Sentinel, dev: true },
-  { id: "database", label: "Database", icon: DbIcon, C: Database, dev: true },
-  { id: "git", label: "GitHub Sync", icon: Github, C: GitSync, dev: true },
+  {
+    id: "image",
+    label: "Image Studio",
+    hint: "Pictures with ComfyUI",
+    group: "Make",
+    icon: ImageIcon,
+    C: ImageGen,
+    dev: true,
+  },
+  {
+    id: "music",
+    label: "Music Forge",
+    hint: "Songs and beats",
+    group: "Make",
+    icon: Music2,
+    C: Music,
+    dev: true,
+  },
+  {
+    id: "musicvideo",
+    label: "Music Video Studio",
+    hint: "Song + scenes into a video",
+    group: "Make",
+    icon: Clapperboard,
+    C: MusicVideo,
+    dev: true,
+  },
+  {
+    id: "brand",
+    label: "Theme & Brand",
+    hint: "Colours and fonts of your site",
+    group: "Make",
+    icon: Palette,
+    C: Brand,
+  },
+  {
+    id: "forge",
+    label: "Build & Publish",
+    hint: "Web, Android or iOS app",
+    group: "Publish",
+    icon: Package,
+    C: Forge,
+  },
+  {
+    id: "git",
+    label: "Change history",
+    hint: "See and undo every change",
+    group: "Publish",
+    icon: Github,
+    C: GitSync,
+    dev: true,
+  },
+  {
+    id: "setup",
+    label: "Setup Guide",
+    hint: "Drive kit and pairing",
+    group: "Drive & engine",
+    icon: LifeBuoy,
+    C: SetupGuide,
+  },
+  {
+    id: "ollama",
+    label: "Engine Test",
+    hint: "Is Ollama answering?",
+    group: "Drive & engine",
+    icon: Activity,
+    C: OllamaTester,
+    dev: true,
+  },
+  {
+    id: "hardware",
+    label: "Hardware",
+    hint: "Live GPU, VRAM, CPU, RAM",
+    group: "Drive & engine",
+    icon: Cpu,
+    C: Hardware,
+    dev: true,
+  },
+  {
+    id: "connectors",
+    label: "Connectors",
+    hint: "Ollama, ComfyUI, cloud",
+    group: "Drive & engine",
+    icon: Plug,
+    C: Connectors,
+    dev: true,
+  },
+  {
+    id: "sentinel",
+    label: "USB Sentinel",
+    hint: "Drive safety lock",
+    group: "Drive & engine",
+    icon: ShieldCheck,
+    C: Sentinel,
+    dev: true,
+  },
+  {
+    id: "workbench",
+    label: "Advanced Editor",
+    hint: "Edit the site's files",
+    group: "Advanced",
+    icon: Code2,
+    C: Workbench,
+    dev: true,
+  },
+  {
+    id: "selfimprove",
+    label: "Self-Improve",
+    hint: "OG BOT's permissions and brain",
+    group: "Advanced",
+    icon: Brain,
+    C: SelfImprove,
+    dev: true,
+  },
+  {
+    id: "database",
+    label: "Database",
+    hint: "Your project's tables",
+    group: "Advanced",
+    icon: DbIcon,
+    C: Database,
+    dev: true,
+  },
 ];
 
 const OVERLAY_TITLE: Record<string, string> = {
@@ -133,7 +247,21 @@ const OVERLAY_TITLE: Record<string, string> = {
 };
 
 function Studio() {
-  const [overlay, setOverlay] = useState<Overlay>(null);
+  const [overlay, setOverlayRaw] = useState<Overlay>(null);
+  // Where Close goes back to (the Dashboard or the Tools grid that opened this screen).
+  const [back, setBack] = useState<Overlay>(null);
+  const setOverlay = (next: Overlay) => {
+    setBack(
+      next && overlay && next !== overlay && (overlay === "dash" || overlay === "tools")
+        ? overlay
+        : null,
+    );
+    setOverlayRaw(next);
+  };
+  const closeOverlay = () => {
+    setOverlayRaw(back);
+    setBack(null);
+  };
   const [view, setView] = useState<"create" | "build" | "dev">("create");
 
   const dev = useDevAuth();
@@ -174,6 +302,16 @@ function Studio() {
     return () => window.removeEventListener("beforeinstallprompt", onPrompt);
   }, []);
 
+  // Escape closes the open screen.
+  useEffect(() => {
+    if (!overlay) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !document.querySelector("[role=dialog]")) closeOverlay();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
   // Discreet DEV entry: Ctrl/Cmd+Shift+D.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -207,7 +345,7 @@ function Studio() {
     overlay === "settings" ? (
       <Settings />
     ) : overlay === "dash" ? (
-      <Dashboard />
+      <Dashboard onOpen={(id) => TOOLS.some((t) => t.id === id) && setOverlay(id as ToolId)} />
     ) : overlay === "tools" ? (
       <ToolsGrid onPick={setOverlay} dev={effectiveDev} />
     ) : tool ? (
@@ -331,8 +469,9 @@ function Studio() {
           <header className="flex items-center justify-between border-b border-border px-4 py-3">
             <h2 className="font-display text-lg uppercase">{overlayTitle}</h2>
             <button
-              onClick={() => setOverlay(tool ? "tools" : null)}
-              aria-label="Close"
+              onClick={closeOverlay}
+              aria-label={back ? `Back to ${OVERLAY_TITLE[back] ?? "previous"}` : "Close"}
+              title={back ? `Back to ${OVERLAY_TITLE[back] ?? "previous"} (Esc)` : "Close (Esc)"}
               className="rounded p-1.5 text-muted-foreground hover:text-foreground"
             >
               <X className="h-5 w-5" />
@@ -380,18 +519,33 @@ function IconBtn({
 }
 
 function ToolsGrid({ onPick, dev }: { onPick: (o: Overlay) => void; dev: boolean }) {
+  const visible = TOOLS.filter((t) => dev || !t.dev);
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-      {TOOLS.filter((t) => dev || !t.dev).map(({ id, label, icon: Icon }) => (
-        <button
-          key={id}
-          onClick={() => onPick(id)}
-          className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-5 text-center transition hover:border-primary hover:text-primary"
-        >
-          <Icon className="h-7 w-7" />
-          <span className="text-xs font-semibold">{label}</span>
-        </button>
-      ))}
+    <div className="mx-auto max-w-5xl space-y-5">
+      {TOOL_GROUPS.map((g) => {
+        const items = visible.filter((t) => t.group === g);
+        if (!items.length) return null;
+        return (
+          <section key={g}>
+            <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              {g}
+            </h3>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+              {items.map(({ id, label, hint, icon: Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => onPick(id)}
+                  className="flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-card p-4 text-center transition hover:border-primary hover:text-primary"
+                >
+                  <Icon className="h-7 w-7" />
+                  <span className="text-xs font-semibold">{label}</span>
+                  <span className="text-[10px] leading-tight text-muted-foreground">{hint}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }
