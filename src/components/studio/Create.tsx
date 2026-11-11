@@ -1,12 +1,27 @@
 import { useEffect, useState } from "react";
-import { Sparkles, Image as ImageIcon, Music2, Clapperboard, Wand2, Loader2, Zap } from "lucide-react";
+import {
+  Sparkles,
+  Image as ImageIcon,
+  Music2,
+  Clapperboard,
+  Wand2,
+  Loader2,
+  Zap,
+  Code2,
+} from "lucide-react";
 import { Btn, inputCls } from "./ui";
 import { cn } from "@/lib/utils";
-import { connectors } from "@/lib/connectors";
+import { connectors, useConnectors } from "@/lib/connectors";
+import { buildHandoff } from "@/lib/build-handoff";
 import { quickChat, pingOllama } from "@/lib/local-ai";
 import { pingComfy } from "@/lib/image-gen";
 import { models } from "@/lib/models";
-import { classifyCreation, creationRouterPrompt, parseCreation, type CreationKind } from "@/lib/creation";
+import {
+  classifyCreation,
+  creationRouterPrompt,
+  parseCreation,
+  type CreationKind,
+} from "@/lib/creation";
 import { ImageGen } from "./ImageGen";
 import { Music } from "./Music";
 import { MusicVideo } from "./MusicVideo";
@@ -20,11 +35,17 @@ const MODES: { id: Mode; label: string; icon: typeof ImageIcon }[] = [
   { id: "video", label: "Video", icon: Clapperboard },
 ];
 
-const KIND_LABEL: Record<CreationKind, string> = { image: "Image", song: "Song", video: "Video" };
+const KIND_LABEL: Record<CreationKind, string> = {
+  image: "Image",
+  song: "Song",
+  video: "Video",
+  build: "Website / app",
+};
 const KIND_ICON: Record<CreationKind, typeof ImageIcon> = {
   image: ImageIcon,
   song: Music2,
   video: Clapperboard,
+  build: Code2,
 };
 
 const EXAMPLES = [
@@ -35,11 +56,14 @@ const EXAMPLES = [
 ];
 
 export function Create() {
+  useConnectors(); // re-check the engines when the drive connects (it switches them on)
   const [prompt, setPrompt] = useState("");
   const [mode, setMode] = useState<Mode>("auto");
-  const [routed, setRouted] = useState<{ kind: CreationKind; prompt: string; byAi: boolean } | null>(
-    null,
-  );
+  const [routed, setRouted] = useState<{
+    kind: CreationKind;
+    prompt: string;
+    byAi: boolean;
+  } | null>(null);
   const [routing, setRouting] = useState(false);
   const [enhancing, setEnhancing] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -94,7 +118,10 @@ export function Create() {
         model,
         `Rewrite this creative request into ONE vivid, detailed line (max 50 words). Output only the line, no quotes or preamble.\nRequest: ${prompt}`,
       );
-      const line = text.split("\n").map((l) => l.trim()).find(Boolean);
+      const line = text
+        .split("\n")
+        .map((l) => l.trim())
+        .find(Boolean);
       if (line) setPrompt(line.replace(/^["'`]+|["'`]+$/g, ""));
     } catch {
       setNote("Could not enhance right now.");
@@ -109,6 +136,13 @@ export function Create() {
     setRouting(true);
     setNote(null);
     const { kind, byAi } = await resolveKind(text);
+    if (kind === "build") {
+      // A website / app: OG BOT builds it in the Build view.
+      setRouting(false);
+      setPrompt("");
+      buildHandoff.send(text);
+      return;
+    }
     setRouted({ kind, prompt: text, byAi });
     setRouting(false);
   };
@@ -132,7 +166,9 @@ export function Create() {
               )}
               title="Local language models (Ollama)"
             >
-              <span className={cn("h-1.5 w-1.5 rounded-full", llmCount ? "bg-primary" : "bg-muted")} />
+              <span
+                className={cn("h-1.5 w-1.5 rounded-full", llmCount ? "bg-primary" : "bg-muted")}
+              />
               {llmCount ? `${llmCount} LLM${llmCount > 1 ? "s" : ""}` : "no LLM"}
             </span>
             <span
@@ -142,7 +178,9 @@ export function Create() {
               )}
               title="Image engine (ComfyUI)"
             >
-              <span className={cn("h-1.5 w-1.5 rounded-full", comfyOk ? "bg-primary" : "bg-muted")} />
+              <span
+                className={cn("h-1.5 w-1.5 rounded-full", comfyOk ? "bg-primary" : "bg-muted")}
+              />
               {comfyOk ? "ComfyUI" : "no GPU img"}
             </span>
           </div>
@@ -188,10 +226,18 @@ export function Create() {
             disabled={enhancing || !prompt.trim()}
             className="flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11px] text-primary transition hover:border-primary disabled:opacity-40"
           >
-            {enhancing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+            {enhancing ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Wand2 className="h-3 w-3" />
+            )}
             Enhance
           </button>
-          <Btn onClick={() => void create()} disabled={routing || !prompt.trim()} className="ml-auto">
+          <Btn
+            onClick={() => void create()}
+            disabled={routing || !prompt.trim()}
+            className="ml-auto"
+          >
             {routing ? (
               <Loader2 className="mr-1 inline h-4 w-4 animate-spin" />
             ) : (
@@ -231,7 +277,9 @@ export function Create() {
                 · “{routed.prompt}”
               </span>
             </div>
-            {routed.kind === "image" && <ImageGen key={routed.prompt} initialPrompt={routed.prompt} />}
+            {routed.kind === "image" && (
+              <ImageGen key={routed.prompt} initialPrompt={routed.prompt} />
+            )}
             {routed.kind === "song" && <Music key={routed.prompt} initialPrompt={routed.prompt} />}
             {routed.kind === "video" && (
               <MusicVideo key={routed.prompt} initialPrompt={routed.prompt} />

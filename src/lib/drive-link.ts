@@ -111,6 +111,13 @@ function applyRoutes(l: DriveLink) {
     const cur = connectors.configOf(kind)["baseUrl"];
     if (isManagedUrl(cur) && cur !== r[kind]) connectors.setField(kind, "baseUrl", r[kind]);
   }
+  // The drive (or a plain local Ollama) is there: switch the engines on so every tool
+  // (Build chat, Create, Image/Music/Video) uses OG BOT on the drive, not the offline fallback.
+  if (l.mode === "local" || l.mode === "remote") {
+    for (const kind of ["ollama", "comfyui"] as const)
+      if (!connectors.isEnabled(kind)) connectors.toggle(kind, true);
+  } else if (l.mode === "direct" && !connectors.isEnabled("ollama"))
+    connectors.toggle("ollama", true);
 }
 
 const ago = (iso: string) => {

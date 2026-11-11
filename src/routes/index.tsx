@@ -30,6 +30,7 @@ import { SplitView } from "@/components/studio/SplitView";
 import { DevWorkbench } from "@/components/studio/DevWorkbench";
 import { EngineBadge } from "@/components/studio/EngineBadge";
 import { BrandMark } from "@/components/studio/BrandMark";
+import { buildHandoff } from "@/lib/build-handoff";
 import { cn } from "@/lib/utils";
 // Brand mark served locally by the Worker (the Lovable CDN path does not resolve on Cloudflare).
 const LOGO_SRC = "/og-bot-logo.png";
@@ -141,6 +142,8 @@ function Studio() {
   useEffect(() => {
     if (!effectiveDev && view === "dev") setView("create");
   }, [effectiveDev, view]);
+  // Create → Build: a website/app request opens Build, where OG BOT starts on it.
+  useEffect(() => buildHandoff.onSend(() => setView("build")), []);
   const tapRef = useRef<number[]>([]);
   const [installEvt, setInstallEvt] = useState<BeforeInstallPromptEvent | null>(null);
 

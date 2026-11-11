@@ -133,3 +133,23 @@ describe("pairing", () => {
     expect(await driveLink.pair()).toMatchObject({ ok: true });
   });
 });
+
+describe("engines switch on when the drive is found", () => {
+  it("enables Ollama and ComfyUI for a remote drive so Build chat uses OG BOT, not the offline fallback", async () => {
+    connectors._reset();
+    connectors.toggle("ollama", false);
+    sb.token = "tok";
+    sb.row = { url: "https://a-b.trycloudflare.com", updated_at: new Date().toISOString() };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (u: string) =>
+        u.startsWith("https://a-b.trycloudflare.com")
+          ? json(STATUS)
+          : Promise.reject(new TypeError("x")),
+      ),
+    );
+    await resolveDrive();
+    expect(connectors.isEnabled("ollama")).toBe(true);
+    expect(connectors.isEnabled("comfyui")).toBe(true);
+  });
+});

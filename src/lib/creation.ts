@@ -5,9 +5,13 @@
  * optional LLM route for nuance. Pure + unit-tested.
  */
 
-export type CreationKind = "image" | "song" | "video";
+/** "build" = a website/app: handed to the Build view where OG BOT writes the code. */
+export type CreationKind = "image" | "song" | "video" | "build";
 
-export const CREATION_KINDS: readonly CreationKind[] = ["image", "song", "video"];
+export const CREATION_KINDS: readonly CreationKind[] = ["image", "song", "video", "build"];
+
+const BUILD_RE =
+  /\b(landing page|web ?page|web ?site|homepage|home page|web ?app|app|application|dashboard|portal|online store|e-?commerce|signup form|sign-up form|login page|saas|frontend|front-end|ui for)\b/i;
 
 const VIDEO_RE =
   /\b(video|music video|clip|animation|animate|film|movie|cinematic sequence|storyboard|scene|trailer|reel|footage|mv)\b/i;
@@ -19,6 +23,13 @@ const IMAGE_RE =
 /** Deterministic intent classifier. Video wins over song wins over image on ties. */
 export function classifyCreation(prompt: string): CreationKind {
   const p = prompt.toLowerCase();
+  // Websites and apps are code: Build, even when they mention images or videos on the page.
+  // ...unless it's a picture *for* a site/app ("a logo for my app").
+  const pictureFor =
+    /\b(logo|icon|poster|banner|wallpaper|illustration|artwork|thumbnail|favicon)\b[^.]*?\bfor\b/i.test(
+      p,
+    );
+  if (BUILD_RE.test(p) && !pictureFor) return "build";
   // A music video mentions both music and video — treat as video.
   if (VIDEO_RE.test(p)) return "video";
   if (SONG_RE.test(p)) return "song";
@@ -30,11 +41,12 @@ export function classifyCreation(prompt: string): CreationKind {
 /** Prompt handed to the router model to classify a creation request. */
 export function creationRouterPrompt(prompt: string): string {
   return `You route creative requests to the right generator. Reply with ONLY a JSON object, no prose:
-{"kind":"image|song|video","reason":"<max 6 words>"}
+{"kind":"image|song|video|build","reason":"<max 6 words>"}
 
 - image: a still picture, art, photo, logo, poster, design.
 - song: audio only — a track, beat, melody, lyrics.
 - video: moving footage, animation, or a music video.
+- build: a website, landing page, web app or app screen (code, not a picture).
 
 Request: ${prompt}`;
 }

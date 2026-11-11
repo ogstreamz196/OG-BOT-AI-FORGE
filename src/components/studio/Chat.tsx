@@ -9,6 +9,7 @@ import { workspace, useWorkspace } from "@/lib/workspace";
 import { usage } from "@/lib/usage";
 import { models, useModels } from "@/lib/models";
 import { connectors } from "@/lib/connectors";
+import { buildHandoff } from "@/lib/build-handoff";
 import { generateEdit, pingOllama, quickChat } from "@/lib/local-ai";
 import { permissions } from "@/lib/permissions";
 import { brain } from "@/lib/brain";
@@ -154,7 +155,10 @@ export function Chat() {
               `Task: ${text}\nGive a short, concrete plan (max 6 bullet points) for implementing this in a small static web app.`,
             ).catch(() => undefined);
           }
-          push({ role: "ai", text: `Building with ${model} · ${kind}${reason ? " (chained)" : ""}…` });
+          push({
+            role: "ai",
+            text: `Building with ${model} · ${kind}${reason ? " (chained)" : ""}…`,
+          });
         } else {
           push({ role: "ai", text: `Generating with ${model}…` });
         }
@@ -176,6 +180,18 @@ export function Chat() {
       ]);
     }
   };
+
+  // Requests handed over from Create ("make a landing page…") start here automatically.
+  const runRef = useRef(run);
+  runRef.current = run;
+  useEffect(() => {
+    const first = buildHandoff.take();
+    if (first) void runRef.current(first);
+    return buildHandoff.onSend(() => {
+      const p = buildHandoff.take();
+      if (p) void runRef.current(p);
+    });
+  }, []);
 
   return (
     <div className="flex h-full min-h-0 flex-col">

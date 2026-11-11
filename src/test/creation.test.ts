@@ -29,3 +29,28 @@ describe("parseCreation", () => {
     expect(parseCreation("banana")).toBeNull();
   });
 });
+
+describe("websites and apps go to Build", () => {
+  it("routes landing pages, sites and apps to build, even when they mention images or videos", () => {
+    expect(
+      classifyCreation(
+        "Make a landing page for a children's entrepreneur educational course with a realistic sell",
+      ),
+    ).toBe("build");
+    expect(classifyCreation("a website for my barber shop with a photo gallery")).toBe("build");
+    expect(classifyCreation("build me a todo app")).toBe("build");
+    expect(classifyCreation("a dashboard with a video of the product")).toBe("build");
+  });
+  it("leaves real media requests alone", () => {
+    expect(classifyCreation("a minimalist logo for a coffee brand called OROVA")).toBe("image");
+    expect(classifyCreation("a 60-second synthwave music video about a desert road trip")).toBe(
+      "video",
+    );
+    expect(classifyCreation("apple orchard at sunset")).toBe("image");
+    expect(classifyCreation("a logo for my app")).toBe("image");
+    expect(classifyCreation("an icon for my website")).toBe("image");
+  });
+  it("the AI router may answer build", () => {
+    expect(parseCreation('{"kind":"build","reason":"a website"}')).toBe("build");
+  });
+});
