@@ -110,7 +110,7 @@ export function Preview({ onPublish }: { onPublish?: () => void }) {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           {mode === "preview" &&
             (
               [

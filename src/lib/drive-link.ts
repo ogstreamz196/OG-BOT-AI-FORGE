@@ -190,7 +190,7 @@ export async function resolveDrive(): Promise<DriveLink> {
     base: null,
     status: null,
     message: token
-      ? `Drive offline${lastSeen}`
+      ? `Drive offline${lastSeen}: turn on the laptop with the drive in`
       : "Drive not found here. Sign in as D.EV to reach it remotely",
   });
 }

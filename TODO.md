@@ -1,12 +1,37 @@
 # OGSTREAMZ presentz OFFLINE FORGE · to-do list
 
 _Powered by OG BOT._ Live at **https://offline.ogbot.co.uk**. Everything runs from the drive
-(`<drive>:\OFFLINE AI\`); the website is only the front end. Last updated 2026-11-10.
+(`<drive>:\OFFLINE AI\`); the website is only the front end. Last updated 2026-11-11.
 
 Legend: **[you]** = needs you (hardware, accounts, settings) · **[dev]** = code work Claude can do ·
 P1 = next, P2 = soon, P3 = polish.
 
 ---
+
+## ▶ NEXT TIME YOU SAY "DRIVE IS CONNECTED" (do these first, in order)
+
+Claude: when the owner says the drive is connected, walk them through this list before anything else.
+
+- [ ] **[you] Update the drive kit** — Setup Guide → *Drive kit* → *Download all* → replace the files in
+      `<drive>:\OFFLINE AI\OG-BOT\` (new: `og_self_repair.py`; updated: `og-drive-server.py` 1.1.0).
+      Then restart the drive server (replug the drive, or close and reopen the launcher).
+- [ ] **[you] Give OG BOT its self-repair key** — make a GitHub fine-grained token for
+      `ogstreamz196/OG-BOT-AI-FORGE` only, permission *Contents: read and write*. Setup Guide →
+      *Pair this drive* → paste it in *Self-repair key* → put the new `og-drive.json` next to
+      `og-drive-server.py` → restart. (The key only lives on the drive, never on the website.)
+- [ ] **[check] Self-repair is ready** — Dashboard → *OG BOT repairs*: no yellow "needs" warning
+      (Git and Bun download themselves the first time, give it a few minutes online).
+- [ ] **[check] Live hardware** — Tools → *Hardware*: real GPU %, VRAM, temperature, CPU, RAM, and
+      the loaded model under *Loaded in memory now*.
+- [ ] **[check] Change history** — Tools → *Change history* lists real commits; *View* opens a diff.
+- [ ] **[test] OG BOT's first job** — *Give OG BOT a task* with something small and harmless
+      (e.g. "On the Settings screen, make the section titles a little bigger"). Watch it go
+      waiting → on it → fixed, check the site after Lovable publishes, then try *Revert this fix*.
+- [ ] **[you + Claude] ComfyUI missing models** (Z-Image Turbo template) — download into
+      `<drive>:\OFFLINE AI\ComfyUI_windows_portable\ComfyUI\models\`:
+      `z_image_turbo_bf16.safetensors` → `diffusion_models\`,
+      `qwen_3_4b.safetensors` → `text_encoders\`, `ae.safetensors` → `vae\`.
+      Then fix Image Studio's "No Flux files found" together.
 
 ## 1. Set up once (you)
 
@@ -51,8 +76,6 @@ These are built and unit-tested but have never run on Windows / the real RTX 508
       clips folder, so Stage D needs no manual step.
 - [ ] **Save straight to the drive:** Dev Workbench / Build write files via the drive server
       (sandboxed to `<drive>:\OFFLINE AI\projects\`) instead of a batch script.
-- [ ] **Real live hardware stats:** GPU %, VRAM used, temperature from `nvidia-smi` via the drive
-      server, replacing the simulated gauges in the Hardware tab.
 - [ ] **Apply tier settings even if Ollama was already running** (tray app): offer to restart it
       with the Docked/Portable settings.
 - [ ] **Health alerts:** Dashboard warning (and optional phone push) when Ollama/ComfyUI stops
@@ -113,3 +136,10 @@ These are built and unit-tested but have never run on Windows / the real RTX 508
 - [x] Rebrand: OGSTREAMZ presentz OFFLINE FORGE; OG BOT is the assistant; every site is
       "Powered by OG BOT".
 - [x] Auto test → push → publish on every change; no Lovable credits used.
+- [x] OG BOT self-repair: detailed error log from every device, fixes on the drive with local
+      models, checked by tsc + tests, published automatically; memory file `docs/OGBOT_MEMORY.md`.
+- [x] Owner controls: give OG BOT tasks, add ideas to a fix, view each change, revert any fix;
+      Undo / Redo in the builder.
+- [x] Dashboard tabs + health overview; Tools grouped with hints; Esc / Back navigation.
+- [x] Real live hardware stats from the drive (replaced the simulated gauges).
+- [x] Change history (real commits, view + undo) replaced the fake GitHub Sync.

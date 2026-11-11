@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { startDriveLink } from "@/lib/drive-link";
 import { installErrorLog, report } from "@/lib/error-log";
+import { startIdeaQueue } from "@/lib/idea-queue";
 
 function NotFoundComponent() {
   return (
@@ -133,6 +134,7 @@ function RootComponent() {
   useEffect(() => {
     startDriveLink(); // find the drive (this computer or remote) and route the AI calls to it
     installErrorLog(); // every error gets a detailed log; known ones are fixed on the spot
+    startIdeaQueue(); // tasks typed while the drive was offline go to OG BOT when it's back
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
     navigator.serviceWorker.register("/sw.js").catch(() => {});
     // After load, tell the SW to precache the exact assets this page used, so a
