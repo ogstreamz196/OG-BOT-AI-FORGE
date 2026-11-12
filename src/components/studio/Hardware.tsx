@@ -244,7 +244,11 @@ export function Hardware() {
         <Panel title="Model Compatibility">
           <ul className="space-y-2 text-xs">
             {MODELS.map((m) => {
-              const fit = checkModel(m, TOTAL, hw?.ramGB ?? null);
+              // OFFLINE FORGE runs 14B at most: bigger models always fall back, whatever the VRAM.
+              const overCap = /\b(\d+)B\b/.test(m.name) && Number(m.name.match(/\b(\d+)B\b/)![1]) > 14;
+              const fit = overCap
+                ? { status: "fallback" as const, note: `OVER 14B LIMIT → ${m.fallback}` }
+                : checkModel(m, TOTAL, hw?.ramGB ?? null);
               return (
                 <li
                   key={m.name}

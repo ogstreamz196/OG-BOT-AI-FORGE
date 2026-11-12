@@ -23,8 +23,8 @@ const COMMANDS = [
 ];
 
 /**
- * Execute a slash command. /scaffold and /edit mutate the shared Workbench
- * workspace; the others are simulated pipelines. Returns the log lines to stream.
+ * Execute a slash command. /scaffold and /edit change the shared workspace; the others
+ * explain where that job is done. Returns the log lines to stream.
  */
 export function slashReply(cmd: string): string[] | null {
   const arg = (c: string) => cmd.slice(c.length).trim();
@@ -59,18 +59,17 @@ export function slashReply(cmd: string): string[] | null {
     if (Object.keys(patch).length) workspace.writeFiles(patch);
     return [`Workspace: ${workspace.get().project}`, ...log];
   }
+  // Not wired to a real pipeline yet: say so, and point to the screen that does the job.
   if (cmd.startsWith("/export-apk"))
     return [
-      "Syncing web assets to Capacitor",
-      "Running Gradle assembleDebug",
-      "APK written to mobile-sdk/output/app-debug.apk",
+      "APK builds run in Tools → Build & Publish (press Publish in the preview).",
+      "It packages this project and builds it on GitHub Actions; the APK appears on the run page.",
     ];
-  if (cmd.startsWith("/git-commit"))
+  if (cmd.startsWith("/git-commit") || cmd.startsWith("/git-push"))
     return [
-      "Staging all changes",
-      `Committed: "${arg("/git-commit") || "Update"}" (queued for push)`,
+      "Nothing was committed: builder projects are saved in this browser, not in Git.",
+      "To keep a copy use Download (ZIP) in the preview toolbar, or Build & Publish to ship it.",
     ];
-  if (cmd.startsWith("/git-push")) return ["Pushing to origin/main", "Push complete."];
   return null;
 }
 

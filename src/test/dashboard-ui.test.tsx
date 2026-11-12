@@ -55,3 +55,27 @@ describe("Hardware live load", () => {
     expect(screen.getAllByText(/drive not connected/i).length).toBeGreaterThan(0);
   });
 });
+
+describe("audit fixes", () => {
+  it("Hardware never calls a model over 14B compatible", async () => {
+    render(<Hardware />);
+    await act(async () => {});
+    const row = screen.getByText("Qwen 2.5 Coder 32B (Q4_K_M)").closest("li")!;
+    expect(row.textContent).toMatch(/OVER 14B LIMIT → qwen2.5-coder:14b/);
+    expect(screen.getByText("Qwen 2.5 Coder 14B").closest("li")!.textContent).not.toMatch(/OVER 14B/);
+  });
+  it("chat commands that aren't wired say so instead of pretending", async () => {
+    const { slashReply } = await import("@/components/studio/Agent");
+    expect(slashReply("/git-push")!.join(" ")).toMatch(/Nothing was committed/);
+    expect(slashReply("/export-apk")!.join(" ")).toMatch(/Build & Publish/);
+    expect(slashReply("/git-push")!.join(" ")).not.toMatch(/Push complete/);
+  });
+  it("Engine Test starts on the default coder and the drive-routed address", async () => {
+    Element.prototype.scrollIntoView ??= () => {};
+    const { OllamaTester } = await import("@/components/studio/OllamaTester");
+    render(<OllamaTester />);
+    await act(async () => {});
+    expect(screen.getByLabelText("Model")).toHaveValue("qwen2.5-coder:14b");
+    expect(screen.getByLabelText("Server URL")).toHaveValue("http://127.0.0.1:11434");
+  });
+});

@@ -39,7 +39,7 @@ export const FEATURES: Feature[] = [
   { id: "agent", label: "AI Agent", minTier: "starter" },
   { id: "hw", label: "Hardware Monitor", minTier: "starter" },
   { id: "sentinel", label: "USB Sentinel", minTier: "starter" },
-  { id: "git", label: "GitHub Sync", minTier: "starter" },
+  { id: "git", label: "Change history", minTier: "starter" },
   { id: "image", label: "Image Studio", minTier: "pro" },
   { id: "music", label: "Music Forge", minTier: "pro" },
   { id: "forge", label: "Mobile Exporter", minTier: "pro" },

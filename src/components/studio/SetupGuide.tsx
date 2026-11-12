@@ -82,18 +82,18 @@ function saveFile(name: string, content: string) {
 const STEPS: { icon: typeof Cpu; title: string; body: string }[] = [
   {
     icon: Cpu,
-    title: "1 · Start your local AI",
-    body: "Run start_ollama.bat (or `ollama serve` with OLLAMA_ORIGINS=https://offline.ogbot.co.uk,https://*.lovable.app). Ollama serves at http://127.0.0.1:11434 with models on your drive.",
+    title: "1 · Plug in the drive",
+    body: "With the drive kit below in <drive>:\\OFFLINE AI\\OG-BOT\\ and autostart on, plugging in the drive starts Ollama (and ComfyUI when docked) by itself. No autostart? Double-click launch-hub.bat.",
   },
   {
     icon: Plug,
-    title: "2 · Connect it",
-    body: "Tools → Connectors → Ollama → set http://127.0.0.1:11434 → Test connection. Then Settings → mark a coding model installed → set active.",
+    title: "2 · It connects itself",
+    body: "The site finds the drive on its own: plugged in here, or remotely once paired below. The engine badge turns green. Check with Tools → Engine Test; qwen2.5-coder:14b is the default coder.",
   },
   {
     icon: WifiOff,
     title: "3 · Go offline",
-    body: "Everything AI runs on your GPU with no internet. Cloud sync (Supabase) and cloud builds pause offline and resume when you reconnect.",
+    body: "Everything AI runs on your GPU with no internet. Cloud sync and cloud builds pause offline and resume when you reconnect.",
   },
   {
     icon: Download,

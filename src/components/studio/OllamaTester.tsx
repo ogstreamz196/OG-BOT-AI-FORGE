@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { models as modelStore } from "@/lib/models";
+import { connectors } from "@/lib/connectors";
+import { useDriveLink } from "@/lib/drive-link";
 
 /**
  * Self-contained Ollama test client. Verifies the local backend, lists installed
@@ -10,7 +12,10 @@ import { models as modelStore } from "@/lib/models";
  */
 
 const DEFAULT_URL = "http://127.0.0.1:11434";
-const FALLBACK_MODEL = "llama3.2:1b";
+// The studio's default coder (14B ceiling); tiny models are only a last resort.
+const FALLBACK_MODEL = "qwen2.5-coder:14b";
+/** Where the app's Ollama connector points (the drive routes it locally or through the tunnel). */
+const routedUrl = () => (connectors.configOf("ollama")["baseUrl"] || DEFAULT_URL).replace(/\/+$/, "");
 
 type Role = "user" | "assistant";
 type Message = { role: Role; content: string };
@@ -38,7 +43,8 @@ function renderContent(content: string): ReactNode {
 }
 
 export function OllamaTester() {
-  const [baseUrl, setBaseUrl] = useState(DEFAULT_URL);
+  const drive = useDriveLink();
+  const [baseUrl, setBaseUrl] = useState(routedUrl);
   const [status, setStatus] = useState<Status>("checking");
   const [models, setModels] = useState<string[]>([]);
   const [model, setModel] = useState<string>(FALLBACK_MODEL);
@@ -77,9 +83,12 @@ export function OllamaTester() {
     }
   }, []);
 
+  // Follow the drive: plugged in here, or reached remotely from a phone.
   useEffect(() => {
-    void checkHealth(DEFAULT_URL);
-  }, [checkHealth]);
+    const url = routedUrl();
+    setBaseUrl(url);
+    void checkHealth(url);
+  }, [checkHealth, drive.mode, drive.base]);
 
   const appendToLast = (token: string) =>
     setMessages((prev) => {
