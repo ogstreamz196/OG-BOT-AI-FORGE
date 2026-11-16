@@ -4,6 +4,7 @@ import { Panel, Btn } from "./ui";
 import { useWorkspace, workspace } from "@/lib/workspace";
 import { applyTheme, parseTheme, DEFAULT_THEME, FONT_OPTIONS, type Theme } from "@/lib/brand";
 import { usage } from "@/lib/usage";
+import { cn } from "@/lib/utils";
 
 const SWATCHES: { key: keyof Theme; label: string }[] = [
   { key: "primary", label: "Primary / buttons" },
@@ -14,6 +15,16 @@ const SWATCHES: { key: keyof Theme; label: string }[] = [
 ];
 
 const PRESETS: { name: string; theme: Partial<Theme> }[] = [
+  {
+    name: "OG BOT",
+    theme: {
+      primary: "#5b47e0",
+      accent: "#a77bff",
+      bg: "#0b0d1f",
+      text: "#f1f3ff",
+      muted: "#9a9ec2",
+    },
+  },
   {
     name: "OG Cyber",
     theme: {
@@ -139,21 +150,80 @@ export function Brand() {
               </span>
             </label>
           ))}
-          <label className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2 sm:col-span-2">
-            <span className="text-sm text-foreground">Font</span>
-            <select
+          <fieldset className="rounded-lg border border-border bg-card px-3 py-2 sm:col-span-2">
+            <legend className="px-1 text-sm text-foreground">Font</legend>
+            <div
+              role="radiogroup"
               aria-label="Font"
-              value={theme.font}
-              onChange={(e) => setKey("font", e.target.value)}
-              className="rounded border border-input bg-background px-2 py-1 text-xs text-foreground outline-none focus:border-primary"
+              className="grid grid-cols-2 gap-2 sm:grid-cols-5"
             >
               {FONT_OPTIONS.map((f) => (
-                <option key={f.value} value={f.value}>
-                  {f.label}
-                </option>
+                <button
+                  key={f.value}
+                  role="radio"
+                  aria-checked={theme.font === f.value}
+                  onClick={() => setKey("font", f.value)}
+                  className={cn(
+                    "rounded-lg border px-2 py-2 text-left transition",
+                    theme.font === f.value
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary/60",
+                  )}
+                >
+                  <span
+                    className="block text-lg leading-none text-foreground"
+                    style={{ fontFamily: f.value }}
+                  >
+                    Aa
+                  </span>
+                  <span className="mt-1 block truncate text-[11px] text-muted-foreground">
+                    {f.label}
+                  </span>
+                </button>
               ))}
-            </select>
-          </label>
+            </div>
+          </fieldset>
+        </div>
+      </Panel>
+
+      <Panel title="Live sample">
+        <div
+          aria-label="Theme sample"
+          className="overflow-hidden rounded-xl border border-border"
+          style={{ background: theme.bg, color: theme.text, fontFamily: theme.font }}
+        >
+          <div
+            className="flex items-center justify-between px-5 py-3"
+            style={{ borderBottom: `1px solid ${theme.muted}33` }}
+          >
+            <span className="font-bold">{ws.project}</span>
+            <span className="flex gap-4 text-sm" style={{ color: theme.muted }}>
+              <span>Features</span>
+              <span>Pricing</span>
+              <span style={{ color: theme.accent }}>Contact</span>
+            </span>
+          </div>
+          <div className="px-5 py-8">
+            <h3 className="text-2xl font-bold">Build something great</h3>
+            <p className="mt-2 max-w-md text-sm" style={{ color: theme.muted }}>
+              This is how your site's headings, text, buttons and highlights look with these
+              colours.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span
+                className="rounded-lg px-4 py-2 text-sm font-semibold"
+                style={{ background: theme.primary, color: "#fff" }}
+              >
+                Start free
+              </span>
+              <span
+                className="rounded-lg border px-4 py-2 text-sm font-semibold"
+                style={{ borderColor: theme.primary, color: theme.accent }}
+              >
+                Learn more
+              </span>
+            </div>
+          </div>
         </div>
       </Panel>
     </div>
