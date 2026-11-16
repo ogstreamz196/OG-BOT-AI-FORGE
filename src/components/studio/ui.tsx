@@ -13,7 +13,7 @@ export function Panel({ title, right, children, className }: { title: string; ri
   );
 }
 
-export function Btn({ children, onClick, variant = "primary", disabled, className, title }: { children: ReactNode; onClick?: () => void; variant?: "primary" | "blue" | "ghost" | "danger"; disabled?: boolean; className?: string; title?: string }) {
+export function Btn({ children, onClick, variant = "primary", disabled, className, title }: { children: ReactNode; onClick?: () => void; variant?: "primary" | "blue" | "ghost" | "danger"; disabled?: boolean; className?: string; title?: string | undefined }) {
   const v = {
     primary: "bg-primary text-primary-foreground hover:glow",
     blue: "bg-secondary text-secondary-foreground hover:opacity-90",

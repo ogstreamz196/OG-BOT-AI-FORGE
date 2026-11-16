@@ -59,8 +59,10 @@ describe("studio live state", () => {
 
 describe("device slots + migration", () => {
   it("binds and migrates a slot", () => {
+    license.bindSlot(2, "1A2B-3C4D");
+    expect(license.get().slots.find((s) => s.slot === 2)?.mac).toBe("1A2B-3C4D");
     license.bindSlot(2);
-    expect(license.get().slots.find((s) => s.slot === 2)?.mac).toBeTruthy();
+    expect(license.get().slots.find((s) => s.slot === 2)?.mac).toBeNull();
     license.migrateSlot(2, "AA:BB:CC:DD:EE:FF");
     expect(license.get().slots.find((s) => s.slot === 2)?.mac).toBe("AA:BB:CC:DD:EE:FF");
   });

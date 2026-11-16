@@ -48,12 +48,14 @@ export type DriveLink = {
   message: string;
 };
 
-let link: DriveLink = {
+/** What the server renders (and the first client paint must match). */
+const INITIAL_LINK: DriveLink = {
   mode: "checking",
   base: null,
   status: null,
   message: "Looking for your drive…",
 };
+let link: DriveLink = INITIAL_LINK;
 const listeners = new Set<() => void>();
 function set(next: DriveLink): DriveLink {
   link = next;
@@ -260,5 +262,6 @@ export const driveLink = {
 };
 
 export function useDriveLink() {
-  return useSyncExternalStore(driveLink.subscribe, driveLink.get, driveLink.get);
+  // Server snapshot is fixed, so hydration never sees an already-resolved drive state.
+  return useSyncExternalStore(driveLink.subscribe, driveLink.get, () => INITIAL_LINK);
 }

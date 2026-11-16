@@ -22,7 +22,7 @@ describe("Dashboard tabs", () => {
     expect(screen.getByText("OG BOT self-repair")).toBeInTheDocument();
     expect(localStorage.getItem("og-dash-tab")).toBe("repair");
     fireEvent.click(screen.getByRole("tab", { name: "Features" }));
-    expect(screen.getByText(/Feature Permissions/)).toBeInTheDocument();
+    expect(screen.getByText(/Each screen follows the licence tier/)).toBeInTheDocument();
     expect(screen.queryByText("OG BOT self-repair")).not.toBeInTheDocument();
   });
 });
@@ -126,5 +126,32 @@ describe("header engine badge", () => {
     const b = screen.getByRole("button", { name: /Engine off · tap to fix/ });
     fireEvent.click(b);
     expect(opened).toHaveBeenCalledWith("ollama");
+  });
+});
+
+describe("Dashboard licence & activity", () => {
+  it("binds slots to the real drive and shows both activity columns", async () => {
+    const { driveLink } = await import("@/lib/drive-link");
+    const { license } = await import("@/lib/licensing");
+    license._reset();
+    vi.spyOn(driveLink, "get").mockReturnValue({ mode: "local", base: "http://127.0.0.1:11500", status: null, message: "" });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (u) =>
+      new Response(JSON.stringify(String(u).endsWith("/og/identity") ? { serial: "1A2B-3C4D" } : {})),
+    );
+    const onOpen = vi.fn();
+    render(<Dashboard onOpen={onOpen} />);
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("tab", { name: "Licence & devices" }));
+    await act(async () => {});
+    expect(screen.queryByText("Host MAC")).not.toBeInTheDocument();
+    expect(screen.getAllByText("1A2B-3C4D").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getAllByRole("button", { name: "Bind this drive" })[0]!);
+    expect(screen.getByText(/drive 1A2B-3C4D \(this one\)/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Features" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Open" })[0]!);
+    expect(onOpen).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("tab", { name: "Activity" }));
+    expect(screen.getByText("All devices")).toBeInTheDocument();
+    expect(screen.getByText(/Sign in with Google \(D.EV\) to add up every device/)).toBeInTheDocument();
   });
 });

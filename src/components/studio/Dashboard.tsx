@@ -33,9 +33,10 @@ import {
   TIER_LABEL,
   TIERS,
   useLicense,
+  useLicenseSync,
   type Feature,
 } from "@/lib/licensing";
-import { USAGE_META, usage, useUsage } from "@/lib/usage";
+import { USAGE_META, usage, useUsage, useUsageAll } from "@/lib/usage";
 import { getSubmissions, type Submission } from "@/lib/submissions-actions";
 import { cn } from "@/lib/utils";
 import { useDriveLink } from "@/lib/drive-link";
@@ -43,6 +44,17 @@ import { SelfRepairPanel } from "./SelfRepair";
 import { SelfImprove } from "./SelfImprove";
 import { useEngineStatus } from "@/lib/engine-status";
 import { useErrorLog } from "@/lib/error-log";
+
+/** Which tool screen each feature switch controls (for its Open link). */
+const FEATURE_TOOL: Record<string, string> = {
+  hw: "hardware",
+  sentinel: "sentinel",
+  git: "git",
+  image: "image",
+  music: "music",
+  forge: "forge",
+  db: "database",
+};
 
 export const DASH_TABS = [
   ["overview", "Overview"],
@@ -86,7 +98,30 @@ function ActivationQR({ payload }: { payload: string }) {
 /** Developer Dashboard: tabs so each job is one tap away instead of one long scroll. */
 export function Dashboard({ onOpen }: { onOpen?: (tool: string) => void } = {}) {
   const lic = useLicense();
+  const licSync = useLicenseSync();
   const u = useUsage();
+  const all = useUsageAll();
+  const drive = useDriveLink();
+  const [driveSerial, setDriveSerial] = useState<string | null>(null);
+  useEffect(() => {
+    const base = drive.mode === "local" || drive.mode === "remote" ? drive.base : null;
+    if (!base) {
+      setDriveSerial(null);
+      return;
+    }
+    let live = true;
+    fetch(`${base}/og/identity`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { serial?: string } | null) => {
+        if (!live || !j?.serial) return;
+        setDriveSerial(j.serial);
+        license.setDrive(j.serial);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [drive.mode, drive.base]);
   const [migrateTo, setMigrateTo] = useState("");
   const [tab, setTab] = useState<DashTab>(() => {
     try {
@@ -110,7 +145,7 @@ export function Dashboard({ onOpen }: { onOpen?: (tool: string) => void } = {}) 
       <nav
         role="tablist"
         aria-label="Dashboard sections"
-        className="sticky top-0 z-10 -mx-1 flex gap-1 overflow-x-auto bg-background/95 px-1 pb-2 backdrop-blur"
+        className="sticky top-0 z-10 -mx-1 flex gap-1 overflow-x-auto bg-background/95 px-1 pb-2 backdrop-blur max-sm:pr-8 max-sm:[mask-image:linear-gradient(to_right,black_82%,transparent)]"
       >
         {DASH_TABS.map(([id, label]) => (
           <button
@@ -153,7 +188,23 @@ export function Dashboard({ onOpen }: { onOpen?: (tool: string) => void } = {}) 
             />
             <Stat label="Expires" value={lic.expires} sub="subscription" />
             <Stat label="Offline grace" value={`${lic.graceDaysLeft}d`} sub="air-gapped runtime" />
-            <Stat label="Total activity" value={String(usage.total())} sub="this device" />
+            <Stat
+              label="Saved"
+              value={
+                licSync.status === "synced"
+                  ? "Your account"
+                  : licSync.status === "saving"
+                    ? "Saving…"
+                    : "This device"
+              }
+              sub={
+                licSync.status === "error"
+                  ? "sign in with Google (D.EV) to save"
+                  : licSync.status === "synced"
+                    ? "synced across devices"
+                    : "not synced"
+              }
+            />
           </div>
 
           <div className="grid gap-3 lg:grid-cols-2">
@@ -224,13 +275,18 @@ export function Dashboard({ onOpen }: { onOpen?: (tool: string) => void } = {}) 
               }
             >
               <div className="flex flex-wrap items-center gap-4">
-                <ActivationQR payload={`ogbot://activate?key=${lic.deviceKey}&mac=${lic.mac}`} />
+                <ActivationQR
+                  payload={`ogbot://activate?key=${lic.deviceKey}&drive=${driveSerial ?? ""}`}
+                />
                 <dl className="min-w-0 flex-1 space-y-1 font-mono text-xs">
                   {(
                     [
-                      ["Device Key", lic.deviceKey],
-                      ["Host MAC", lic.mac],
-                      ["USB Serial", lic.usbSerial],
+                      ["Licence key", lic.deviceKey],
+                      [
+                        "This drive",
+                        driveSerial ??
+                          (lic.usbSerial ? `${lic.usbSerial} (last seen)` : "plug in the drive"),
+                      ],
                     ] as const
                   ).map(([k, v]) => (
                     <div key={k}>
@@ -243,7 +299,7 @@ export function Dashboard({ onOpen }: { onOpen?: (tool: string) => void } = {}) 
                     </div>
                   ))}
                   <p className="pt-1 text-[11px] text-muted-foreground">
-                    Scan on first launch to bind this USB to the account.
+                    Scan with the phone you set up to link it to this licence.
                   </p>
                 </dl>
               </div>
@@ -253,10 +309,10 @@ export function Dashboard({ onOpen }: { onOpen?: (tool: string) => void } = {}) 
       )}
 
       {tab === "features" && (
-        <Panel title="Feature Permissions · Section Gating">
+        <Panel title="Features">
           <p className="mb-3 text-xs text-muted-foreground">
-            Each module follows the tier default unless you grant or revoke it here. Click to cycle
-            default → granted → revoked.
+            Each screen follows the licence tier unless you turn it on or off here. Tap the button
+            to cycle: tier default → on → off.
           </p>
           <ul className="grid gap-2 md:grid-cols-2">
             {FEATURES.map((f: Feature) => {
@@ -268,12 +324,23 @@ export function Dashboard({ onOpen }: { onOpen?: (tool: string) => void } = {}) 
                   className="flex items-center justify-between rounded border border-border bg-card px-3 py-2"
                 >
                   <div className="min-w-0">
-                    <div className="truncate font-mono text-xs text-foreground">{f.label}</div>
+                    <div className="flex items-center gap-2 truncate text-sm text-foreground">
+                      {f.label}
+                      {onOpen && FEATURE_TOOL[f.id] && (
+                        <button
+                          onClick={() => onOpen(FEATURE_TOOL[f.id]!)}
+                          className="text-[11px] text-primary hover:underline"
+                        >
+                          Open
+                        </button>
+                      )}
+                    </div>
                     <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                      min {TIER_LABEL[f.minTier]} · {unlocked ? "unlocked" : "locked"}
+                      {TIER_LABEL[f.minTier]}+ · {unlocked ? "on" : "off"}
                     </div>
                   </div>
                   <button
+                    aria-label={`${f.label}: ${st === "on" ? "on" : st === "off" ? "off" : "tier default"}`}
                     onClick={() => license.cycleOverride(f.id)}
                     className={cn(
                       "rounded px-2 py-1 font-mono text-[11px] uppercase",
@@ -282,7 +349,7 @@ export function Dashboard({ onOpen }: { onOpen?: (tool: string) => void } = {}) 
                       st === "default" && "bg-muted text-muted-foreground",
                     )}
                   >
-                    {st === "on" ? "Granted" : st === "off" ? "Revoked" : "Default"}
+                    {st === "on" ? "On" : st === "off" ? "Off" : "Default"}
                   </button>
                 </li>
               );
@@ -292,7 +359,7 @@ export function Dashboard({ onOpen }: { onOpen?: (tool: string) => void } = {}) 
       )}
 
       {tab === "licence" && (
-        <Panel title="Remote Device Management">
+        <Panel title="Device slots (3 per licence)">
           <div className="space-y-2">
             {lic.slots.map((s) => (
               <div
@@ -301,14 +368,19 @@ export function Dashboard({ onOpen }: { onOpen?: (tool: string) => void } = {}) 
               >
                 <span className="min-w-0 truncate">
                   <Usb className="mr-1 inline h-3 w-3 text-muted-foreground" />
-                  slot {s.slot} ·{" "}
+                  {s.label} ·{" "}
                   <span className={s.mac ? "text-primary" : "text-muted-foreground"}>
-                    {s.mac ?? "unbound"}
+                    {s.mac ? `drive ${s.mac}${s.mac === driveSerial ? " (this one)" : ""}` : "free"}
                   </span>
                 </span>
                 <span className="flex gap-1">
-                  <Btn variant="ghost" onClick={() => license.bindSlot(s.slot)}>
-                    {s.mac ? "Unbind" : "Bind"}
+                  <Btn
+                    variant="ghost"
+                    disabled={!s.mac && !driveSerial}
+                    title={!s.mac && !driveSerial ? "Plug in the drive to bind it" : undefined}
+                    onClick={() => license.bindSlot(s.slot, driveSerial)}
+                  >
+                    {s.mac ? "Free" : "Bind this drive"}
                   </Btn>
                 </span>
               </div>
@@ -316,7 +388,8 @@ export function Dashboard({ onOpen }: { onOpen?: (tool: string) => void } = {}) 
             <div className="flex gap-2 pt-1">
               <input
                 className={inputCls}
-                placeholder="New MAC / USB UUID to migrate to slot 1"
+                aria-label="Drive serial to move slot 1 to"
+                placeholder="Drive serial (e.g. 1A2B-3C4D) to move slot 1 to"
                 value={migrateTo}
                 onChange={(e) => setMigrateTo(e.target.value.toUpperCase())}
               />
@@ -337,25 +410,36 @@ export function Dashboard({ onOpen }: { onOpen?: (tool: string) => void } = {}) 
       {tab === "activity" && (
         <div className="grid gap-3 lg:grid-cols-2">
           <Panel
-            title="Local Usage Ledger"
+            title="Activity"
             right={
-              <Btn variant="ghost" onClick={() => usage.reset()}>
-                Reset
+              <Btn variant="ghost" onClick={() => usage.reset()} title="Reset this device's counts">
+                Reset this device
               </Btn>
             }
           >
             <ul className="space-y-2 text-xs">
+              <li className="grid grid-cols-[1fr_auto_auto] gap-4 px-3 text-[10px] uppercase tracking-widest text-muted-foreground">
+                <span />
+                <span className="w-20 text-right">This device</span>
+                <span className="w-20 text-right">All devices</span>
+              </li>
               {USAGE_META.map((m) => (
                 <li
                   key={m.key}
-                  className="flex items-center justify-between rounded border border-border bg-card px-3 py-2 font-mono"
+                  className="grid grid-cols-[1fr_auto_auto] items-center gap-4 rounded border border-border bg-card px-3 py-2 font-mono tabular-nums"
                 >
                   <span className="text-muted-foreground">{m.label}</span>
-                  <span className="text-lg text-foreground">{u[m.key] ?? 0}</span>
+                  <span className="w-20 text-right text-lg text-foreground">{u[m.key] ?? 0}</span>
+                  <span className="w-20 text-right text-lg text-foreground">
+                    {all ? (all[m.key] ?? 0) : "—"}
+                  </span>
                 </li>
               ))}
               <li className="px-1 pt-1 text-[11px] text-muted-foreground">
-                Tracked privately since {u.since}. Never leaves this device.
+                This device since {u.since}.{" "}
+                {all
+                  ? `All devices since ${all.since}, added up in your account.`
+                  : "Sign in with Google (D.EV) to add up every device."}
               </li>
             </ul>
           </Panel>
@@ -574,11 +658,11 @@ function RemoteAccessPanel() {
       online,
     ],
     [
-      "Auth backend",
-      hasSupabase ? "Supabase configured" : "not configured — local code only",
+      "Sign-in",
+      hasSupabase ? "Google sign-in available" : "not set up: local code only",
       hasSupabase,
     ],
-    ["DEV session", dev.isDev ? `${DEV_ROLE} active · ${access}` : "not unlocked", dev.isDev],
+    ["D.EV session", dev.isDev ? `active · ${access}` : "not unlocked", dev.isDev],
     ["OG-BOT Cloud", cloudText, cloudOn && !!cloud?.ok],
     [
       "Drive",
@@ -587,8 +671,16 @@ function RemoteAccessPanel() {
         : drive.message,
       drive.mode === "local" || drive.mode === "remote",
     ],
-    ["Access point", host, true],
+    ["This site", host, true],
   ];
+  const driveOn = drive.mode === "local" || drive.mode === "remote";
+  const headline = !online
+    ? "Offline: everything on a plugged-in drive still works."
+    : driveOn
+      ? `${drive.mode === "remote" ? "Reaching your drive remotely" : "Drive plugged in here"} · signed in as ${signedIn ? "D.EV (Google)" : dev.localUnlock ? "D.EV (local code)" : "nobody"}`
+      : signedIn
+        ? "Signed in. The drive isn't online: turn on the laptop with it in."
+        : "Sign in with Google to reach your drive from anywhere.";
 
   return (
     <Panel
@@ -605,29 +697,40 @@ function RemoteAccessPanel() {
         </span>
       }
     >
-      <p className="mb-3 text-xs text-muted-foreground">
-        <Globe className="mr-1 inline h-3 w-3 text-primary" />
-        When online, any allow-listed Google account unlocks {DEV_ROLE} on any device, anywhere —
-        the unlock is remembered so it keeps working offline. No internet? Use the local dev code.
+      <p className="mb-3 flex items-start gap-2 text-sm">
+        <Globe
+          className={cn("mt-0.5 h-4 w-4 shrink-0", driveOn ? "text-success" : "text-primary")}
+        />
+        <span>{headline}</span>
       </p>
-      <ul className="space-y-1.5">
-        {rows.map(([k, v, ok]) => (
-          <li
-            key={k}
-            className="flex items-center justify-between gap-2 rounded border border-border bg-card px-3 py-2 text-xs"
-          >
-            <span className="font-mono text-muted-foreground">{k}</span>
-            <span className="flex min-w-0 items-center gap-1.5">
-              <span
-                className={cn("h-1.5 w-1.5 shrink-0 rounded-full", ok ? "bg-primary" : "bg-muted")}
-              />
-              <span className="truncate text-foreground" title={v}>
-                {v}
+      <details className="mb-1">
+        <summary className="cursor-pointer text-xs text-muted-foreground">Details</summary>
+        <p className="my-2 text-xs text-muted-foreground">
+          When online, either D.EV Google account unlocks dev mode on any device; it's remembered so
+          it keeps working offline. No internet? Use the local dev code.
+        </p>
+        <ul className="space-y-1.5">
+          {rows.map(([k, v, ok]) => (
+            <li
+              key={k}
+              className="flex items-center justify-between gap-2 rounded border border-border bg-card px-3 py-2 text-xs"
+            >
+              <span className="font-mono text-muted-foreground">{k}</span>
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 shrink-0 rounded-full",
+                    ok ? "bg-primary" : "bg-muted",
+                  )}
+                />
+                <span className="truncate text-foreground" title={v}>
+                  {v}
+                </span>
               </span>
-            </span>
-          </li>
-        ))}
-      </ul>
+            </li>
+          ))}
+        </ul>
+      </details>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {signedIn || dev.localUnlock ? (
           <Btn variant="ghost" onClick={() => void devAuth.lock()}>
@@ -648,8 +751,7 @@ function RemoteAccessPanel() {
       </div>
       {!hasSupabase && (
         <p className="mt-2 text-[11px] text-destructive">
-          Auth backend not configured in this build — remote sign-in is unavailable; use the local
-          code.
+          Google sign-in isn't set up in this build, so remote access is off; use the local code.
         </p>
       )}
     </Panel>
@@ -695,8 +797,8 @@ function SubmissionsPanel() {
       </p>
       {rows.length === 0 ? (
         <p className="rounded border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-          No submissions yet. They appear here once a visitor sends your contact form (needs
-          the SUPABASE_SERVICE_KEY secret in Lovable).
+          No submissions yet. They appear here once a visitor sends your contact form (needs the
+          SUPABASE_SERVICE_KEY secret in Lovable).
         </p>
       ) : (
         <ul className="space-y-2">

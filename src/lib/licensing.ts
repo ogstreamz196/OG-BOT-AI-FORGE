@@ -34,16 +34,16 @@ export type Feature = {
 
 // Keyed by the tab id used in routes/index.tsx.
 export const FEATURES: Feature[] = [
-  { id: "dash", label: "Developer Dashboard", minTier: "starter" },
-  { id: "code", label: "AI Coder / Workbench", minTier: "starter" },
-  { id: "agent", label: "AI Agent", minTier: "starter" },
-  { id: "hw", label: "Hardware Monitor", minTier: "starter" },
+  { id: "dash", label: "Dashboard", minTier: "starter" },
+  { id: "code", label: "Dev workbench", minTier: "starter" },
+  { id: "agent", label: "Build chat (OG BOT)", minTier: "starter" },
+  { id: "hw", label: "Hardware", minTier: "starter" },
   { id: "sentinel", label: "USB Sentinel", minTier: "starter" },
   { id: "git", label: "Change history", minTier: "starter" },
   { id: "image", label: "Image Studio", minTier: "pro" },
   { id: "music", label: "Beat Sketchpad", minTier: "pro" },
-  { id: "forge", label: "Mobile Exporter", minTier: "pro" },
-  { id: "db", label: "Webhook / Database Manager", minTier: "pro" },
+  { id: "forge", label: "Build & Publish", minTier: "pro" },
+  { id: "db", label: "Database", minTier: "pro" },
 ];
 
 export type DeviceSlot = { slot: number; label: string; mac: string | null };
@@ -56,9 +56,9 @@ export type License = {
   /** Explicit per-feature unlock overrides; undefined => fall back to tier default. */
   overrides: Record<string, boolean>;
   deviceKey: string;
-  /** Primary host MAC captured at activation (simulated). */
+  /** Legacy field, unused (kept so saved rows still load). */
   mac: string;
-  /** USB controller serial (simulated SCSI inquiry). */
+  /** The drive's real volume serial, once seen (USB Sentinel / Dashboard). */
   usbSerial: string;
   plugged: boolean;
   activated: boolean;
@@ -70,15 +70,6 @@ export type License = {
 const STORAGE_KEY = "og-license-v1";
 const ROW_ID = "primary";
 
-function randMac() {
-  return Array.from({ length: 6 }, () =>
-    Math.floor(Math.random() * 256)
-      .toString(16)
-      .padStart(2, "0")
-      .toUpperCase(),
-  ).join(":");
-}
-
 function defaultLicense(): License {
   return {
     tier: "pro",
@@ -86,13 +77,13 @@ function defaultLicense(): License {
     expires: "2027-11-01",
     overrides: {},
     deviceKey: "OGB-7F3A-91C2-XQ8D",
-    mac: "C8:7F:54:1A:22:9E",
-    usbSerial: "USB\\OGB_SENTINEL\\0x4A91F0C2",
+    mac: "",
+    usbSerial: "",
     plugged: true,
     activated: true,
     graceDaysLeft: 30,
     slots: [
-      { slot: 1, label: "Primary Rig (RTX 5080)", mac: "C8:7F:54:1A:22:9E" },
+      { slot: 1, label: "Primary Rig (RTX 5080)", mac: null },
       { slot: 2, label: "Laptop", mac: null },
       { slot: 3, label: "Spare / Testing", mac: null },
     ],
@@ -140,17 +131,26 @@ function toRow(s: License) {
   };
 }
 
+/** Whether the licence is saved to your account (D.EV sign-in) or only on this device. */
+export type SyncState = { status: "local" | "saving" | "synced" | "error"; at: number | null };
+let sync: SyncState = { status: supabase ? "saving" : "local", at: null };
+const setSync = (status: SyncState["status"]) => {
+  sync = { status, at: status === "synced" ? Date.now() : sync.at };
+  notify();
+};
+
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
 function pushRemote() {
   if (!supabase) return;
   if (pushTimer) clearTimeout(pushTimer);
   pushTimer = setTimeout(() => {
+    setSync("saving");
     void supabase!
       .from("licenses")
       .upsert(toRow(state))
       .then(
-        () => {},
-        () => {},
+        ({ error }) => setSync(error ? "error" : "synced"),
+        () => setSync("error"),
       );
   }, 400);
 }
@@ -179,16 +179,17 @@ function hydrateOnce() {
       .eq("id", ROW_ID)
       .maybeSingle()
       .then(
-        ({ data }) => {
+        ({ data, error }) => {
+          if (error) return setSync("error");
           if (data) {
             state = fromRow(data as Record<string, unknown>);
             persist();
-            notify();
+            setSync("synced");
           } else {
             pushRemote(); // seed row from current state
           }
         },
-        () => {},
+        () => setSync("error"),
       );
   }
 }
@@ -248,21 +249,26 @@ export const license = {
     set({ deviceKey: key.trim(), activated: ok, graceDaysLeft: ok ? 30 : state.graceDaysLeft });
     return ok;
   },
-  bindSlot(slot: number) {
-    const slots = state.slots.map((s) =>
-      s.slot === slot ? { ...s, mac: s.mac ? null : randMac() } : s,
-    );
+  /** Bind a slot to a real device id (the drive's volume serial), or free it. */
+  bindSlot(slot: number, id?: string | null) {
+    const slots = state.slots.map((s) => (s.slot === slot ? { ...s, mac: s.mac ? null : (id ?? null) } : s));
     set({ slots });
   },
-  /** Remote migration: move a slot's binding (and optionally the primary device key) to a new device. */
-  migrateSlot(slot: number, mac: string) {
-    const slots = state.slots.map((s) => (s.slot === slot ? { ...s, mac: mac || randMac() } : s));
+  /** Move a slot's binding to another device id. */
+  migrateSlot(slot: number, id: string) {
+    if (!id.trim()) return;
+    const slots = state.slots.map((s) => (s.slot === slot ? { ...s, mac: id.trim() } : s));
     set({ slots });
   },
   regenerateKey() {
     const block = () => Math.random().toString(36).slice(2, 6).toUpperCase().padEnd(4, "X");
-    set({ deviceKey: `OGB-${block()}-${block()}-${block()}`, mac: randMac() });
+    set({ deviceKey: `OGB-${block()}-${block()}-${block()}` });
   },
+  /** Record the drive this licence runs from (real volume serial). */
+  setDrive(serial: string) {
+    if (serial && serial !== state.usbSerial) set({ usbSerial: serial });
+  },
+  sync: () => sync,
   /** Test helper. */
   _reset() {
     try {
@@ -275,6 +281,11 @@ export const license = {
     notify();
   },
 };
+
+const LOCAL_SYNC: SyncState = { status: "local", at: null };
+export function useLicenseSync() {
+  return useSyncExternalStore(license.subscribe, license.sync, () => LOCAL_SYNC);
+}
 
 export function useLicense() {
   return useSyncExternalStore(license.subscribe, license.get, () => SERVER_SNAPSHOT);

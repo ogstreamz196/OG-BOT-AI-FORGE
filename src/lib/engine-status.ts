@@ -10,7 +10,8 @@ import { DEFAULT_CODER } from "./dev-workbench";
 export type ModelFacts = { params?: string; context?: number; loaded?: boolean };
 type State = { online: boolean | null; host: string; model: string; facts: ModelFacts };
 
-let state: State = { online: null, host: "127.0.0.1:11434", model: DEFAULT_CODER, facts: {} };
+const INITIAL: State = { online: null, host: "127.0.0.1:11434", model: DEFAULT_CODER, facts: {} };
+let state: State = INITIAL;
 const listeners = new Set<() => void>();
 const emit = (patch: Partial<State>) => {
   state = { ...state, ...patch };
@@ -110,5 +111,5 @@ export function useEngineStatus() {
     void refresh();
     timer = setInterval(() => void refresh(), 15_000);
   }, []);
-  return useSyncExternalStore(engineStatus.subscribe, engineStatus.get, engineStatus.get);
+  return useSyncExternalStore(engineStatus.subscribe, engineStatus.get, () => INITIAL);
 }
