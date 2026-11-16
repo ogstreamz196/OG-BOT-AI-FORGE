@@ -15,7 +15,8 @@ describe("agent slash commands", () => {
 });
 
 describe("model matrix", () => {
-  it("DeepSeek R1 32B needs 14 GB VRAM", () => {
-    expect(MODELS.find((m) => m.name.startsWith("DeepSeek"))?.vram).toBe(14);
+  it("is the real roster, nothing over 14B", () => {
+    expect(MODELS.some((m) => m.tag === "qwen2.5-coder:14b")).toBe(true);
+    expect(MODELS.every((m) => !/:(1[5-9]|[2-9]\d)b/i.test(m.tag))).toBe(true);
   });
 });

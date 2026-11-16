@@ -57,12 +57,11 @@ describe("Hardware live load", () => {
 });
 
 describe("audit fixes", () => {
-  it("Hardware never calls a model over 14B compatible", async () => {
+  it("Hardware lists the real roster, nothing over 14B", async () => {
     render(<Hardware />);
     await act(async () => {});
-    const row = screen.getByText("Qwen 2.5 Coder 32B (Q4_K_M)").closest("li")!;
-    expect(row.textContent).toMatch(/OVER 14B LIMIT → qwen2.5-coder:14b/);
-    expect(screen.getByText("Qwen 2.5 Coder 14B").closest("li")!.textContent).not.toMatch(/OVER 14B/);
+    expect(screen.getByText("Qwen 2.5 Coder 14B · lead coder (docked)")).toBeInTheDocument();
+    expect(screen.queryByText(/32B/)).not.toBeInTheDocument();
   });
   it("chat commands that aren't wired say so instead of pretending", async () => {
     const { slashReply } = await import("@/components/studio/Agent");
@@ -77,5 +76,27 @@ describe("audit fixes", () => {
     await act(async () => {});
     expect(screen.getByLabelText("Model")).toHaveValue("qwen2.5-coder:14b");
     expect(screen.getByLabelText("Server URL")).toHaveValue("http://127.0.0.1:11434");
+  });
+});
+
+describe("Hardware with the drive", () => {
+  it("shows live numbers and hides the browser's own GPU guess", async () => {
+    const { driveLink } = await import("@/lib/drive-link");
+    vi.spyOn(driveLink, "get").mockReturnValue({ mode: "local", base: "http://127.0.0.1:11500", status: null, message: "" });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (u) =>
+      new Response(
+        JSON.stringify(
+          String(u).endsWith("/og/live")
+            ? { gpu: { gpu_pct: 40, vram_used_gb: 8, vram_total_gb: 16, temp_c: 60 }, cpu_pct: 10, ram_pct: 30, ram_gb: 32 }
+            : { models: [] },
+        ),
+      ),
+    );
+    render(<Hardware />);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(await screen.findByText("60°C")).toBeInTheDocument();
+    expect(screen.queryByText("Detected Device")).not.toBeInTheDocument();
   });
 });
