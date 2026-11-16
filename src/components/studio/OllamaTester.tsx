@@ -20,6 +20,19 @@ const routedUrl = () => (connectors.configOf("ollama")["baseUrl"] || DEFAULT_URL
 type Role = "user" | "assistant";
 type Message = { role: Role; content: string };
 type Status = "checking" | "connected" | "offline";
+/** Speed facts from Ollama's final stream chunk. */
+export type Speed = { tokPerSec: number | null; loadSec: number | null; totalSec: number | null; vramGb?: number | null };
+export function speedOf(chunk: { eval_count?: number; eval_duration?: number; load_duration?: number; total_duration?: number }): Speed {
+  const s = (ns?: number) => (ns ? Math.round((ns / 1e9) * 10) / 10 : null);
+  return {
+    tokPerSec: chunk.eval_count && chunk.eval_duration ? Math.round((chunk.eval_count / chunk.eval_duration) * 1e9 * 10) / 10 : null,
+    loadSec: s(chunk.load_duration),
+    totalSec: s(chunk.total_duration),
+  };
+}
+const OFFLINE_HELP =
+  "The AI engine on your drive isn't answering. Plug in the drive (it starts the engine by itself), or turn on the laptop it's in, then press Reconnect.";
+type Row = { model: string; state: "waiting" | "testing" | "ok" | "failed"; speed?: Speed; note?: string };
 
 const QUICK_PROMPTS: { label: string; prompt: string }[] = [
   { label: "Ping test", prompt: "Reply with exactly: PONG" },
@@ -52,6 +65,8 @@ export function OllamaTester() {
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [speed, setSpeed] = useState<Speed | null>(null);
+  const [rows, setRows] = useState<Row[] | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -107,6 +122,7 @@ export function OllamaTester() {
     setMessages([...history, { role: "assistant", content: "" }]);
     setInput("");
     setStreaming(true);
+    setSpeed(null);
     const ac = new AbortController();
     abortRef.current = ac;
     try {
@@ -130,8 +146,9 @@ export function OllamaTester() {
           const t = line.trim();
           if (!t) continue;
           try {
-            const chunk = JSON.parse(t) as { message?: { content?: string }; done?: boolean };
+            const chunk = JSON.parse(t) as { message?: { content?: string }; done?: boolean; eval_count?: number; eval_duration?: number; load_duration?: number; total_duration?: number };
             if (chunk.message?.content) appendToLast(chunk.message.content);
+            if (chunk.done) setSpeed({ ...speedOf(chunk), vramGb: await vramOf(model || FALLBACK_MODEL) });
           } catch {
             /* ignore partial/non-JSON lines */
           }
@@ -141,9 +158,7 @@ export function OllamaTester() {
       if (e instanceof DOMException && e.name === "AbortError") {
         appendToLast("\n\n[stopped]");
       } else {
-        setError(
-          `Could not reach Ollama at ${baseUrl}. Start the portable server (start_ollama.bat) with OLLAMA_ORIGINS=https://offline.ogbot.co.uk,https://*.lovable.app (then fully restart Ollama) and try again.`,
-        );
+        setError(OFFLINE_HELP);
         setStatus("offline");
       }
     } finally {
@@ -153,6 +168,42 @@ export function OllamaTester() {
   };
 
   const stop = () => abortRef.current?.abort();
+
+  /** How much VRAM a loaded model uses right now. */
+  const vramOf = async (tag: string): Promise<number | null> => {
+    try {
+      const ps = (await (await fetch(`${baseUrl.replace(/\/$/, "")}/api/ps`)).json()) as { models?: { name: string; size_vram?: number }[] };
+      const m = ps.models?.find((x) => x.name === tag || x.name === `${tag}:latest`);
+      return m?.size_vram ? Math.round((m.size_vram / 2 ** 30) * 10) / 10 : null;
+    } catch {
+      return null;
+    }
+  };
+
+  /** Ask every installed model to answer PONG, one at a time, and time it. */
+  const testAll = async () => {
+    if (!models.length || streaming) return;
+    const list = models.filter((m) => !/embed/i.test(m));
+    setRows(list.map((m) => ({ model: m, state: "waiting" })));
+    setStreaming(true);
+    for (const m of list) {
+      setRows((r) => r && r.map((x) => (x.model === m ? { ...x, state: "testing" } : x)));
+      try {
+        const res = await fetch(`${baseUrl.replace(/\/$/, "")}/api/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model: m, stream: false, keep_alive: "5m", messages: [{ role: "user", content: "Reply with exactly: PONG" }] }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const j = (await res.json()) as { message?: { content?: string }; eval_count?: number; eval_duration?: number; load_duration?: number; total_duration?: number };
+        const ok = /pong/i.test(j.message?.content ?? "");
+        setRows((r) => r && r.map((x) => (x.model === m ? { ...x, state: ok ? "ok" : "failed", speed: speedOf(j), note: ok ? "" : "answered, but not PONG" } : x)));
+      } catch (e) {
+        setRows((r) => r && r.map((x) => (x.model === m ? { ...x, state: "failed", note: e instanceof Error ? e.message : "error" } : x)));
+      }
+    }
+    setStreaming(false);
+  };
 
   const dot = status === "connected" ? "#22c55e" : status === "offline" ? "#ef4444" : "#eab308";
 
@@ -191,7 +242,24 @@ export function OllamaTester() {
         <button className="oll-btn" onClick={() => void checkHealth(baseUrl)}>
           Reconnect
         </button>
+        <button className="oll-btn oll-ghost" onClick={() => void testAll()} disabled={!models.length || streaming} title="Ask every installed model to answer, and time each one">
+          Test all models
+        </button>
       </div>
+
+      {rows && (
+        <div className="oll-table" role="table" aria-label="Model test results">
+          {rows.map((r) => (
+            <div key={r.model} role="row" className="oll-row">
+              <span role="cell" className="oll-mono">{r.model}</span>
+              <span role="cell" className={`oll-state oll-${r.state}`}>{r.state === "ok" ? "✓ answers" : r.state === "failed" ? `✗ ${r.note ?? ""}` : r.state === "testing" ? "testing…" : "waiting"}</span>
+              <span role="cell" className="oll-mono">{r.speed?.tokPerSec != null ? `${r.speed.tokPerSec} tok/s` : ""}</span>
+              <span role="cell" className="oll-mono">{r.speed?.loadSec ? `load ${r.speed.loadSec}s` : ""}</span>
+            </div>
+          ))}
+          <button className="oll-chip" onClick={() => setRows(null)}>Hide results</button>
+        </div>
+      )}
 
       {error && <div className="oll-error">{error}</div>}
 
@@ -214,6 +282,15 @@ export function OllamaTester() {
         ))}
         <div ref={endRef} />
       </div>
+
+      {speed && (
+        <div className="oll-speed" aria-label="Speed">
+          {speed.tokPerSec != null && <span><b>{speed.tokPerSec}</b> tokens/s</span>}
+          {speed.loadSec != null && <span>loaded in <b>{speed.loadSec}s</b></span>}
+          {speed.totalSec != null && <span>total <b>{speed.totalSec}s</b></span>}
+          {speed.vramGb != null && <span><b>{speed.vramGb} GB</b> VRAM</span>}
+        </div>
+      )}
 
       <div className="oll-quick">
         {QUICK_PROMPTS.map((q) => (
@@ -269,6 +346,13 @@ const CSS = `
 .oll-btn{background:#3d5afe;color:#fff;border:0;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer}
 .oll-btn:disabled{opacity:.4;cursor:default}
 .oll-stop{background:#ef4444}
+.oll-ghost{background:transparent;border:1px solid #3d5afe;color:#9ab0ff}
+.oll-table{display:flex;flex-direction:column;gap:4px;background:#080b16;border:1px solid #1b2440;border-radius:12px;padding:10px}
+.oll-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1.2fr) auto auto;gap:10px;font-size:12px;align-items:center}
+.oll-mono{font:12px ui-monospace,monospace;color:#9aa4c4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.oll-ok{color:#4ade80}.oll-failed{color:#f87171}.oll-testing{color:#facc15}.oll-waiting{color:#7f8aad}
+.oll-speed{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:#9aa4c4}
+.oll-speed b{color:#e6e9f5}
 .oll-error{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);color:#fecaca;border-radius:10px;padding:10px 12px;font-size:13px}
 .oll-chat{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;background:#080b16;border:1px solid #1b2440;border-radius:12px;padding:14px}
 .oll-empty{color:#7f8aad;font-size:13px;text-align:center;margin:auto}

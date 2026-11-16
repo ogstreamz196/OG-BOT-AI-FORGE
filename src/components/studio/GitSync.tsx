@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
-import { Bot, Eye, GitCommit, RefreshCw, Undo2 } from "lucide-react";
+import { Bot, Eye, GitCommit, RefreshCw, RotateCcw, Undo2 } from "lucide-react";
 import { Panel, Btn } from "./ui";
 import { cn } from "@/lib/utils";
 import { useDriveLink } from "@/lib/drive-link";
 
-type Commit = { sha: string; short: string; author: string; time: number; subject: string; reverted?: boolean };
+type Commit = {
+  sha: string;
+  short: string;
+  author: string;
+  time: number;
+  subject: string;
+  reverted?: boolean;
+};
 
 export function ago(seconds: number, now = Date.now() / 1000): string {
   const s = Math.max(0, Math.round(now - seconds));
@@ -13,6 +20,9 @@ export function ago(seconds: number, now = Date.now() / 1000): string {
   if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
   return `${Math.floor(s / 86400)} d ago`;
 }
+
+/** A commit that undid an earlier one (restoring = undoing it). */
+export const isUndo = (c: { subject: string }) => /^Revert "/.test(c.subject);
 
 /** Who made a change, in plain words. */
 export function whoMade(author: string, subject: string): string {
@@ -34,6 +44,8 @@ export function GitSync() {
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState<{ sha: string; text: string } | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [who, setWho] = useState<string>("all");
+  const [find, setFind] = useState("");
 
   const load = useCallback(async () => {
     if (!base) return;
@@ -57,7 +69,9 @@ export function GitSync() {
     if (!base) return;
     if (open?.sha === sha) return setOpen(null);
     try {
-      const j = (await (await fetch(`${base}/og/repair/diff?commit=${sha}`)).json()) as { diff?: string };
+      const j = (await (await fetch(`${base}/og/repair/diff?commit=${sha}`)).json()) as {
+        diff?: string;
+      };
       setOpen({ sha, text: j.diff ?? "not available" });
     } catch {
       setOpen({ sha, text: "couldn't reach the drive" });
@@ -65,10 +79,23 @@ export function GitSync() {
   };
 
   const revert = async (c: Commit) => {
-    if (!base || !window.confirm(`Undo "${c.subject}"?\n\nOG BOT adds an undo commit on main and Lovable publishes it. You can undo the undo the same way.`)) return;
+    const restoring = isUndo(c);
+    if (
+      !base ||
+      !window.confirm(
+        restoring
+          ? `Restore what "${c.subject.replace(/^Revert "|"$/g, "")}" changed?\n\nOG BOT reverses this undo with a new commit on main.`
+          : `Undo "${c.subject}"?\n\nOG BOT adds an undo commit on main and Lovable publishes it. You can restore it later.`,
+      )
+    )
+      return;
     setMsg("undoing…");
     try {
-      const r = await fetch(`${base}/og/repair/revert`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ commit: c.sha }) });
+      const r = await fetch(`${base}/og/repair/revert`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commit: c.sha }),
+      });
       const j = (await r.json()) as { result?: string };
       setMsg(j.result ?? "done");
     } catch {
@@ -77,11 +104,20 @@ export function GitSync() {
     void load();
   };
 
+  const authors = [...new Set((commits ?? []).map((c) => whoMade(c.author, c.subject)))];
+  const q = find.trim().toLowerCase();
+  const shown = (commits ?? []).filter(
+    (c) =>
+      (who === "all" || whoMade(c.author, c.subject) === who) &&
+      (!q || `${c.subject} ${c.short}`.toLowerCase().includes(q)),
+  );
+
   if (!base) {
     return (
       <Panel title="Change history">
         <p className="text-xs text-muted-foreground">
-          Plug in the drive (or sign in as D.EV to reach it remotely). The drive keeps a copy of the app's code, so you can see every change made to the site here and undo any of them.
+          Plug in the drive (or sign in as D.EV to reach it remotely). The drive keeps a copy of the
+          app's code, so you can see every change made to the site here and undo any of them.
         </p>
       </Panel>
     );
@@ -93,27 +129,79 @@ export function GitSync() {
         title="Change history · main"
         right={
           <Btn variant="ghost" onClick={() => void load()} disabled={loading}>
-            <RefreshCw className={cn("mr-1 inline h-3 w-3", loading && "animate-spin")} />Refresh
+            <RefreshCw className={cn("mr-1 inline h-3 w-3", loading && "animate-spin")} />
+            Refresh
           </Btn>
         }
       >
         <p className="mb-3 text-xs text-muted-foreground">
-          Every change to the live site, newest first: OG BOT's fixes, Lovable, Claude and your own. "Undo" adds a new commit that reverses it, so nothing is ever lost.
+          Every change to the live site, newest first: OG BOT's fixes, Lovable, Claude and your own.
+          "Undo" adds a new commit that reverses it, so nothing is ever lost.
         </p>
-        {error && <p className="mb-2 rounded border border-warning/50 bg-warning/10 px-2 py-1 text-xs">{error}</p>}
-        {msg && <p className="mb-2 font-mono text-[11px] text-muted-foreground" role="status">{msg}</p>}
+        {error && (
+          <p className="mb-2 rounded border border-warning/50 bg-warning/10 px-2 py-1 text-xs">
+            {error}
+          </p>
+        )}
+        {msg && (
+          <p className="mb-2 font-mono text-[11px] text-muted-foreground" role="status">
+            {msg}
+          </p>
+        )}
+        {commits && commits.length > 0 && (
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <div role="radiogroup" aria-label="Made by" className="flex flex-wrap gap-1">
+              {["all", ...authors].map((a) => (
+                <button
+                  key={a}
+                  role="radio"
+                  aria-checked={who === a}
+                  onClick={() => setWho(a)}
+                  className={cn(
+                    "rounded-full border px-2.5 py-1 text-[11px]",
+                    who === a
+                      ? "border-primary bg-primary/15 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {a === "all" ? "Everyone" : a}
+                </button>
+              ))}
+            </div>
+            <input
+              type="search"
+              aria-label="Search changes"
+              placeholder="Search changes…"
+              value={find}
+              onChange={(e) => setFind(e.target.value)}
+              className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs"
+            />
+          </div>
+        )}
         {commits === null ? (
           <p className="text-xs text-muted-foreground">Loading…</p>
-        ) : commits.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No changes found.</p>
+        ) : shown.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            {commits.length ? "Nothing matches." : "No changes found."}
+          </p>
         ) : (
           <ul className="space-y-1.5 text-xs">
-            {commits.map((c) => {
+            {shown.map((c) => {
               const who = whoMade(c.author, c.subject);
               return (
-                <li key={c.sha} className={cn("rounded border border-border bg-card p-2", c.reverted && "opacity-60")}>
+                <li
+                  key={c.sha}
+                  className={cn(
+                    "rounded border border-border bg-card p-2",
+                    c.reverted && "opacity-60",
+                  )}
+                >
                   <div className="flex items-start gap-2">
-                    {who === "OG BOT" ? <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" /> : <GitCommit className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                    {who === "OG BOT" ? (
+                      <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                    ) : (
+                      <GitCommit className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    )}
                     <div className="min-w-0 flex-1">
                       <p className={cn("break-words", c.reverted && "line-through")}>{c.subject}</p>
                       <p className="font-mono text-[10px] text-muted-foreground">
@@ -122,12 +210,27 @@ export function GitSync() {
                       </p>
                     </div>
                     <div className="flex shrink-0 gap-2 text-[11px]">
-                      <button className="text-primary hover:underline" onClick={() => void view(c.sha)}>
-                        <Eye className="mr-0.5 inline h-3 w-3" />{open?.sha === c.sha ? "Hide" : "View"}
+                      <button
+                        className="text-primary hover:underline"
+                        onClick={() => void view(c.sha)}
+                      >
+                        <Eye className="mr-0.5 inline h-3 w-3" />
+                        {open?.sha === c.sha ? "Hide" : "View"}
                       </button>
                       {!c.reverted && (
-                        <button className="text-destructive hover:underline" onClick={() => void revert(c)}>
-                          <Undo2 className="mr-0.5 inline h-3 w-3" />Undo
+                        <button
+                          className={cn(
+                            "hover:underline",
+                            isUndo(c) ? "text-primary" : "text-destructive",
+                          )}
+                          onClick={() => void revert(c)}
+                        >
+                          {isUndo(c) ? (
+                            <RotateCcw className="mr-0.5 inline h-3 w-3" />
+                          ) : (
+                            <Undo2 className="mr-0.5 inline h-3 w-3" />
+                          )}
+                          {isUndo(c) ? "Restore" : "Undo"}
                         </button>
                       )}
                     </div>
@@ -135,7 +238,16 @@ export function GitSync() {
                   {open?.sha === c.sha && (
                     <pre className="mt-2 max-h-80 overflow-auto rounded bg-background p-2 font-mono text-[10px] leading-relaxed">
                       {open.text.split("\n").map((line, i) => (
-                        <span key={i} className={cn("block", line.startsWith("+") && !line.startsWith("+++") && "text-primary", line.startsWith("-") && !line.startsWith("---") && "text-destructive")}>{line}</span>
+                        <span
+                          key={i}
+                          className={cn(
+                            "block",
+                            line.startsWith("+") && !line.startsWith("+++") && "text-primary",
+                            line.startsWith("-") && !line.startsWith("---") && "text-destructive",
+                          )}
+                        >
+                          {line}
+                        </span>
                       ))}
                     </pre>
                   )}
