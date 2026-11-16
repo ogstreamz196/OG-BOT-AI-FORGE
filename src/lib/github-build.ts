@@ -26,7 +26,7 @@ export type BuildFiles = Record<string, string>;
 /** Git tree entries for the project: every file under www/, plus meta.json. */
 export function treeEntries(
   files: BuildFiles,
-  meta: { appName: string; appId: string; project: string },
+  meta: { appName: string; appId: string; project: string; version?: string; versionCode?: number; splash?: string; icon?: string },
 ) {
   const entries = Object.entries(files).map(([path, content]) => ({
     path: `www/${path}`,
@@ -77,4 +77,10 @@ export function phaseOf(s: RunStatus): "queued" | "running" | "success" | "faile
   if (s.status === "completed") return s.conclusion === "success" ? "success" : "failed";
   if (s.status === "in_progress") return "running";
   return "queued";
+}
+
+/** "1.2.3" → 10203 style version code (Android needs a growing integer). */
+export function versionCodeOf(version: string): number {
+  const [a = 1, b = 0, c = 0] = (version || "1.0.0").split(".").map((n) => Math.max(0, Math.min(99, parseInt(n, 10) || 0)));
+  return Math.max(1, a * 10000 + b * 100 + c);
 }

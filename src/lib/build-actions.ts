@@ -6,6 +6,7 @@ import {
   phaseOf,
   pickRun,
   treeEntries,
+  versionCodeOf,
   type BuildFiles,
   type BuildPlatform,
 } from "./github-build";
@@ -66,6 +67,12 @@ export type BuildRequest = {
   appId: string;
   project: string;
   files: BuildFiles;
+  /** App version shown to users, e.g. 1.0.3. */
+  version?: string;
+  /** Splash / icon background colour (#rrggbb). */
+  splash?: string;
+  /** App icon as a PNG data URL (square, 1024 px is best). */
+  icon?: string;
 };
 
 export type BuildResult = { ok: boolean; message: string; runsUrl?: string };
@@ -102,6 +109,10 @@ async function commitProject(env: Env, req: BuildRequest): Promise<void> {
         appName: req.appName,
         appId: req.appId,
         project: req.project,
+        version: req.version || "1.0.0",
+        versionCode: versionCodeOf(req.version || "1.0.0"),
+        ...(req.splash ? { splash: req.splash } : {}),
+        ...(req.icon && /^data:image\/png;base64,/.test(req.icon) && req.icon.length < 2_800_000 ? { icon: req.icon } : {}),
       }),
     },
   });
@@ -126,7 +137,7 @@ export const dispatchBuild = createServerFn({ method: "POST" })
     if (!env) {
       return {
         ok: false,
-        message: "Build backend not configured — set GITHUB_TOKEN and GITHUB_REPO on the Worker.",
+        message: "Builds aren't set up yet: add the GITHUB_TOKEN and GITHUB_REPO secrets in Lovable (Project → Secrets).",
       };
     }
     const appId = normalizeAppId(data.appId, data.appName);
@@ -154,6 +165,32 @@ export const dispatchBuild = createServerFn({ method: "POST" })
       return { ok: false, message: e instanceof Error ? e.message : "Dispatch failed." };
     }
   });
+
+export type BuildSetup = {
+  configured: boolean;
+  repo: string | null;
+  workflows: Record<BuildPlatform, boolean>;
+  message: string;
+};
+
+/** What publishing needs, checked up front: secrets present, and each workflow file in the repo. */
+export const buildSetup = createServerFn({ method: "GET" }).handler(async (): Promise<BuildSetup> => {
+  const none = { android: false, ios: false, web: false };
+  const env = readEnv();
+  if (!env) return { configured: false, repo: null, workflows: none, message: "Add the GITHUB_TOKEN and GITHUB_REPO secrets in Lovable (Project → Secrets)." };
+  try {
+    const list = await gh<{ workflows: { path: string; state: string }[] }>(env, `/repos/${env.repo}/actions/workflows`);
+    const has = (file: string) => list.workflows.some((w) => w.path.endsWith(`/${file}`) && w.state === "active");
+    return {
+      configured: true,
+      repo: env.repo,
+      workflows: { android: has(WORKFLOW_FILE.android), ios: has(WORKFLOW_FILE.ios), web: has(WORKFLOW_FILE.web) },
+      message: "ready",
+    };
+  } catch (e) {
+    return { configured: true, repo: env.repo, workflows: none, message: e instanceof Error ? e.message : "Couldn't read the repo." };
+  }
+});
 
 export type BuildStatus = {
   ok: boolean;

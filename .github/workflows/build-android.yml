@@ -38,6 +38,25 @@ jobs:
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
           npx cap init "${{ inputs.appName }}" "${{ inputs.appId }}" --web-dir www
           npx cap add android
+          # App details from the studio (meta.json): version, icon, splash colour. Best effort.
+          node -e '
+            const fs = require("fs");
+            const m = JSON.parse(fs.readFileSync("meta.json", "utf8"));
+            const g = "android/app/build.gradle";
+            let s = fs.readFileSync(g, "utf8");
+            if (m.versionCode) s = s.replace(/versionCode \d+/, "versionCode " + m.versionCode);
+            if (m.version) s = s.replace(/versionName "[^"]*"/, "versionName \"" + m.version + "\"");
+            fs.writeFileSync(g, s);
+            if (m.icon) {
+              fs.mkdirSync("assets", { recursive: true });
+              fs.writeFileSync("assets/icon-only.png", Buffer.from(m.icon.split(",")[1], "base64"));
+              fs.copyFileSync("assets/icon-only.png", "assets/icon-foreground.png");
+            }
+          '
+          if [ -f assets/icon-only.png ]; then
+            BG=$(node -p 'require("./meta.json").splash || "#0b0d1f"')
+            npx --yes @capacitor/assets@3 generate --android --iconBackgroundColor "$BG" --splashBackgroundColor "$BG" || echo "Icon generation skipped"
+          fi
           npx cap sync android
           cd android
           chmod +x ./gradlew
