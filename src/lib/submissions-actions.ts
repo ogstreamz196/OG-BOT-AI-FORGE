@@ -27,7 +27,7 @@ export const getSubmissions = createServerFn({ method: "GET" }).handler(
       return {
         ok: false,
         rows: [],
-        message: "Set SUPABASE_SERVICE_KEY on the Worker to view submissions.",
+        message: "Add the SUPABASE_SERVICE_KEY secret in Lovable (Project → Secrets) to see submissions.",
       };
     }
     try {

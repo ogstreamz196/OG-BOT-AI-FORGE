@@ -48,7 +48,6 @@ import { Hardware } from "@/components/studio/Hardware";
 import { Sentinel } from "@/components/studio/Sentinel";
 import { Database } from "@/components/studio/Database";
 import { GitSync } from "@/components/studio/GitSync";
-import { Workbench } from "@/components/studio/Workbench";
 import { Connectors } from "@/components/studio/Connectors";
 import { Brand } from "@/components/studio/Brand";
 import { OllamaTester } from "@/components/studio/OllamaTester";
@@ -101,8 +100,7 @@ type ToolId =
   | "hardware"
   | "sentinel"
   | "database"
-  | "git"
-  | "workbench";
+  | "git";
 type Overlay = "settings" | "dash" | "tools" | ToolId | null;
 
 type ToolGroup = "Make" | "Publish" | "Drive & engine" | "Advanced";
@@ -212,15 +210,6 @@ const TOOLS: {
     group: "Drive & engine",
     icon: ShieldCheck,
     C: Sentinel,
-    dev: true,
-  },
-  {
-    id: "workbench",
-    label: "Advanced Editor",
-    hint: "Edit the site's files",
-    group: "Advanced",
-    icon: Code2,
-    C: Workbench,
     dev: true,
   },
 

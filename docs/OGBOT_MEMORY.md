@@ -29,7 +29,7 @@ owner can review and undo any change from the Dashboard, so make each one small 
 | Screen (view id) | File |
 |---|---|
 | Create (create) | `src/components/studio/Create.tsx` |
-| Build / AI builder chat (build) | `src/components/studio/Chat.tsx`, `Preview.tsx`, `SplitView.tsx` |
+| Build / AI builder chat (build) | `src/components/studio/Chat.tsx`, `Preview.tsx`, `SplitView.tsx`, `CodeEditor.tsx` |
 | Dev workbench (dev) | `src/components/studio/DevWorkbench.tsx` |
 | Music video (musicvideo) | `src/components/studio/MusicVideo.tsx`, `src/lib/mv-pipeline.ts` |
 | Image (image) | `src/components/studio/ImageGen.tsx`, `src/lib/image-gen.ts` |

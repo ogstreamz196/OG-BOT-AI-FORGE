@@ -43,7 +43,7 @@ export const TEMPLATES: Record<string, Files> = {
 const projects: Record<string, Files> = { ...TEMPLATES };
 
 // Start on a clean canvas so "describe a change" in the AI builder works
-// immediately; the OG-BOT HUB sample is one /scaffold (or Advanced Editor) away.
+// immediately; the OG-BOT HUB sample is one /scaffold away.
 let state: Workspace = {
   project: "blank-app",
   files: { ...TEMPLATES["blank-app"]! },

@@ -159,7 +159,7 @@ export function Forge() {
       <Panel title="Build & Publish Station">
         <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            Packages the current Workbench project{" "}
+            Packages the current Build project{" "}
             <span className="font-mono text-foreground">{project}</span> (
             {Object.keys(files).length} files). Builds run in GitHub Actions (CI); artifacts appear
             on the run page.

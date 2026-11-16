@@ -55,7 +55,7 @@ export const githubListRepos = createServerFn({ method: "GET" }).handler(
   async (): Promise<ReposResult> => {
     const env = readEnv();
     if (!env)
-      return { ok: false, repos: [], message: "Connect git: set GITHUB_TOKEN on the Worker." };
+      return { ok: false, repos: [], message: "Connect GitHub: add the GITHUB_TOKEN secret in Lovable (Project → Secrets)." };
     try {
       const rows = await gh<RepoRow[]>(
         env.token,
@@ -88,7 +88,7 @@ export const openImprovementPR = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<PRResult> => {
     const env = readEnv();
     if (!env || !env.repo)
-      return { ok: false, message: "Connect git: set GITHUB_TOKEN and GITHUB_REPO on the Worker." };
+      return { ok: false, message: "Connect GitHub: add the GITHUB_TOKEN and GITHUB_REPO secrets in Lovable (Project → Secrets)." };
     try {
       const info = await gh<{ default_branch: string }>(env.token, `/repos/${env.repo}`);
       const base = info.default_branch;

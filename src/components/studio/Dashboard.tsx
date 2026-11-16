@@ -696,7 +696,7 @@ function SubmissionsPanel() {
       {rows.length === 0 ? (
         <p className="rounded border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
           No submissions yet. They appear here once a visitor sends your contact form (needs
-          SUPABASE_SERVICE_KEY on the Worker).
+          the SUPABASE_SERVICE_KEY secret in Lovable).
         </p>
       ) : (
         <ul className="space-y-2">

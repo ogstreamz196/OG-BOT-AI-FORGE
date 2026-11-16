@@ -102,7 +102,7 @@ export const CONNECTOR_CATALOG: ConnectorDef[] = [
     kind: "email",
     name: "Email (Resend)",
     category: "Integrations",
-    blurb: "Send transactional email. The API key is a server secret — set it on the Worker.",
+    blurb: "Send transactional email. The API key is a server secret: add it in Lovable (Project → Secrets).",
     fields: [{ key: "fromAddress", label: "From address", placeholder: "hello@ogbot.co.uk" }],
   },
 ];

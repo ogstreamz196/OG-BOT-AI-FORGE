@@ -50,7 +50,7 @@ export function slashReply(cmd: string): string[] | null {
     return [
       `Creating projects/${n}/ from template ${tpl}`,
       "Writing index.html, styles.css, app.js",
-      "Opened in Workbench.",
+      "Opened in Build.",
       `Project ${n} ready.`,
     ];
   }
