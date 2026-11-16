@@ -606,12 +606,107 @@ function NetBadge() {
   );
 }
 
+/** Tools that only work with the drive (they're greyed while it's away). */
+export const DRIVE_TOOLS = new Set([
+  "image",
+  "musicvideo",
+  "ollama",
+  "hardware",
+  "sentinel",
+  "git",
+]);
+const RECENT_KEY = "og-recent-tools";
+export function rememberTool(id: string) {
+  try {
+    const prev = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]") as string[];
+    localStorage.setItem(
+      RECENT_KEY,
+      JSON.stringify([id, ...prev.filter((x) => x !== id)].slice(0, 4)),
+    );
+  } catch {
+    /* private mode */
+  }
+}
+
 function ToolsGrid({ onPick, dev }: { onPick: (o: Overlay) => void; dev: boolean }) {
+  const drive = useDriveLink();
+  const driveOn = drive.mode === "local" || drive.mode === "remote";
+  const [find, setFind] = useState("");
+  const [recent, setRecent] = useState<string[]>([]);
+  useEffect(() => {
+    try {
+      setRecent(JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]") as string[]);
+    } catch {
+      /* private mode */
+    }
+  }, []);
   const visible = TOOLS.filter((t) => dev || !t.dev);
+  const q = find.trim().toLowerCase();
+  const matches = q
+    ? visible.filter((t) => `${t.id} ${t.label} ${t.hint} ${t.group}`.toLowerCase().includes(q))
+    : visible;
+  const recentTools = q
+    ? []
+    : recent
+        .map((id) => visible.find((t) => t.id === id))
+        .filter((t): t is (typeof TOOLS)[number] => !!t);
+
+  const card = ({ id, label, hint, icon: Icon }: (typeof TOOLS)[number]) => {
+    const needsDrive = DRIVE_TOOLS.has(id);
+    const away = needsDrive && !driveOn;
+    return (
+      <button
+        key={id}
+        onClick={() => {
+          rememberTool(id);
+          onPick(id);
+        }}
+        title={away ? "Needs the drive: plug it in, or reach it remotely as D.EV" : undefined}
+        className={cn(
+          "relative flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-card p-4 text-center transition hover:border-primary hover:text-primary",
+          away && "opacity-55",
+        )}
+      >
+        {needsDrive && (
+          <span
+            className={cn(
+              "absolute right-2 top-2",
+              driveOn ? "text-success" : "text-muted-foreground",
+            )}
+            aria-label={driveOn ? "uses the drive" : "needs the drive"}
+          >
+            <Plug className="h-3.5 w-3.5" />
+          </span>
+        )}
+        <Icon className="h-7 w-7" />
+        <span className="text-xs font-semibold">{label}</span>
+        <span className="text-[10px] leading-tight text-muted-foreground">{hint}</span>
+      </button>
+    );
+  };
+
   return (
     <div className="mx-auto max-w-5xl space-y-5">
+      <input
+        type="search"
+        aria-label="Find a tool"
+        placeholder="Find a tool…"
+        value={find}
+        onChange={(e) => setFind(e.target.value)}
+        className="w-full rounded-xl border border-border bg-card px-4 py-2.5 text-sm outline-none focus:border-primary"
+      />
+      {recentTools.length > 0 && (
+        <section>
+          <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            Recently used
+          </h3>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            {recentTools.map(card)}
+          </div>
+        </section>
+      )}
       {TOOL_GROUPS.map((g) => {
-        const items = visible.filter((t) => t.group === g);
+        const items = matches.filter((t) => t.group === g);
         if (!items.length) return null;
         return (
           <section key={g}>
@@ -619,21 +714,19 @@ function ToolsGrid({ onPick, dev }: { onPick: (o: Overlay) => void; dev: boolean
               {g}
             </h3>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-              {items.map(({ id, label, hint, icon: Icon }) => (
-                <button
-                  key={id}
-                  onClick={() => onPick(id)}
-                  className="flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-card p-4 text-center transition hover:border-primary hover:text-primary"
-                >
-                  <Icon className="h-7 w-7" />
-                  <span className="text-xs font-semibold">{label}</span>
-                  <span className="text-[10px] leading-tight text-muted-foreground">{hint}</span>
-                </button>
-              ))}
+              {items.map(card)}
             </div>
           </section>
         );
       })}
+      {matches.length === 0 && (
+        <p className="text-center text-sm text-muted-foreground">No tool matches “{find}”.</p>
+      )}
+      {!driveOn && (
+        <p className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+          <Plug className="h-3 w-3" /> = needs the drive. {drive.message}.
+        </p>
+      )}
     </div>
   );
 }
