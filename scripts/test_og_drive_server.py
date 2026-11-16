@@ -131,6 +131,14 @@ class LiveStatsTests(unittest.TestCase):
             self.assertTrue(0 <= s["ram_pct"] <= 100)
 
 
+class IdentityTests(unittest.TestCase):
+    def test_drive_identity(self):
+        i = ogds.drive_identity(os.path.dirname(os.path.abspath(__file__)))
+        self.assertRegex(i["serial"] or "", r"^[0-9A-F]{4}-[0-9A-F]{4}$")
+        self.assertGreater(i["total_gb"], 0)
+        self.assertEqual(i["kit"], ogds.VERSION)
+
+
 class OwnerIdeasTests(unittest.TestCase):
     def test_hint_and_idea_go_into_the_prompt(self):
         import tempfile

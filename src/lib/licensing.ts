@@ -41,7 +41,7 @@ export const FEATURES: Feature[] = [
   { id: "sentinel", label: "USB Sentinel", minTier: "starter" },
   { id: "git", label: "Change history", minTier: "starter" },
   { id: "image", label: "Image Studio", minTier: "pro" },
-  { id: "music", label: "Music Forge", minTier: "pro" },
+  { id: "music", label: "Beat Sketchpad", minTier: "pro" },
   { id: "forge", label: "Mobile Exporter", minTier: "pro" },
   { id: "db", label: "Webhook / Database Manager", minTier: "pro" },
 ];

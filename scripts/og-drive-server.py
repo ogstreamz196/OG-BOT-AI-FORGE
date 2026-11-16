@@ -35,7 +35,7 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 HERE = os.path.dirname(os.path.abspath(__file__))          # ...\OFFLINE AI\OG-BOT
 ROOT = os.path.dirname(HERE)                               # ...\OFFLINE AI
 PORT = 11500
@@ -227,6 +227,32 @@ def ram_pct() -> float | None:
         return None
 
 
+def drive_identity(path: str = ROOT) -> dict:
+    """The drive's own fingerprint (volume serial), label and space, for USB Sentinel."""
+    serial, label = None, ""
+    try:
+        if IS_WIN:
+            drive = os.path.splitdrive(os.path.abspath(path))[0] + "\\"
+            name, ser = ctypes.create_unicode_buffer(261), ctypes.c_ulong()
+            if ctypes.windll.kernel32.GetVolumeInformationW(drive, name, 261, ctypes.byref(ser), None, None, None, 0):  # type: ignore[attr-defined]
+                serial = f"{ser.value >> 16:04X}-{ser.value & 0xFFFF:04X}"
+                label = name.value
+        else:
+            st = os.statvfs(path)
+            fsid = getattr(st, "f_fsid", 0) or os.stat(path).st_dev
+            serial = f"{(fsid >> 16) & 0xFFFF:04X}-{fsid & 0xFFFF:04X}"
+            label = os.path.basename(os.path.dirname(os.path.abspath(path))) or "drive"
+    except Exception:  # noqa: BLE001
+        pass
+    total = free = None
+    try:
+        du = shutil.disk_usage(path)
+        total, free = round(du.total / 2**30, 1), round(du.free / 2**30, 1)
+    except OSError:
+        pass
+    return {"serial": serial, "label": label, "total_gb": total, "free_gb": free, "kit": VERSION}
+
+
 def live_stats() -> dict:
     """Real load right now, for the Hardware screen's gauges."""
     gpu = None
@@ -392,6 +418,10 @@ def make_handler(cfg: dict):
 
         def route(self):
             path = urlsplit(self.path).path
+            if path == "/og/identity":
+                if self.allowed():
+                    self.reply(200, drive_identity())
+                return
             if path == "/og/live":
                 if self.allowed():
                     self.reply(200, live_stats())

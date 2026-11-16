@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { Play, Square } from "lucide-react";
 import { Panel, Btn, inputCls } from "./ui";
 import { usage } from "@/lib/usage";
+import { openTool } from "@/lib/open-tool";
 
 type Track = { name: string; notes: number[]; bpm: number };
 const SCALES: Record<string, number[]> = {
@@ -57,34 +58,53 @@ export function Music({ initialPrompt }: { initialPrompt?: string } = {}) {
   };
 
   return (
-    <div className="grid gap-3 lg:grid-cols-2">
-      <Panel title="AI Music & Audio Studio">
+    <div className="mx-auto max-w-3xl space-y-3">
+      <Panel title="Beat sketchpad" right={<span className="font-mono text-[10px] text-muted-foreground">in your browser · instant</span>}>
         <div className="space-y-3">
-          <label className="block text-xs text-muted-foreground">Prompt<input className={inputCls} value={prompt} onChange={(e) => setPrompt(e.target.value)} /></label>
-          <div className="flex gap-2">{Object.keys(SCALES).map((k) => <Btn key={k} variant={style === k ? "blue" : "ghost"} onClick={() => setStyle(k)}>{k}</Btn>)}</div>
-          <Btn onClick={gen} className="w-full">Compose Track</Btn>
-          <p className="text-xs text-muted-foreground">Tracks are synthesized on-device in your browser.</p>
+          <p className="rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
+            A quick melody idea from a scale, played by your browser. It isn't an AI song: for real vocals and production, write the lyrics in Music Video Studio and send them to Suno.
+            <button onClick={() => openTool("musicvideo")} className="ml-1 font-semibold text-primary hover:underline">
+              Open Music Video Studio →
+            </button>
+          </p>
+          <label className="block text-xs text-muted-foreground">
+            Name your idea
+            <input className={inputCls} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+          </label>
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Style">
+            {Object.keys(SCALES).map((k) => (
+              <Btn key={k} variant={style === k ? "blue" : "ghost"} onClick={() => setStyle(k)}>
+                {k}
+              </Btn>
+            ))}
+          </div>
+          <Btn onClick={gen} className="og-gradient w-full">Sketch a melody</Btn>
         </div>
       </Panel>
-      <Panel title="Player">
-        {tracks.length === 0 ? <p className="text-sm text-muted-foreground">Compose a track to play it.</p> : (
+      {tracks.length > 0 && (
+        <Panel title="Your sketches">
           <ul className="space-y-2">
             {tracks.map((t, i) => (
-              <li key={i} className="rounded border border-border bg-card p-2">
+              <li key={i} className="rounded-lg border border-border bg-card p-2">
                 <div className="flex items-center gap-2">
-                  <button aria-label={playing === i ? "Stop" : "Play"} onClick={() => (playing === i ? stop() : play(i))} className="rounded-full bg-primary p-2 text-primary-foreground">
+                  <button aria-label={playing === i ? "Stop" : "Play"} onClick={() => (playing === i ? stop() : play(i))} className="og-gradient rounded-full p-2 text-primary-foreground">
                     {playing === i ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
                   </button>
-                  <div className="flex-1 text-sm">{t.name}<div className="font-mono text-[10px] text-muted-foreground">{t.bpm} BPM · {t.notes.length} steps</div></div>
+                  <div className="min-w-0 flex-1 text-sm">
+                    <span className="block truncate">{t.name}</span>
+                    <span className="font-mono text-[10px] text-muted-foreground">{t.bpm} BPM · {t.notes.length} steps</span>
+                  </div>
                 </div>
-                <div className="mt-2 flex h-8 items-end gap-px">
-                  {t.notes.map((f, n) => <div key={n} className={playing === i ? "flex-1 bg-primary animate-pulse" : "flex-1 bg-secondary/70"} style={{ height: `${(f / 440) * 100}%` }} />)}
+                <div className="mt-2 flex h-8 items-end gap-px" aria-hidden>
+                  {t.notes.map((f, n) => (
+                    <div key={n} className={playing === i ? "flex-1 animate-pulse bg-primary" : "flex-1 bg-secondary/70"} style={{ height: `${(f / 440) * 100}%` }} />
+                  ))}
                 </div>
               </li>
             ))}
           </ul>
-        )}
-      </Panel>
+        </Panel>
+      )}
     </div>
   );
 }

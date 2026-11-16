@@ -59,6 +59,7 @@ import { DEV_ROLE, useDevAuth } from "@/lib/dev-auth";
 import { connectors } from "@/lib/connectors";
 import { hydrateCloudSections, syncCloudSections } from "@/lib/cloud";
 import { crumb } from "@/lib/error-log";
+import { OPEN_TOOL_EVENT } from "@/lib/open-tool";
 
 const logo = LOGO_SRC;
 
@@ -126,8 +127,8 @@ const TOOLS: {
   },
   {
     id: "music",
-    label: "Music Forge",
-    hint: "Songs and beats",
+    label: "Beat Sketchpad",
+    hint: "Quick melody ideas",
     group: "Make",
     icon: Music2,
     C: Music,
@@ -300,6 +301,16 @@ function Studio() {
     };
     window.addEventListener("beforeinstallprompt", onPrompt);
     return () => window.removeEventListener("beforeinstallprompt", onPrompt);
+  }, []);
+
+  // Any screen can ask to open a tool (e.g. Music sketchpad → Music Video Studio).
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (TOOLS.some((t) => t.id === id) || id === "settings" || id === "dash") setOverlayRaw(id as Overlay);
+    };
+    window.addEventListener(OPEN_TOOL_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_TOOL_EVENT, onOpen);
   }, []);
 
   // Escape closes the open screen.

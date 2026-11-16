@@ -3,7 +3,7 @@ import { Check, Database, Download, HardDrive, Loader2, RefreshCw, Trash2, Wifi,
 import { Panel, Btn } from "./ui";
 import { cn } from "@/lib/utils";
 import { MODEL_CATALOG, ROLE_LABEL, models, useModels, type ModelDef, type ModelRole } from "@/lib/models";
-import { license, useLicense } from "@/lib/licensing";
+import { useLicense } from "@/lib/licensing";
 import { usage, useUsage } from "@/lib/usage";
 import { workspace } from "@/lib/workspace";
 import { hasSupabase } from "@/lib/supabase";
@@ -208,16 +208,13 @@ export function Settings() {
       {section === "device" && (
         <Panel title="This device">
           <div className="space-y-2 text-sm">
-            <button
-              onClick={() => license.setPlugged(!lic.plugged)}
-              className="flex w-full items-center justify-between rounded border border-border bg-card px-3 py-2"
-            >
+            <div className="flex items-center justify-between rounded border border-border bg-card px-3 py-2">
               <span className="flex items-center gap-2 text-foreground">
-                {lic.plugged ? <Wifi className="h-4 w-4 text-primary" /> : <WifiOff className="h-4 w-4 text-secondary" />}
-                Licence key present
+                {drive.mode === "local" || drive.mode === "remote" ? <Wifi className="h-4 w-4 text-primary" /> : <WifiOff className="h-4 w-4 text-secondary" />}
+                Drive
               </span>
-              <span className={cn("font-mono text-xs", lic.plugged ? "text-primary" : "text-secondary")}>{lic.plugged ? "yes" : "no"}</span>
-            </button>
+              <span className="font-mono text-xs text-muted-foreground">{drive.message}</span>
+            </div>
             <div className="flex items-center justify-between rounded border border-border bg-card px-3 py-2">
               <span className="flex items-center gap-2 text-foreground">
                 <Database className="h-4 w-4 text-muted-foreground" /> Cloud sign-in & sync

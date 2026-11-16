@@ -33,7 +33,7 @@ owner can review and undo any change from the Dashboard, so make each one small 
 | Dev workbench (dev) | `src/components/studio/DevWorkbench.tsx` |
 | Music video (musicvideo) | `src/components/studio/MusicVideo.tsx`, `src/lib/mv-pipeline.ts` |
 | Image (image) | `src/components/studio/ImageGen.tsx`, `src/lib/image-gen.ts` |
-| Music (music) | `src/components/studio/Music.tsx` |
+| Beat Sketchpad (music) | `src/components/studio/Music.tsx` |
 | Dashboard (dash) | `src/components/studio/Dashboard.tsx`, `SelfRepair.tsx` |
 | Settings (settings) | `src/components/studio/Settings.tsx` |
 | Setup guide (setup) | `src/components/studio/SetupGuide.tsx` |
