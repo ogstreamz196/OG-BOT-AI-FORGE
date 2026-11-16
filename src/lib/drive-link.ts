@@ -37,6 +37,8 @@ export type DriveStatus = {
   public_url: string | null;
   registered: boolean;
   log?: string[];
+  /** Present from kit 1.1.0: what OG BOT's self-repair still needs. */
+  self_repair?: { git: boolean; bun: boolean; token: boolean; clone: boolean; repo?: string };
 };
 export type DriveMode = "checking" | "local" | "remote" | "direct" | "none";
 export type DriveLink = {

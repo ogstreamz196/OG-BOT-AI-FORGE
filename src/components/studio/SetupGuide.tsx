@@ -18,7 +18,12 @@ import uninstallAutostart from "../../../scripts/uninstall-autostart.bat?raw";
 import driveWatcher from "../../../scripts/drive-watcher.ps1?raw";
 import driveServer from "../../../scripts/og-drive-server.py?raw";
 import selfRepair from "../../../scripts/og_self_repair.py?raw";
-import { useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { CheckCircle2, ChevronDown, Circle, Loader2 } from "lucide-react";
+import { useEngineStatus } from "@/lib/engine-status";
+import { useModels } from "@/lib/models";
+import { sameTag } from "@/lib/model-manager";
+import { cn } from "@/lib/utils";
 import { driveLink, useDriveLink } from "@/lib/drive-link";
 import { devAuth } from "@/lib/dev-auth";
 
@@ -213,7 +218,9 @@ function PairDrive() {
           remote: true,
           auto_update_models: true,
           // Self-repair: lets OG BOT push its checked fixes to the app's repo.
-          ...(ghToken.trim() ? { github_token: ghToken.trim(), repo: "ogstreamz196/OG-BOT-AI-FORGE" } : {}),
+          ...(ghToken.trim()
+            ? { github_token: ghToken.trim(), repo: "ogstreamz196/OG-BOT-AI-FORGE" }
+            : {}),
         },
         null,
         2,
@@ -240,9 +247,10 @@ function PairDrive() {
         <li>Plugged into the same computer, it works with no internet at all.</li>
       </ul>
       <label className="mb-2 block text-[11px] text-muted-foreground">
-        Self-repair key (optional): a GitHub fine-grained token for <span className="font-mono">ogstreamz196/OG-BOT-AI-FORGE</span> with
-        Contents: read and write. It goes only into og-drive.json on your drive (never stored here), so OG BOT can publish its own fixes.
-        Anyone holding the drive could use it, so keep the drive safe.
+        Self-repair key (optional): a GitHub fine-grained token for{" "}
+        <span className="font-mono">ogstreamz196/OG-BOT-AI-FORGE</span> with Contents: read and
+        write. It goes only into og-drive.json on your drive (never stored here), so OG BOT can
+        publish its own fixes. Anyone holding the drive could use it, so keep the drive safe.
         <input
           type="password"
           autoComplete="off"
@@ -267,9 +275,176 @@ function PairDrive() {
   );
 }
 
+/** Newest drive kit version this site ships (og-drive-server.py VERSION). */
+export const KIT_VERSION = (driveServer.match(/VERSION\s*=\s*"([\d.]+)"/) ?? [])[1] ?? "0";
+const older = (a: string, b: string) => {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (d) return d < 0;
+  }
+  return false;
+};
+
+type Check = { id: string; label: string; ok: boolean | null; fix: string; optional?: boolean };
+
+/** Ticks itself from the drive's live status, so you can see what's left to set up. */
+export function SetupChecklist() {
+  const drive = useDriveLink();
+  const engine = useEngineStatus();
+  const m = useModels();
+  const [installed, setInstalled] = useState(false);
+  useEffect(() => {
+    try {
+      setInstalled(window.matchMedia("(display-mode: standalone)").matches);
+    } catch {
+      /* old browser */
+    }
+  }, []);
+  const st = drive.status;
+  const found = drive.mode === "local" || drive.mode === "remote";
+  const checking = drive.mode === "checking";
+  const sr = st?.self_repair;
+  const checks: Check[] = [
+    {
+      id: "drive",
+      label: found
+        ? drive.mode === "remote"
+          ? "Drive reached remotely"
+          : "Drive plugged in here"
+        : "Drive found",
+      ok: checking ? null : found,
+      fix: "Plug in the drive with the kit in <drive>:\\OFFLINE AI\\OG-BOT\\, or turn on the laptop it's in. Kit below.",
+    },
+    {
+      id: "kit",
+      label: st ? `Drive kit up to date (${st.version})` : "Drive kit up to date",
+      ok: st ? !older(st.version, KIT_VERSION) : null,
+      fix: `Download the kit below again and replace the files on the drive (newest is ${KIT_VERSION}), then replug.`,
+    },
+    {
+      id: "engine",
+      label: "AI engine running",
+      ok: st ? st.services.ollama || !!engine.online : engine.online,
+      fix: "The drive starts it by itself; if not, double-click launch-hub.bat on the drive.",
+    },
+    {
+      id: "coder",
+      label: "Default coder installed (qwen2.5-coder:14b)",
+      ok: engine.online ? m.live.some((t) => sameTag(t, "qwen2.5-coder:14b")) : null,
+      fix: "Settings → AI models → Install next to Qwen 2.5 Coder 14B.",
+    },
+    {
+      id: "images",
+      label: "Image & video engine (docked)",
+      ok: st ? st.services.comfyui : null,
+      fix: "Dock the laptop to the RTX 5080 eGPU; the drive starts ComfyUI only when docked.",
+      optional: st?.tier === "handheld",
+    },
+    {
+      id: "remote",
+      label: "Paired for remote access",
+      ok: st ? st.registered : null,
+      fix: "Sign in with Google (D.EV), then Pair this drive below and put og-drive.json on the drive.",
+    },
+    {
+      id: "repair",
+      label: "OG BOT self-repair ready",
+      ok: sr ? sr.git && sr.bun && sr.token : st ? false : null,
+      fix:
+        sr && !sr.token
+          ? "Pair again below with a Self-repair key (GitHub token)."
+          : "Needs kit 1.1.0+ and a Self-repair key; Git and Bun download themselves when online.",
+      optional: true,
+    },
+    {
+      id: "app",
+      label: "Installed as an app on this device",
+      ok: installed,
+      fix: "Use Install in the header (or your browser's Install app) so it opens offline.",
+      optional: true,
+    },
+  ];
+  const needed = checks.filter((c) => !c.optional);
+  const done = needed.filter((c) => c.ok).length;
+  return (
+    <Panel
+      title="Your setup"
+      right={
+        <span className="font-mono text-[11px] text-muted-foreground">
+          {done}/{needed.length} essentials done
+        </span>
+      }
+    >
+      <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
+        <div
+          className="og-gradient h-full transition-all"
+          style={{ width: `${(done / needed.length) * 100}%` }}
+        />
+      </div>
+      <ul className="space-y-1.5">
+        {checks.map((c) => (
+          <li
+            key={c.id}
+            className={cn(
+              "rounded-lg border px-3 py-2",
+              c.ok ? "border-success/40 bg-success/5" : "border-border bg-card",
+            )}
+          >
+            <div className="flex items-center gap-2 text-sm">
+              {c.ok === null ? (
+                <Loader2
+                  className="h-4 w-4 shrink-0 animate-spin text-muted-foreground"
+                  aria-label="checking"
+                />
+              ) : c.ok ? (
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-success" aria-label="done" />
+              ) : (
+                <Circle className="h-4 w-4 shrink-0 text-muted-foreground" aria-label="to do" />
+              )}
+              <span className={cn("flex-1", c.ok && "text-foreground/80")}>{c.label}</span>
+              {c.optional && (
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  optional
+                </span>
+              )}
+            </div>
+            {c.ok === false && <p className="mt-1 pl-6 text-xs text-muted-foreground">{c.fix}</p>}
+          </li>
+        ))}
+      </ul>
+    </Panel>
+  );
+}
+
+/** A section that starts folded so the page stays short. */
+function Fold({
+  title,
+  icon,
+  open = false,
+  children,
+}: {
+  title: string;
+  icon?: ReactNode;
+  open?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <details open={open} className="og-fold group rounded-2xl border border-border bg-panel/80">
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 font-display text-sm uppercase">
+        {icon}
+        <span className="flex-1">{title}</span>
+        <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
+      </summary>
+      <div className="border-t border-border px-4 py-3">{children}</div>
+    </details>
+  );
+}
+
 export function SetupGuide() {
   return (
-    <div className="space-y-3">
+    <div className="mx-auto max-w-5xl space-y-3">
       <div className="flex items-center gap-4 rounded-2xl border border-border bg-panel/80 p-3">
         <img
           src="/og-streamz-brand.webp"
@@ -278,7 +453,9 @@ export function SetupGuide() {
         />
         <BrandMark size="lg" />
       </div>
-      <Panel title="Setup Guide">
+      <SetupChecklist />
+
+      <Fold title="How it works" icon={<Cpu className="h-4 w-4 text-primary" />}>
         <p className="mb-3 text-xs text-muted-foreground">
           OGSTREAMZ presentz OFFLINE FORGE, powered by OG BOT, is your offline gateway to local AI:
           chat-build apps, and create images, songs and videos — all on your own GPU. A copy of
@@ -296,13 +473,13 @@ export function SetupGuide() {
             </li>
           ))}
         </ul>
-      </Panel>
+      </Fold>
 
       <PairDrive />
 
-      <Panel
-        title="Drive kit · plug in and go"
-        right={<Download className="h-4 w-4 text-primary" />}
+      <Fold
+        title={`Drive kit · plug in and go (version ${KIT_VERSION})`}
+        icon={<Download className="h-4 w-4 text-primary" />}
       >
         <ol className="mb-3 list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
           <li>
@@ -349,25 +526,27 @@ export function SetupGuide() {
           Windows blocks USB drives from launching programs by themselves (AutoRun), so a small
           watcher on the laptop does it instead. No admin rights needed.
         </p>
-      </Panel>
+      </Fold>
 
-      <div className="grid gap-3 lg:grid-cols-2">
-        <Panel title="Recommended models" right={<Brain className="h-4 w-4 text-primary" />}>
-          <p className="mb-2 text-xs text-muted-foreground">
-            Language models for the builder + AI routing. Pull what your VRAM allows — the router
-            auto-picks the best installed one for each task.
-          </p>
-          <RecList recs={LLM_RECS} />
-        </Panel>
+      <Fold title="Recommended models" icon={<Brain className="h-4 w-4 text-primary" />}>
+        <div className="grid gap-3 lg:grid-cols-2">
+          <Panel title="Language models" right={<Brain className="h-4 w-4 text-primary" />}>
+            <p className="mb-2 text-xs text-muted-foreground">
+              Language models for the builder + AI routing. Pull what your VRAM allows — the router
+              auto-picks the best installed one for each task.
+            </p>
+            <RecList recs={LLM_RECS} />
+          </Panel>
 
-        <Panel title="Image models (ComfyUI)" right={<Image className="h-4 w-4 text-primary" />}>
-          <p className="mb-2 text-xs text-muted-foreground">
-            Drop these into your ComfyUI <span className="font-mono">models/</span> folders. Image
-            Studio auto-detects them. Flux gives the highest quality; SDXL is faster.
-          </p>
-          <RecList recs={IMG_RECS} />
-        </Panel>
-      </div>
+          <Panel title="Image models (ComfyUI)" right={<Image className="h-4 w-4 text-primary" />}>
+            <p className="mb-2 text-xs text-muted-foreground">
+              Drop these into your ComfyUI <span className="font-mono">models/</span> folders. Image
+              Studio auto-detects them. Flux gives the highest quality; SDXL is faster.
+            </p>
+            <RecList recs={IMG_RECS} />
+          </Panel>
+        </div>
+      </Fold>
     </div>
   );
 }
