@@ -12,6 +12,9 @@ import {
   Square,
   Terminal,
   Wand2,
+  Check,
+  ChevronRight,
+  LayoutGrid,
 } from "lucide-react";
 import { Panel, Btn, inputCls } from "./ui";
 import { cn } from "@/lib/utils";
@@ -70,7 +73,7 @@ function Dot({ label, h, onRetry }: { label: string; h: Health; onRetry?: () => 
         className={cn("h-2 w-2 rounded-full", h.state === "checking" && "animate-pulse")}
         style={{ background: color, boxShadow: `0 0 8px ${color}` }}
       />
-      {label}: <span className="text-muted-foreground">{h.detail}</span>
+      {label} <span className="text-muted-foreground">{h.detail}</span>
       {h.state === "offline" && onRetry && (
         <button onClick={onRetry} className="ml-1 text-primary hover:underline" title="Reconnect">
           <RefreshCw className="inline h-3 w-3" /> reconnect
@@ -126,13 +129,13 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
     try {
       const m = await listOllama(ollamaUrl, ctl.signal);
       setInstalled(m);
-      setOllama({ state: "online", detail: `${m.length} models` });
+      setOllama({ state: "online", detail: `ready · ${m.length} models` });
     } catch (e) {
       setOllama({
         state: "offline",
         detail: ctl.signal.aborted
-          ? "no answer: is Ollama running? allow local network access"
-          : e instanceof Error
+          ? "not answering"
+          : e instanceof Error && !/fetch|network/i.test(e.message)
             ? e.message
             : "offline",
       });
@@ -142,7 +145,7 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
     setComfy(
       (await pingComfy(comfyUrl))
         ? { state: "online", detail: "ready" }
-        : { state: "offline", detail: "not running (staged mode)" },
+        : { state: "offline", detail: "off · prompts only" },
     );
   }, [ollamaUrl, comfyUrl]);
   useEffect(() => {
@@ -402,6 +405,24 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
 
   const script = stitchBatch(scenes, { ffmpeg, audio: audioFile, folder });
   const pct = scenes.length ? Math.round((done.length / scenes.length) * 100) : 0;
+  // One stage at a time (or all four side by side on a big screen).
+  const [step, setStep] = usePersistentState<"A" | "B" | "C" | "D">("og-mv-step", "A");
+  const [showAll, setShowAll] = usePersistentState("og-mv-all", false);
+  const STEPS = [
+    { id: "A", label: "Lyrics", done: !!raw.trim() },
+    { id: "B", label: "Scenes", done: scenes.length > 0 },
+    { id: "C", label: "Render", done: scenes.length > 0 && done.length >= scenes.length },
+    { id: "D", label: "Stitch", done: false },
+  ] as const;
+  const shown = (id: string) => (showAll || step === id ? "" : "hidden");
+  const nextStep = (id: "A" | "B" | "C") => (
+    <div className={cn("flex justify-end", showAll && "hidden")}>
+      <Btn variant="ghost" onClick={() => setStep(id === "A" ? "B" : id === "B" ? "C" : "D")}>
+        Next: {id === "A" ? "Scenes" : id === "B" ? "Render" : "Stitch"}{" "}
+        <ChevronRight className="ml-1 inline h-3 w-3" />
+      </Btn>
+    </div>
+  );
   const offline = ollama.state !== "online";
 
   // Optional: poll the provider's status URL ({{id}} = the task id) until audio URLs appear.
@@ -450,8 +471,8 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Dot label="Ollama" h={ollama} onRetry={() => void checkEngines()} />
-        <Dot label="ComfyUI" h={comfy} onRetry={() => void checkEngines()} />
+        <Dot label="AI engine" h={ollama} onRetry={() => void checkEngines()} />
+        <Dot label="Video renderer" h={comfy} onRetry={() => void checkEngines()} />
         <div
           className="flex overflow-hidden rounded-full border border-border font-mono text-[11px]"
           role="group"
@@ -491,9 +512,9 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
       </div>
       {offline && ollama.state === "offline" && (
         <p className="rounded border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs">
-          Ollama isn't reachable at <code>{ollamaUrl}</code>. Start <code>start_ollama.bat</code>{" "}
-          (it sets <code>OLLAMA_ORIGINS=*</code>), allow this site to access your local network in
-          the browser, and it reconnects automatically. Stages C and D still work offline.
+          The AI engine on your drive isn't answering. Plug in the drive (or turn on the laptop with
+          it in); this page reconnects by itself. Render prompts (C) and the stitch script (D) still
+          work without it.
         </p>
       )}
       {err && (
@@ -505,492 +526,559 @@ export function MusicVideo({ initialPrompt }: { initialPrompt?: string } = {}) {
         </p>
       )}
 
-      <div className="grid gap-3 xl:grid-cols-2">
-        {/* ── Stage A ── */}
-        <Stage
-          n="A"
-          title="Lyrics & Track Structure"
-          icon={<Music2 className="h-4 w-4 text-primary" />}
-        >
-          <label className={label}>
-            Song title (optional)
-            <input
-              className={inputCls}
-              value={songTitle}
-              placeholder="Let the model name it"
-              onChange={(e) => setSongTitle(e.target.value)}
-            />
-          </label>
-          <div className="grid grid-cols-3 gap-2">
-            <label className={label}>
-              Genre / style
-              <input
-                className={inputCls}
-                value={genre}
-                onChange={(e) => setGenre(e.target.value)}
-              />
-            </label>
-            <label className={label}>
-              BPM
-              <input
-                type="number"
-                min={40}
-                max={220}
-                className={inputCls}
-                value={bpm}
-                onChange={(e) => setBpm(Number(e.target.value) || 100)}
-              />
-            </label>
-            <label className={label}>
-              Length (s)
-              <input
-                type="number"
-                min={10}
-                max={600}
-                className={inputCls}
-                value={duration}
-                onChange={(e) => setDuration(Number(e.target.value) || 90)}
-              />
-            </label>
-          </div>
-          <label className={label}>
-            Core themes
-            <input
-              className={inputCls}
-              value={themes}
-              onChange={(e) => setThemes(e.target.value)}
-            />
-          </label>
-          <label className={label}>
-            Lyric engine
-            <select
-              className={inputCls}
-              value={lyricModel}
-              onChange={(e) => setLyricModel(e.target.value)}
-            >
-              {LYRIC_ENGINES.map((m) => (
-                <option key={m.tag} value={m.tag}>
-                  {m.label} ({m.tag}){missing(m.tag) ? " · not installed" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <Btn
-            onClick={() => void run("lyrics", genLyrics)}
-            disabled={!!busy || offline}
-            className="flex w-full items-center justify-center gap-1"
-          >
-            {busy === "lyrics" ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Wand2 className="h-3 w-3" />
-            )}
-            Write lyrics
-          </Btn>
-          <textarea
-            className={cn(inputCls, "min-h-[180px]")}
-            placeholder="Lyrics appear here as they're written; you can edit them."
-            value={raw}
-            onChange={(e) => setRaw(e.target.value)}
-          />
-          {(lyrics.title || lyrics.sections.length > 0) && (
-            <div className="space-y-1 text-xs">
-              {lyrics.title && (
-                <div>
-                  <span className="text-muted-foreground">Title:</span> {lyrics.title}
-                </div>
-              )}
-              {lyrics.styleTags && (
-                <div>
-                  <span className="text-muted-foreground">Style:</span> {lyrics.styleTags}
-                </div>
-              )}
-              <div className="flex flex-wrap gap-1">
-                {lyrics.sections.map((s, i) => (
-                  <span key={i} className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-                    {s}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          <details className="rounded border border-border p-2 text-xs">
-            <summary className="cursor-pointer text-muted-foreground">
-              Send to Suno (your API provider)
-            </summary>
-            <div className="mt-2 space-y-2">
-              <label className={label}>
-                API endpoint (POST)
-                <input
-                  className={inputCls}
-                  placeholder="https://your-suno-provider/api/generate"
-                  value={sunoUrl}
-                  onChange={(e) => setSunoUrl(e.target.value)}
-                />
-              </label>
-              <label className={label}>
-                API key (kept for this session only, never saved)
-                <input
-                  type="password"
-                  className={inputCls}
-                  value={sunoKey}
-                  onChange={(e) => setSunoKey(e.target.value)}
-                />
-              </label>
-              <label className={label}>
-                Request body: {"{{title}} {{style}} {{lyrics}}"} are filled in
-                <textarea
-                  className={cn(inputCls, "min-h-[110px]")}
-                  value={sunoBody}
-                  onChange={(e) => setSunoBody(e.target.value)}
-                />
-              </label>
-              <Btn
-                variant="blue"
-                onClick={sendSuno}
-                disabled={!!busy || !sunoUrl || !lyrics.lyrics}
-                className="flex items-center gap-1"
+      <nav aria-label="Music video steps" className="flex flex-wrap items-center gap-2">
+        <ol className="og-hairline flex min-w-0 flex-1 items-center gap-1 overflow-x-auto rounded-2xl bg-background/40 p-1">
+          {STEPS.map((st, i) => (
+            <li key={st.id} className="flex flex-1 items-center gap-1">
+              <button
+                onClick={() => {
+                  setStep(st.id);
+                  setShowAll(false);
+                }}
+                aria-current={!showAll && step === st.id ? "step" : undefined}
+                className={cn(
+                  "flex w-full items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs font-semibold transition",
+                  !showAll && step === st.id
+                    ? "og-gradient text-primary-foreground shadow-md shadow-primary/30"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
               >
-                <Send className="h-3 w-3" />
-                Generate Audio Master
-              </Btn>
+                <span
+                  className={cn(
+                    "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px]",
+                    st.done ? "border-success bg-success/20 text-success" : "border-current",
+                  )}
+                >
+                  {st.done ? <Check className="h-3 w-3" /> : st.id}
+                </span>
+                {st.label}
+                {st.id === "C" && scenes.length > 0 && (
+                  <span className="font-mono text-[10px] opacity-80">{pct}%</span>
+                )}
+              </button>
+              {i < STEPS.length - 1 && (
+                <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
+              )}
+            </li>
+          ))}
+        </ol>
+        <button
+          onClick={() => setShowAll(!showAll)}
+          aria-pressed={showAll}
+          className="hidden items-center gap-1 rounded-lg border border-border px-2.5 py-2 text-xs text-muted-foreground hover:text-foreground xl:flex"
+        >
+          <LayoutGrid className="h-3.5 w-3.5" /> {showAll ? "One step" : "All steps"}
+        </button>
+      </nav>
+
+      <div className={cn("grid gap-3", showAll && "xl:grid-cols-2")}>
+        {/* ── Stage A ── */}
+        <div className={cn("space-y-2", shown("A"))}>
+          <Stage
+            n="A"
+            title="Lyrics & Track Structure"
+            icon={<Music2 className="h-4 w-4 text-primary" />}
+          >
+            <label className={label}>
+              Song title (optional)
+              <input
+                className={inputCls}
+                value={songTitle}
+                placeholder="Let the model name it"
+                onChange={(e) => setSongTitle(e.target.value)}
+              />
+            </label>
+            <div className="grid grid-cols-3 gap-2">
               <label className={label}>
-                Status URL (optional, GET; {"{{id}}"} = task id from the reply)
-                {sunoTask ? ` · task ${sunoTask}` : ""}
+                Genre / style
                 <input
                   className={inputCls}
-                  placeholder="https://your-suno-provider/api/status?taskId={{id}}"
-                  value={sunoStatusUrl}
-                  onChange={(e) => setSunoStatusUrl(e.target.value)}
+                  value={genre}
+                  onChange={(e) => setGenre(e.target.value)}
                 />
               </label>
-              {sunoTask && sunoStatusUrl && !audioUrls.length && (
-                <Btn variant="ghost" onClick={() => void checkSuno()}>
-                  Check status now (auto every 10 s)
-                </Btn>
-              )}
-              {audioUrls.map((u) => (
-                <div key={u} className="space-y-1">
-                  <audio controls src={u} className="w-full" />
-                  <a
-                    href={u}
-                    download={audioFile}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-mono text-[10px] text-primary underline"
-                  >
-                    Download as {audioFile}
-                  </a>
-                </div>
-              ))}
-              {sunoOut && (
-                <pre className="max-h-40 overflow-auto rounded bg-background p-2 font-mono text-[10px]">
-                  {sunoOut}
-                </pre>
-              )}
               <label className={label}>
-                Downloaded audio file name (used in Stage D)
+                BPM
                 <input
+                  type="number"
+                  min={40}
+                  max={220}
                   className={inputCls}
-                  value={audioFile}
-                  onChange={(e) => setAudioFile(e.target.value)}
+                  value={bpm}
+                  onChange={(e) => setBpm(Number(e.target.value) || 100)}
+                />
+              </label>
+              <label className={label}>
+                Length (s)
+                <input
+                  type="number"
+                  min={10}
+                  max={600}
+                  className={inputCls}
+                  value={duration}
+                  onChange={(e) => setDuration(Number(e.target.value) || 90)}
                 />
               </label>
             </div>
-          </details>
-        </Stage>
-
-        {/* ── Stage B ── */}
-        <Stage
-          n="B"
-          title="Scene Director · JSON Storyboard"
-          icon={<Clapperboard className="h-4 w-4 text-primary" />}
-          right={
-            scenes.length > 0 && (
-              <span className="font-mono text-[10px] text-muted-foreground">
-                {scenes.length} scenes
-              </span>
-            )
-          }
-        >
-          <div className="grid grid-cols-3 gap-2">
-            <label className={cn(label, "col-span-2")}>
-              Director engine
+            <label className={label}>
+              Core themes
+              <input
+                className={inputCls}
+                value={themes}
+                onChange={(e) => setThemes(e.target.value)}
+              />
+            </label>
+            <label className={label}>
+              Lyric engine
               <select
                 className={inputCls}
-                value={dirModel}
-                onChange={(e) => setDirModel(e.target.value)}
+                value={lyricModel}
+                onChange={(e) => setLyricModel(e.target.value)}
               >
-                {DIRECTOR_ENGINES.map((m) => (
+                {LYRIC_ENGINES.map((m) => (
                   <option key={m.tag} value={m.tag}>
-                    {m.label}
-                    {missing(m.tag) ? " · not installed" : ""}
+                    {m.label} ({m.tag}){missing(m.tag) ? " · not installed" : ""}
                   </option>
                 ))}
               </select>
             </label>
-            <label className={label}>
-              Cut length (s)
-              <input
-                type="number"
-                min={2}
-                max={20}
-                className={inputCls}
-                value={cut}
-                onChange={(e) => setCut(Math.max(2, Number(e.target.value) || 5))}
-              />
-            </label>
-          </div>
-          <label className={label}>
-            Visual look (kept consistent across scenes)
-            <input className={inputCls} value={look} onChange={(e) => setLook(e.target.value)} />
-          </label>
-          <Btn
-            onClick={() => void run("story", () => genStory(lyrics.lyrics || raw))}
-            disabled={!!busy || offline || !raw.trim()}
-            className="flex w-full items-center justify-center gap-1"
-          >
-            {busy === "story" ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Clapperboard className="h-3 w-3" />
-            )}
-            Direct {sceneCount(duration, cut)} scenes
-          </Btn>
-          {busy === "story" && (
-            <pre className="max-h-28 overflow-auto rounded bg-background p-2 font-mono text-[10px] text-muted-foreground">
-              {dirRaw || "Thinking…"}
-            </pre>
-          )}
-          {scenes.length > 0 && (
-            <>
-              <ol className="max-h-[340px] space-y-2 overflow-auto pr-1">
-                {scenes.map((s) => (
-                  <li key={s.scene_id} className="rounded border border-border bg-card p-2 text-xs">
-                    <div className="mb-1 flex justify-between font-mono text-[10px] text-muted-foreground">
-                      <span>
-                        #{s.scene_id} · {s.shot_type}
-                      </span>
-                      <span>{s.time_range}</span>
-                    </div>
-                    {s.lyric_sync && (
-                      <div className="font-mono text-[10px] text-secondary">{s.lyric_sync}</div>
-                    )}
-                    <div>{s.action_description}</div>
-                    <textarea
-                      className={cn(inputCls, "mt-1 min-h-[52px] text-[11px]")}
-                      value={s.diffusion_prompt}
-                      onChange={(e) =>
-                        setScenes(
-                          scenes.map((x) =>
-                            x.scene_id === s.scene_id
-                              ? { ...x, diffusion_prompt: e.target.value }
-                              : x,
-                          ),
-                        )
-                      }
-                    />
-                  </li>
-                ))}
-              </ol>
-              <div className="flex flex-wrap gap-2">
-                <Btn variant="ghost" onClick={() => copy(JSON.stringify(scenes, null, 2))}>
-                  <Copy className="mr-1 inline h-3 w-3" />
-                  Copy JSON
-                </Btn>
-                <Btn
-                  variant="ghost"
-                  onClick={() =>
-                    download("storyboard.json", JSON.stringify(scenes, null, 2), "application/json")
-                  }
-                >
-                  <Download className="mr-1 inline h-3 w-3" />
-                  storyboard.json
-                </Btn>
-              </div>
-            </>
-          )}
-        </Stage>
-
-        {/* ── Stage C ── */}
-        <Stage
-          n="C"
-          title="ComfyUI Batch Payload · Ready for RTX 5080 Docked Render"
-          icon={<Film className="h-4 w-4 text-primary" />}
-          right={
-            scenes.length > 0 && (
-              <span className="font-mono text-[10px] text-muted-foreground">
-                {done.length}/{scenes.length} rendered
-              </span>
-            )
-          }
-        >
-          <label className={label}>
-            Video model
-            <select
-              className={inputCls}
-              value={vEngine}
-              onChange={(e) => setVEngine(e.target.value as VideoEngine)}
+            <Btn
+              onClick={() => void run("lyrics", genLyrics)}
+              disabled={!!busy || offline}
+              className="flex w-full items-center justify-center gap-1"
             >
-              <option value="ltxv">LTX-Video (fast, 24 fps)</option>
-              <option value="wan21">Wan 2.1 T2V 14B fp8 (quality, 16 fps)</option>
-              <option value="custom">My own workflow (exported from ComfyUI)</option>
-            </select>
-          </label>
-          {!TIER_DEFAULTS[tier].render && (
-            <p className="rounded border border-warning/50 bg-warning/10 px-2 py-1.5 text-[11px]">
-              Portable mode: video rendering is a Stationary / Docked task. Export{" "}
-              <code>workflow_api.json</code> and <code>stitch_video.bat</code> now; queue the render
-              when the RTX 5080 is connected.
-            </p>
-          )}
-          <label className={label}>
-            ComfyUI server address
-            <input
-              className={inputCls}
-              value={comfyUrl}
-              onChange={(e) => connectors.setField("comfyui", "baseUrl", e.target.value)}
+              {busy === "lyrics" ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Wand2 className="h-3 w-3" />
+              )}
+              Write lyrics
+            </Btn>
+            <textarea
+              className={cn(inputCls, "min-h-[180px]")}
+              placeholder="Lyrics appear here as they're written; you can edit them."
+              value={raw}
+              onChange={(e) => setRaw(e.target.value)}
             />
-          </label>
-          {vEngine === "custom" ? (
-            <label className={label}>
-              Paste ComfyUI Workflow → Export (API). Use{" "}
-              {"{{positive}} {{negative}} {{filename}} {{seed}} {{frames}} {{fps}}"} where the
-              values go.
-              <textarea
-                className={cn(inputCls, "min-h-[110px] text-[10px]")}
-                value={template}
-                onChange={(e) => setTemplate(e.target.value)}
-              />
-            </label>
-          ) : (
-            <p className="text-[11px] text-muted-foreground">
-              Built-in graph uses ComfyUI core video nodes and default model file names. If ComfyUI
-              reports a missing node or file, export your working workflow and choose “My own
-              workflow”.
-            </p>
-          )}
-          {scenes.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Direct the scenes in Stage B first.</p>
-          ) : (
-            <>
-              <div className="h-2 overflow-hidden rounded bg-muted">
-                <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
-              </div>
-              <ul className="max-h-[220px] space-y-1 overflow-auto text-xs">
-                {scenes.map((s) => (
-                  <li key={s.scene_id} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      aria-label={`Scene ${s.scene_id} rendered`}
-                      checked={done.includes(s.scene_id)}
-                      onChange={(e) =>
-                        setDone(
-                          e.target.checked
-                            ? [...done, s.scene_id]
-                            : done.filter((d) => d !== s.scene_id),
-                        )
-                      }
-                    />
-                    <span className="font-mono">scene {s.scene_id}</span>
-                    <span className="truncate text-muted-foreground">
-                      {s.time_range} · {s.shot_type}
+            {(lyrics.title || lyrics.sections.length > 0) && (
+              <div className="space-y-1 text-xs">
+                {lyrics.title && (
+                  <div>
+                    <span className="text-muted-foreground">Title:</span> {lyrics.title}
+                  </div>
+                )}
+                {lyrics.styleTags && (
+                  <div>
+                    <span className="text-muted-foreground">Style:</span> {lyrics.styleTags}
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-1">
+                  {lyrics.sections.map((s, i) => (
+                    <span key={i} className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+                      {s}
                     </span>
-                    {queued[s.scene_id] && (
-                      <span
-                        className={cn(
-                          "ml-auto font-mono text-[10px]",
-                          queued[s.scene_id] === "queued" ? "text-primary" : "text-destructive",
-                        )}
-                      >
-                        {queued[s.scene_id]}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-              <div className="flex flex-wrap gap-2">
-                <Btn
-                  variant="ghost"
-                  onClick={() => {
-                    const b = batch();
-                    if (b)
-                      download("workflow_api.json", JSON.stringify(b, null, 2), "application/json");
-                  }}
-                >
-                  <Download className="mr-1 inline h-3 w-3" />
-                  workflow_api.json
-                </Btn>
+                  ))}
+                </div>
+              </div>
+            )}
+            <details className="rounded border border-border p-2 text-xs">
+              <summary className="cursor-pointer text-muted-foreground">
+                Send to Suno (your API provider)
+              </summary>
+              <div className="mt-2 space-y-2">
+                <label className={label}>
+                  API endpoint (POST)
+                  <input
+                    className={inputCls}
+                    placeholder="https://your-suno-provider/api/generate"
+                    value={sunoUrl}
+                    onChange={(e) => setSunoUrl(e.target.value)}
+                  />
+                </label>
+                <label className={label}>
+                  API key (kept for this session only, never saved)
+                  <input
+                    type="password"
+                    className={inputCls}
+                    value={sunoKey}
+                    onChange={(e) => setSunoKey(e.target.value)}
+                  />
+                </label>
+                <label className={label}>
+                  Request body: {"{{title}} {{style}} {{lyrics}}"} are filled in
+                  <textarea
+                    className={cn(inputCls, "min-h-[110px]")}
+                    value={sunoBody}
+                    onChange={(e) => setSunoBody(e.target.value)}
+                  />
+                </label>
                 <Btn
                   variant="blue"
-                  onClick={() => void run("queue", () => queueAll())}
-                  disabled={!!busy || comfy.state !== "online" || !TIER_DEFAULTS[tier].render}
+                  onClick={sendSuno}
+                  disabled={!!busy || !sunoUrl || !lyrics.lyrics}
+                  className="flex items-center gap-1"
                 >
-                  {busy === "queue" ? (
-                    <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />
-                  ) : (
-                    <Send className="mr-1 inline h-3 w-3" />
-                  )}
-                  Send to ComfyUI Queue
+                  <Send className="h-3 w-3" />
+                  Generate Audio Master
                 </Btn>
+                <label className={label}>
+                  Status URL (optional, GET; {"{{id}}"} = task id from the reply)
+                  {sunoTask ? ` · task ${sunoTask}` : ""}
+                  <input
+                    className={inputCls}
+                    placeholder="https://your-suno-provider/api/status?taskId={{id}}"
+                    value={sunoStatusUrl}
+                    onChange={(e) => setSunoStatusUrl(e.target.value)}
+                  />
+                </label>
+                {sunoTask && sunoStatusUrl && !audioUrls.length && (
+                  <Btn variant="ghost" onClick={() => void checkSuno()}>
+                    Check status now (auto every 10 s)
+                  </Btn>
+                )}
+                {audioUrls.map((u) => (
+                  <div key={u} className="space-y-1">
+                    <audio controls src={u} className="w-full" />
+                    <a
+                      href={u}
+                      download={audioFile}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-mono text-[10px] text-primary underline"
+                    >
+                      Download as {audioFile}
+                    </a>
+                  </div>
+                ))}
+                {sunoOut && (
+                  <pre className="max-h-40 overflow-auto rounded bg-background p-2 font-mono text-[10px]">
+                    {sunoOut}
+                  </pre>
+                )}
+                <label className={label}>
+                  Downloaded audio file name (used in Stage D)
+                  <input
+                    className={inputCls}
+                    value={audioFile}
+                    onChange={(e) => setAudioFile(e.target.value)}
+                  />
+                </label>
               </div>
-            </>
-          )}
-        </Stage>
+            </details>
+          </Stage>
+          {nextStep("A")}
+        </div>
+
+        {/* ── Stage B ── */}
+        <div className={cn("space-y-2", shown("B"))}>
+          <Stage
+            n="B"
+            title="Scene Director · JSON Storyboard"
+            icon={<Clapperboard className="h-4 w-4 text-primary" />}
+            right={
+              scenes.length > 0 && (
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  {scenes.length} scenes
+                </span>
+              )
+            }
+          >
+            <div className="grid grid-cols-3 gap-2">
+              <label className={cn(label, "col-span-2")}>
+                Director engine
+                <select
+                  className={inputCls}
+                  value={dirModel}
+                  onChange={(e) => setDirModel(e.target.value)}
+                >
+                  {DIRECTOR_ENGINES.map((m) => (
+                    <option key={m.tag} value={m.tag}>
+                      {m.label}
+                      {missing(m.tag) ? " · not installed" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={label}>
+                Cut length (s)
+                <input
+                  type="number"
+                  min={2}
+                  max={20}
+                  className={inputCls}
+                  value={cut}
+                  onChange={(e) => setCut(Math.max(2, Number(e.target.value) || 5))}
+                />
+              </label>
+            </div>
+            <label className={label}>
+              Visual look (kept consistent across scenes)
+              <input className={inputCls} value={look} onChange={(e) => setLook(e.target.value)} />
+            </label>
+            <Btn
+              onClick={() => void run("story", () => genStory(lyrics.lyrics || raw))}
+              disabled={!!busy || offline || !raw.trim()}
+              className="flex w-full items-center justify-center gap-1"
+            >
+              {busy === "story" ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Clapperboard className="h-3 w-3" />
+              )}
+              Direct {sceneCount(duration, cut)} scenes
+            </Btn>
+            {busy === "story" && (
+              <pre className="max-h-28 overflow-auto rounded bg-background p-2 font-mono text-[10px] text-muted-foreground">
+                {dirRaw || "Thinking…"}
+              </pre>
+            )}
+            {scenes.length > 0 && (
+              <>
+                <ol className="max-h-[340px] space-y-2 overflow-auto pr-1">
+                  {scenes.map((s) => (
+                    <li
+                      key={s.scene_id}
+                      className="rounded border border-border bg-card p-2 text-xs"
+                    >
+                      <div className="mb-1 flex justify-between font-mono text-[10px] text-muted-foreground">
+                        <span>
+                          #{s.scene_id} · {s.shot_type}
+                        </span>
+                        <span>{s.time_range}</span>
+                      </div>
+                      {s.lyric_sync && (
+                        <div className="font-mono text-[10px] text-secondary">{s.lyric_sync}</div>
+                      )}
+                      <div>{s.action_description}</div>
+                      <textarea
+                        className={cn(inputCls, "mt-1 min-h-[52px] text-[11px]")}
+                        value={s.diffusion_prompt}
+                        onChange={(e) =>
+                          setScenes(
+                            scenes.map((x) =>
+                              x.scene_id === s.scene_id
+                                ? { ...x, diffusion_prompt: e.target.value }
+                                : x,
+                            ),
+                          )
+                        }
+                      />
+                    </li>
+                  ))}
+                </ol>
+                <div className="flex flex-wrap gap-2">
+                  <Btn variant="ghost" onClick={() => copy(JSON.stringify(scenes, null, 2))}>
+                    <Copy className="mr-1 inline h-3 w-3" />
+                    Copy JSON
+                  </Btn>
+                  <Btn
+                    variant="ghost"
+                    onClick={() =>
+                      download(
+                        "storyboard.json",
+                        JSON.stringify(scenes, null, 2),
+                        "application/json",
+                      )
+                    }
+                  >
+                    <Download className="mr-1 inline h-3 w-3" />
+                    storyboard.json
+                  </Btn>
+                </div>
+              </>
+            )}
+          </Stage>
+          {nextStep("B")}
+        </div>
+
+        {/* ── Stage C ── */}
+        <div className={cn("space-y-2", shown("C"))}>
+          <Stage
+            n="C"
+            title="ComfyUI Batch Payload · Ready for RTX 5080 Docked Render"
+            icon={<Film className="h-4 w-4 text-primary" />}
+            right={
+              scenes.length > 0 && (
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  {done.length}/{scenes.length} rendered
+                </span>
+              )
+            }
+          >
+            <label className={label}>
+              Video model
+              <select
+                className={inputCls}
+                value={vEngine}
+                onChange={(e) => setVEngine(e.target.value as VideoEngine)}
+              >
+                <option value="ltxv">LTX-Video (fast, 24 fps)</option>
+                <option value="wan21">Wan 2.1 T2V 14B fp8 (quality, 16 fps)</option>
+                <option value="custom">My own workflow (exported from ComfyUI)</option>
+              </select>
+            </label>
+            {!TIER_DEFAULTS[tier].render && (
+              <p className="rounded border border-warning/50 bg-warning/10 px-2 py-1.5 text-[11px]">
+                Portable mode: video rendering is a Stationary / Docked task. Export{" "}
+                <code>workflow_api.json</code> and <code>stitch_video.bat</code> now; queue the
+                render when the RTX 5080 is connected.
+              </p>
+            )}
+            <label className={label}>
+              ComfyUI server address
+              <input
+                className={inputCls}
+                value={comfyUrl}
+                onChange={(e) => connectors.setField("comfyui", "baseUrl", e.target.value)}
+              />
+            </label>
+            {vEngine === "custom" ? (
+              <label className={label}>
+                Paste ComfyUI Workflow → Export (API). Use{" "}
+                {"{{positive}} {{negative}} {{filename}} {{seed}} {{frames}} {{fps}}"} where the
+                values go.
+                <textarea
+                  className={cn(inputCls, "min-h-[110px] text-[10px]")}
+                  value={template}
+                  onChange={(e) => setTemplate(e.target.value)}
+                />
+              </label>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                Built-in graph uses ComfyUI core video nodes and default model file names. If
+                ComfyUI reports a missing node or file, export your working workflow and choose “My
+                own workflow”.
+              </p>
+            )}
+            {scenes.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Direct the scenes in Stage B first.</p>
+            ) : (
+              <>
+                <div className="h-2 overflow-hidden rounded bg-muted">
+                  <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                </div>
+                <ul className="max-h-[220px] space-y-1 overflow-auto text-xs">
+                  {scenes.map((s) => (
+                    <li key={s.scene_id} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        aria-label={`Scene ${s.scene_id} rendered`}
+                        checked={done.includes(s.scene_id)}
+                        onChange={(e) =>
+                          setDone(
+                            e.target.checked
+                              ? [...done, s.scene_id]
+                              : done.filter((d) => d !== s.scene_id),
+                          )
+                        }
+                      />
+                      <span className="font-mono">scene {s.scene_id}</span>
+                      <span className="truncate text-muted-foreground">
+                        {s.time_range} · {s.shot_type}
+                      </span>
+                      {queued[s.scene_id] && (
+                        <span
+                          className={cn(
+                            "ml-auto font-mono text-[10px]",
+                            queued[s.scene_id] === "queued" ? "text-primary" : "text-destructive",
+                          )}
+                        >
+                          {queued[s.scene_id]}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                <div className="flex flex-wrap gap-2">
+                  <Btn
+                    variant="ghost"
+                    onClick={() => {
+                      const b = batch();
+                      if (b)
+                        download(
+                          "workflow_api.json",
+                          JSON.stringify(b, null, 2),
+                          "application/json",
+                        );
+                    }}
+                  >
+                    <Download className="mr-1 inline h-3 w-3" />
+                    workflow_api.json
+                  </Btn>
+                  <Btn
+                    variant="blue"
+                    onClick={() => void run("queue", () => queueAll())}
+                    disabled={!!busy || comfy.state !== "online" || !TIER_DEFAULTS[tier].render}
+                  >
+                    {busy === "queue" ? (
+                      <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />
+                    ) : (
+                      <Send className="mr-1 inline h-3 w-3" />
+                    )}
+                    Send to ComfyUI Queue
+                  </Btn>
+                </div>
+              </>
+            )}
+          </Stage>
+          {nextStep("C")}
+        </div>
 
         {/* ── Stage D ── */}
-        <Stage
-          n="D"
-          title="FFmpeg Stitch Script"
-          icon={<Terminal className="h-4 w-4 text-primary" />}
-        >
-          <div className="grid grid-cols-2 gap-2">
-            <label className={label}>
-              FFmpeg (name or full path)
-              <input
-                className={inputCls}
-                value={ffmpeg}
-                onChange={(e) => setFfmpeg(e.target.value)}
-                placeholder="ffmpeg (or <drive>:\OFFLINE AI\ffmpeg\bin\ffmpeg.exe)"
-              />
-            </label>
-            <label className={label}>
-              Clips folder (blank = next to the script)
-              <input
-                className={inputCls}
-                value={folder}
-                onChange={(e) => setFolder(e.target.value)}
-                placeholder="blank = next to the script (e.g. ComfyUI\output)"
-              />
-            </label>
-          </div>
-          {scenes.length === 0 ? (
-            <p className="text-xs text-muted-foreground">
-              The script is built from your Stage B scenes.
-            </p>
-          ) : (
-            <>
-              <pre className="max-h-[260px] overflow-auto rounded bg-background p-2 font-mono text-[10px] leading-relaxed">
-                {script}
-              </pre>
-              <div className="flex flex-wrap gap-2">
-                <Btn onClick={() => copy(script)}>
-                  <Copy className="mr-1 inline h-3 w-3" />
-                  Copy Batch Script
-                </Btn>
-                <Btn variant="ghost" onClick={() => download("stitch_video.bat", script)}>
-                  <Download className="mr-1 inline h-3 w-3" />
-                  stitch_video.bat
-                </Btn>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                Save it in the clips folder and double-click. It picks the newest take of each
-                scene, joins them without re-encoding, then adds <code>{audioFile}</code> as the
-                soundtrack → <code>final_master_music_video.mp4</code>.
+        <div className={cn("space-y-2", shown("D"))}>
+          <Stage
+            n="D"
+            title="FFmpeg Stitch Script"
+            icon={<Terminal className="h-4 w-4 text-primary" />}
+          >
+            <div className="grid grid-cols-2 gap-2">
+              <label className={label}>
+                FFmpeg (name or full path)
+                <input
+                  className={inputCls}
+                  value={ffmpeg}
+                  onChange={(e) => setFfmpeg(e.target.value)}
+                  placeholder="ffmpeg (or <drive>:\OFFLINE AI\ffmpeg\bin\ffmpeg.exe)"
+                />
+              </label>
+              <label className={label}>
+                Clips folder (blank = next to the script)
+                <input
+                  className={inputCls}
+                  value={folder}
+                  onChange={(e) => setFolder(e.target.value)}
+                  placeholder="blank = next to the script (e.g. ComfyUI\output)"
+                />
+              </label>
+            </div>
+            {scenes.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                The script is built from your Stage B scenes.
               </p>
-            </>
-          )}
-        </Stage>
+            ) : (
+              <>
+                <pre className="max-h-[260px] overflow-auto rounded bg-background p-2 font-mono text-[10px] leading-relaxed">
+                  {script}
+                </pre>
+                <div className="flex flex-wrap gap-2">
+                  <Btn onClick={() => copy(script)}>
+                    <Copy className="mr-1 inline h-3 w-3" />
+                    Copy Batch Script
+                  </Btn>
+                  <Btn variant="ghost" onClick={() => download("stitch_video.bat", script)}>
+                    <Download className="mr-1 inline h-3 w-3" />
+                    stitch_video.bat
+                  </Btn>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Save it in the clips folder and double-click. It picks the newest take of each
+                  scene, joins them without re-encoding, then adds <code>{audioFile}</code> as the
+                  soundtrack → <code>final_master_music_video.mp4</code>.
+                </p>
+              </>
+            )}
+          </Stage>
+        </div>
       </div>
     </div>
   );

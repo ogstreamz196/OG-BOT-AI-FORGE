@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MusicVideo } from "@/components/studio/MusicVideo";
 
@@ -45,10 +45,16 @@ describe("Music Video Studio screen", () => {
     await act(async () => {
       await new Promise((r) => setTimeout(r, 0));
     });
-    expect(await screen.findByText(/isn't reachable at/)).toBeInTheDocument();
+    expect(await screen.findByText(/AI engine on your drive isn't answering/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /run full pipeline/i })).toBeDisabled();
+    // One step at a time: saved scenes tick B; open D to get the script.
+    const steps = within(screen.getByRole("navigation", { name: "Music video steps" }));
+    expect(steps.getByRole("button", { name: /Lyrics/ })).toHaveAttribute("aria-current", "step");
+    fireEvent.click(steps.getByRole("button", { name: /Stitch/ }));
+    expect(steps.getByRole("button", { name: /Stitch/ })).toHaveAttribute("aria-current", "step");
     expect(screen.getByRole("button", { name: /copy batch script/i })).toBeInTheDocument();
     expect(document.body.textContent).toContain(">>concat.txt echo file 'scene_02.mp4'");
+    fireEvent.click(steps.getByRole("button", { name: /Render/ }));
     expect(screen.getByRole("checkbox", { name: "Scene 2 rendered" })).toBeInTheDocument();
   });
 });
