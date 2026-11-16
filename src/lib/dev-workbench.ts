@@ -7,24 +7,33 @@ import { withPoweredBy } from "./powered-by";
  */
 
 export const DEV_SUITE = [
-  { tag: "qwen2.5-coder:14b", role: "Full-Stack Code Architect (default)" },
-  { tag: "deepseek-r1:14b", role: "Architectural Reasoning & Bug Hunt" },
-  { tag: "dolphin3:8b", role: "Uncensored Code / Pentest / Shell Automation" },
-  { tag: "mistral-nemo:12b", role: "Strict JSON API & Config Builder" },
-  { tag: "qwen2.5:14b", role: "Lyrical / Prompt Engineering Director" },
-  { tag: "llama3.2:3b", role: "Lightweight Syntax Check / Instant Ping" },
+  { tag: "qwen2.5-coder:14b", role: "coder (default)" },
+  { tag: "deepseek-r1:14b", role: "reasoning & bugs" },
+  { tag: "dolphin3:8b", role: "scripts" },
+  { tag: "mistral-nemo:12b", role: "JSON & config" },
+  { tag: "qwen2.5:14b", role: "writing & prompts" },
+  { tag: "llama3.2:3b", role: "quick checks" },
 ] as const;
+
+/** Starting points shown in the empty editor. */
+export const DEV_SAMPLES = [
+  "A to-do app in plain HTML, CSS and JS that saves to localStorage",
+  "A REST API in TypeScript (Hono) with a SQLite table for notes",
+  "A PowerShell script that backs up OFFLINE AI\\projects to a dated zip",
+  "Refactor: split a long React component into smaller ones",
+];
 export const DEFAULT_CODER = "qwen2.5-coder:14b";
 
 export type DevMode = "refactor" | "fullstack" | "automation";
 export const DEV_MODES: Record<
   DevMode,
-  { label: string; model: string; hint: string; system: string }
+  { label: string; model: string; hint: string; what: string; system: string }
 > = {
   refactor: {
     label: "Refactor & Debug",
     model: "deepseek-r1:14b",
     hint: "Paste code in the editor, describe the bug or the refactor you want.",
+    what: "Finds why code breaks and rewrites it cleanly. Reasons step by step (deepseek-r1), so it's slower but careful.",
     system:
       "You are a senior engineer doing a careful review. Find root causes and edge cases, then give the corrected code. " +
       "Explain briefly, then output every changed file in full as:\n### `path/file.ext`\n```lang\n...\n```",
@@ -33,15 +42,17 @@ export const DEV_MODES: Record<
     label: "Full-Stack Generator",
     model: "qwen2.5-coder:14b",
     hint: "Describe the app or feature; files stream into their own tabs.",
+    what: "Writes a whole app or feature from a description, file by file, ready to save or open in Build.",
     system:
       "You are an expert full-stack engineer. Produce complete, working, production-quality code with no placeholders. " +
       "Output each file in full, one after another, exactly as:\n### `path/file.ext`\n```lang\n...\n```\n" +
       "Use sensible file names (e.g. src/App.tsx, schema.sql, api_proxy.ts). Keep prose to one short line per file.",
   },
   automation: {
-    label: "Unrestricted Automation",
+    label: "Scripts & Automation",
     model: "dolphin3:8b",
     hint: "Shell, PowerShell, batch or Python automation for your own machines.",
+    what: "Writes scripts that run on your own computers and drive. Read a script before you run it: it can change or delete files.",
     system:
       "You are a systems automation expert writing scripts for the user's own Windows machines and drive. " +
       "Answer directly with working scripts. Output each script in full as:\n### `name.ext`\n```lang\n...\n```",

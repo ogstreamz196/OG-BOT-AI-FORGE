@@ -157,6 +157,24 @@ class GalleryTests(unittest.TestCase):
                 ogds.HERE = old
 
 
+class SaveProjectTests(unittest.TestCase):
+    def test_saves_inside_projects_only(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            r = ogds.save_project("my app!", [
+                {"name": "src/App.tsx", "content": "x"},
+                {"name": "../../evil.txt", "content": "no"},
+                {"name": "C:/Windows/evil.txt", "content": "no"},
+                {"name": "/abs/ok.txt", "content": "y"},
+                {"name": ".git/config", "content": "no"},
+            ], root=d)
+            self.assertTrue(r["ok"])
+            self.assertEqual(sorted(r["written"]), ["abs/ok.txt", "src/App.tsx"])
+            self.assertTrue(os.path.exists(os.path.join(d, "projects", "my-app", "src", "App.tsx")))
+            self.assertFalse(os.path.exists(os.path.join(d, "evil.txt")))
+            self.assertFalse(ogds.save_project("", [{"name": "a", "content": "b"}], root=d)["ok"])
+
+
 class OwnerIdeasTests(unittest.TestCase):
     def test_hint_and_idea_go_into_the_prompt(self):
         import tempfile

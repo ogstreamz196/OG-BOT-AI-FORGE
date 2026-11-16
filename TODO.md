@@ -74,7 +74,7 @@ These are built and unit-tested but have never run on Windows / the real RTX 508
 - [ ] **Auto-stitch:** drive server notices all scenes rendered and runs the FFmpeg stitch itself.
 - [ ] **Suno → drive:** drive server downloads the finished track as `suno_track.mp3` into the
       clips folder, so Stage D needs no manual step.
-- [ ] **Save straight to the drive:** Dev Workbench / Build write files via the drive server
+- [x] **Save straight to the drive:** Dev Workbench saves into `<drive>:\OFFLINE AI\projects\` (done).
       (sandboxed to `<drive>:\OFFLINE AI\projects\`) instead of a batch script.
 - [ ] **Apply tier settings even if Ollama was already running** (tray app): offer to restart it
       with the Docked/Portable settings.

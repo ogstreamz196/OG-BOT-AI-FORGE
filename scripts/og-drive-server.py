@@ -253,6 +253,45 @@ def drive_identity(path: str = ROOT) -> dict:
     return {"serial": serial, "label": label, "total_gb": total, "free_gb": free, "kit": VERSION}
 
 
+PROJECTS_MAX_BYTES = 20 * 2**20
+
+
+def safe_rel(name: str) -> str | None:
+    """A relative path that stays inside its folder, or None."""
+    n = str(name).replace("\\", "/").strip().lstrip("/")
+    if not n or len(n) > 240 or n.startswith("~") or ":" in n:
+        return None
+    parts = [p for p in n.split("/") if p not in ("", ".")]
+    if not parts or any(p == ".." or p.startswith(".git") for p in parts):
+        return None
+    return "/".join(parts)
+
+
+def save_project(project: str, files: list, root: str = ROOT) -> dict:
+    """Write generated files into <drive>\\OFFLINE AI\\projects\\<project>\\ (never anywhere else)."""
+    name = re.sub(r"[^\w.-]", "-", str(project or "")).strip(".-")[:64]
+    if not name:
+        return {"ok": False, "error": "project name needed"}
+    base = os.path.realpath(os.path.join(root, "projects", name))
+    written, total = [], 0
+    for f in files if isinstance(files, list) else []:
+        rel = safe_rel(f.get("name", "")) if isinstance(f, dict) else None
+        content = f.get("content") if isinstance(f, dict) else None
+        if not rel or not isinstance(content, str):
+            continue
+        total += len(content.encode("utf-8"))
+        if total > PROJECTS_MAX_BYTES:
+            return {"ok": False, "error": "too big (20 MB max per save)", "written": written}
+        dest = os.path.realpath(os.path.join(base, rel))
+        if not dest.startswith(base + os.sep):
+            continue
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        with open(dest, "w", encoding="utf-8", newline="") as out:
+            out.write(content)
+        written.append(rel)
+    return {"ok": bool(written), "folder": os.path.join("OFFLINE AI", "projects", name), "written": written}
+
+
 GALLERY_MAX = 500
 
 
@@ -452,6 +491,11 @@ def make_handler(cfg: dict):
 
         def route(self):
             path = urlsplit(self.path).path
+            if path == "/og/projects/save" and self.command == "POST":
+                if self.allowed():
+                    b = self.body_json()
+                    self.reply(200, save_project(str(b.get("project", "")), b.get("files") or []))
+                return
             if path == "/og/gallery":
                 if self.allowed():
                     if self.command == "POST":

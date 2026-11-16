@@ -15,6 +15,7 @@ import {
   Eye,
   FileCode,
   Hammer,
+  HardDrive,
   Loader2,
   Plus,
   Send,
@@ -34,6 +35,7 @@ import { streamOllama, OLLAMA_URL, type ChatMsg } from "@/lib/mv-pipeline";
 import {
   DEV_MODES,
   DEV_SUITE,
+  DEV_SAMPLES,
   langFor,
   parseFiles,
   previewDoc,
@@ -44,6 +46,7 @@ import {
   type GenFile,
 } from "@/lib/dev-workbench";
 import { report } from "@/lib/error-log";
+import { useDriveLink } from "@/lib/drive-link";
 
 type Turn = { role: "user" | "assistant"; text: string; model?: string };
 
@@ -96,6 +99,37 @@ export function DevWorkbench() {
   const [active, setActive] = usePersistentState("og-dev-active", "");
   const [view, setView] = usePersistentState<"code" | "preview">("og-dev-view", "code");
   const [q, setQ] = useState("");
+  const drive = useDriveLink();
+  const driveBase = drive.mode === "local" || drive.mode === "remote" ? drive.base : null;
+  const [projectName, setProjectName] = usePersistentState("og-dev-project", "dev-project");
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const saveToDrive = async () => {
+    if (!driveBase) return;
+    setSaveMsg("Saving…");
+    try {
+      const r = await fetch(`${driveBase}/og/projects/save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          project: projectName,
+          files: files.map((f) => ({ name: f.name, content: f.content })),
+        }),
+      });
+      const j = (await r.json()) as {
+        ok?: boolean;
+        folder?: string;
+        written?: string[];
+        error?: string;
+      };
+      setSaveMsg(
+        j.ok
+          ? `Saved ${j.written?.length ?? 0} file(s) to ${j.folder}`
+          : `Not saved: ${j.error ?? r.status}`,
+      );
+    } catch {
+      setSaveMsg("Couldn't reach the drive.");
+    }
+  };
   const [live, setLive] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -207,6 +241,14 @@ export function DevWorkbench() {
             );
           })}
         </div>
+        <p
+          className={cn(
+            "text-[11px]",
+            mode === "automation" ? "text-warning" : "text-muted-foreground",
+          )}
+        >
+          {DEV_MODES[mode].what}
+        </p>
         <select
           aria-label="Model"
           className={inputCls}
@@ -390,8 +432,27 @@ export function DevWorkbench() {
             }
           />
         ) : (
-          <div className="p-4 text-xs text-muted-foreground">
-            Generated files open here as tabs. Paste your own code with + to refactor it.
+          <div className="space-y-3 p-4 text-xs text-muted-foreground">
+            <p>
+              Generated files open here as tabs. Paste your own code with + to refactor it, or start
+              from one of these:
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {DEV_SAMPLES.map((ex) => (
+                <button
+                  key={ex}
+                  onClick={() => {
+                    setQ(ex);
+                    if (/^Refactor/.test(ex)) pickMode("refactor");
+                    else if (/PowerShell|script/i.test(ex)) pickMode("automation");
+                    else pickMode("fullstack");
+                  }}
+                  className="og-hairline rounded-xl bg-card/50 p-3 text-left text-foreground/90 transition hover:bg-primary/10"
+                >
+                  {ex}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -412,14 +473,39 @@ export function DevWorkbench() {
           <Download className="mr-1 inline h-3 w-3" />
           Download file
         </Btn>
-        <Btn
-          variant="ghost"
-          disabled={!files.length}
-          onClick={() => save("write_files.bat", restoreBatch(files), true)}
-        >
-          <Hammer className="mr-1 inline h-3 w-3" />
-          Generate Batch Script
-        </Btn>
+        {driveBase ? (
+          <span className="flex items-center gap-1">
+            <input
+              aria-label="Project folder name"
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value.replace(/[^\w.-]/g, "-"))}
+              className="w-32 rounded-lg border border-border bg-background px-2 py-1 text-[11px]"
+            />
+            <Btn
+              variant="ghost"
+              disabled={!files.length || !projectName}
+              onClick={() => void saveToDrive()}
+            >
+              <HardDrive className="mr-1 inline h-3 w-3" />
+              Save to drive
+            </Btn>
+          </span>
+        ) : (
+          <Btn
+            variant="ghost"
+            disabled={!files.length}
+            onClick={() => save("write_files.bat", restoreBatch(files), true)}
+            title="Plug in the drive to save straight to it"
+          >
+            <Hammer className="mr-1 inline h-3 w-3" />
+            Generate Batch Script
+          </Btn>
+        )}
+        {saveMsg && (
+          <span className="self-center text-[11px] text-muted-foreground" role="status">
+            {saveMsg}
+          </span>
+        )}
         {files.some((f) =>
           /^(index\.html|styles\.css|app\.js)$/i.test(f.name.split("/").pop() ?? ""),
         ) && (

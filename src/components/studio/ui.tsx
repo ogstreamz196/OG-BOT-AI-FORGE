@@ -13,7 +13,7 @@ export function Panel({ title, right, children, className }: { title: string; ri
   );
 }
 
-export function Btn({ children, onClick, variant = "primary", disabled, className }: { children: ReactNode; onClick?: () => void; variant?: "primary" | "blue" | "ghost" | "danger"; disabled?: boolean; className?: string }) {
+export function Btn({ children, onClick, variant = "primary", disabled, className, title }: { children: ReactNode; onClick?: () => void; variant?: "primary" | "blue" | "ghost" | "danger"; disabled?: boolean; className?: string; title?: string }) {
   const v = {
     primary: "bg-primary text-primary-foreground hover:glow",
     blue: "bg-secondary text-secondary-foreground hover:opacity-90",
@@ -21,7 +21,7 @@ export function Btn({ children, onClick, variant = "primary", disabled, classNam
     danger: "bg-destructive text-destructive-foreground",
   }[variant];
   return (
-    <button disabled={disabled} onClick={onClick} className={cn("rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-wide transition disabled:opacity-40", v, className)}>
+    <button disabled={disabled} onClick={onClick} title={title} className={cn("rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-wide transition disabled:opacity-40", v, className)}>
       {children}
     </button>
   );

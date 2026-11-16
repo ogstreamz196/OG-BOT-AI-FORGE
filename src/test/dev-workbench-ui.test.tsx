@@ -53,3 +53,37 @@ describe("Dev Workbench", () => {
     expect(screen.getByRole("button", { name: /generate batch script/i })).toBeEnabled();
   });
 });
+
+describe("Dev Workbench extras", () => {
+  it("explains the mode, offers samples and saves to the drive", async () => {
+    const { driveLink } = await import("@/lib/drive-link");
+    vi.spyOn(driveLink, "get").mockReturnValue({ mode: "local", base: "http://127.0.0.1:11500", status: null, message: "" });
+    const saved: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (u: string, init?: RequestInit) => {
+        if (String(u).endsWith("/og/projects/save")) {
+          saved.push(String(init?.body));
+          return new Response(JSON.stringify({ ok: true, folder: "OFFLINE AI/projects/dev-project", written: ["index.html"] }));
+        }
+        return streamOf(["### `index.html`\n```html\n<h1>hi</h1>\n```\n"]);
+      }),
+    );
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => setTimeout(() => cb(0), 0) as unknown as number);
+    render(<DevWorkbench />);
+    await act(async () => {});
+    expect(screen.getByText(/Writes a whole app or feature/)).toBeInTheDocument();
+    expect(screen.queryByText("Unrestricted Automation")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /A to-do app in plain HTML/ }));
+    expect(screen.getByLabelText("Prompt")).toHaveValue("A to-do app in plain HTML, CSS and JS that saves to localStorage");
+    fireEvent.keyDown(screen.getByLabelText("Prompt"), { key: "Enter", ctrlKey: true });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Save to drive/ }));
+    await act(async () => {});
+    expect(saved[0]).toContain('"project":"dev-project"');
+    expect(saved[0]).toContain("index.html");
+    expect(await screen.findByText(/Saved 1 file\(s\) to OFFLINE AI\/projects\/dev-project/)).toBeInTheDocument();
+  });
+});
