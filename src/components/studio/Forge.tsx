@@ -27,7 +27,15 @@ export function Forge() {
   const { project, files } = useWorkspace();
   const [appName, setAppName] = useState(project);
   const [appId, setAppId] = useState(normalizeAppId(project));
-  const [platform, setPlatform] = useState<BuildPlatform>("android");
+  const [platform, setPlatform] = useState<BuildPlatform>(() => {
+    try {
+      const t = sessionStorage.getItem("og-publish-target");
+      sessionStorage.removeItem("og-publish-target");
+      return t === "web" || t === "ios" || t === "android" ? t : "android";
+    } catch {
+      return "android";
+    }
+  });
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState<Entry[]>([]);
   const [status, setStatus] = useState<BuildStatus | null>(null);

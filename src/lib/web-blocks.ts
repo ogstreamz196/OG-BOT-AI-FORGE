@@ -47,3 +47,32 @@ export function duplicateBlock(html: string, index: number): string {
   if (!blk) return html;
   return `${html.slice(0, blk.end)}\n${blk.full}${html.slice(blk.end)}`;
 }
+
+/** Move the block at `from` so it ends up at position `to` (drag and drop). */
+export function moveBlockTo(html: string, from: number, to: number): string {
+  const blocks = parseBlocks(html);
+  if (from === to || from < 0 || to < 0 || from >= blocks.length || to >= blocks.length) return html;
+  const order = blocks.map((b) => b.full);
+  const [moved] = order.splice(from, 1);
+  order.splice(to, 0, moved!);
+  // Rebuild: keep everything outside the blocks, refill block slots in the new order.
+  let out = "";
+  let cursor = 0;
+  blocks.forEach((b, i) => {
+    out += html.slice(cursor, b.start) + order[i];
+    cursor = b.end;
+  });
+  return out + html.slice(cursor);
+}
+
+/** The inner HTML of a block (without its markers). */
+export function blockInner(full: string): string {
+  return full.replace(/^<!-- og:start:[\w-]+ -->\n?/, "").replace(/\n?<!-- og:end:[\w-]+ -->$/, "");
+}
+
+/** Replace the inner HTML of the block at `index`, keeping its markers. */
+export function replaceBlock(html: string, index: number, inner: string): string {
+  const blk = parseBlocks(html)[index];
+  if (!blk) return html;
+  return html.slice(0, blk.start) + wrapBlock(blk.id, inner) + html.slice(blk.end);
+}
