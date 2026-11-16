@@ -61,6 +61,7 @@ export async function quickChat(
   model: string,
   prompt: string,
   system?: string,
+  signal?: AbortSignal,
 ): Promise<string> {
   const messages = [
     ...(system ? [{ role: "system", content: system }] : []),
@@ -78,6 +79,7 @@ export async function quickChat(
       options: { temperature: 0.3, num_predict: 400 },
       messages,
     }),
+    ...(signal ? { signal } : {}),
   });
   if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
   const data = (await res.json()) as { message?: { content?: string } };
@@ -94,7 +96,7 @@ export async function generateEdit(
   model: string,
   request: string,
   files: Files,
-  opts?: { context?: string; system?: string },
+  opts?: { context?: string; system?: string; signal?: AbortSignal },
 ): Promise<ModelEdit> {
   const context = opts?.context ? `Approach to follow:\n${opts.context}\n\n` : "";
   const prompt = `${context}Current files:\n${JSON.stringify(files, null, 2)}\n\nRequested change: ${request}`;
@@ -111,6 +113,7 @@ export async function generateEdit(
         { role: "user", content: prompt },
       ],
     }),
+    ...(opts?.signal ? { signal: opts.signal } : {}),
   });
   if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
   const data = (await res.json()) as { message?: { content?: string } };
@@ -118,4 +121,29 @@ export async function generateEdit(
   const edit = parseModelEdit(content);
   if (!edit) throw new Error("Model returned an unparseable response");
   return edit;
+}
+
+/** Ask a vision model (e.g. llama3.2-vision:11b) to describe a screenshot as a design brief. */
+export async function describeImage(baseUrl: string, model: string, base64: string, signal?: AbortSignal): Promise<string> {
+  const res = await fetch(`${baseUrl.replace(/\/$/, "")}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model,
+      stream: false,
+      keep_alive: "24h",
+      options: { temperature: 0.2, num_predict: 500 },
+      messages: [
+        {
+          role: "user",
+          content: "Describe this web page screenshot as a design brief for a developer: layout (top to bottom), colours (hex if you can), fonts, sections and their content. Under 150 words, plain bullet points.",
+          images: [base64],
+        },
+      ],
+    }),
+    ...(signal ? { signal } : {}),
+  });
+  if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
+  const data = (await res.json()) as { message?: { content?: string } };
+  return data.message?.content ?? "";
 }
