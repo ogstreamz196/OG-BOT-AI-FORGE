@@ -443,3 +443,54 @@ export async function waitForImages(
   }
   return [];
 }
+
+/** Every model file ComfyUI can see, by loader. */
+export type Inventory = { checkpoints: string[]; unets: string[]; clips: string[]; vaes: string[] };
+
+export async function fetchInventory(baseUrl: string): Promise<Inventory> {
+  const base = baseUrl.replace(/\/$/, "");
+  const get = (node: string) =>
+    fetch(`${base}/object_info/${node}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null);
+  const [ck, un, dc, cl, va] = await Promise.all([get("CheckpointLoaderSimple"), get("UNETLoader"), get("DualCLIPLoader"), get("CLIPLoader"), get("VAELoader")]);
+  return {
+    checkpoints: parseNodeOptions(ck, "CheckpointLoaderSimple", "ckpt_name"),
+    unets: parseNodeOptions(un, "UNETLoader", "unet_name"),
+    clips: [...new Set([...parseNodeOptions(dc, "DualCLIPLoader", "clip_name1"), ...parseNodeOptions(cl, "CLIPLoader", "clip_name")])],
+    vaes: parseNodeOptions(va, "VAELoader", "vae_name"),
+  };
+}
+
+export type FamilyCheck = {
+  id: "sdxl" | "flux" | "zimage";
+  label: string;
+  ready: boolean;
+  /** Files still needed: what to download and which ComfyUI/models/ folder it goes in. */
+  missing: { file: string; folder: string }[];
+  /** Whether Image Studio can render it yet (Z-Image is detected only). */
+  supported: boolean;
+};
+
+const has = (list: string[], re: RegExp) => list.some((f) => re.test(f));
+
+/** Which image model families are fully installed, and exactly what's missing for the rest. */
+export function modelReadiness(inv: Inventory): FamilyCheck[] {
+  const sdxl: FamilyCheck["missing"] = has(inv.checkpoints, /./) ? [] : [{ file: "sd_xl_base_1.0.safetensors (or any SDXL checkpoint)", folder: "checkpoints" }];
+  const flux: FamilyCheck["missing"] = [
+    ...(has(inv.unets, /flux/i) ? [] : [{ file: "flux1-dev.safetensors (or flux1-schnell)", folder: "diffusion_models" }]),
+    ...(has(inv.clips, /t5/i) ? [] : [{ file: "t5xxl_fp8_e4m3fn.safetensors", folder: "text_encoders" }]),
+    ...(has(inv.clips, /clip_l/i) ? [] : [{ file: "clip_l.safetensors", folder: "text_encoders" }]),
+    ...(has(inv.vaes, /^ae\.|flux/i) ? [] : [{ file: "ae.safetensors", folder: "vae" }]),
+  ];
+  const z: FamilyCheck["missing"] = [
+    ...(has(inv.unets, /z[_-]?image/i) ? [] : [{ file: "z_image_turbo_bf16.safetensors", folder: "diffusion_models" }]),
+    ...(has(inv.clips, /qwen[_-]?3[_-]?4b/i) ? [] : [{ file: "qwen_3_4b.safetensors", folder: "text_encoders" }]),
+    ...(has(inv.vaes, /^ae\./i) ? [] : [{ file: "ae.safetensors", folder: "vae" }]),
+  ];
+  return [
+    { id: "sdxl", label: "SDXL / SD", ready: !sdxl.length, missing: sdxl, supported: true },
+    { id: "flux", label: "Flux", ready: !flux.length, missing: flux, supported: true },
+    { id: "zimage", label: "Z-Image Turbo", ready: !z.length, missing: z, supported: false },
+  ];
+}

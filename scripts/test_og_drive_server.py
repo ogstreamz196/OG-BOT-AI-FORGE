@@ -139,6 +139,24 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual(i["kit"], ogds.VERSION)
 
 
+class GalleryTests(unittest.TestCase):
+    def test_gallery_add_remove(self):
+        import tempfile
+        old = ogds.HERE
+        with tempfile.TemporaryDirectory() as d:
+            ogds.HERE = d
+            try:
+                ogds.gallery_update(add=[{"id": "a", "kind": "image", "prompt": "fox", "secret": "x"}])
+                ogds.gallery_update(add=[{"id": "b", "kind": "image"}, {"id": "a"}])
+                items = ogds.gallery_load()
+                self.assertEqual([i["id"] for i in items], ["b", "a"])
+                self.assertNotIn("secret", items[1])
+                self.assertEqual([i["id"] for i in ogds.gallery_update(remove=["b"])], ["a"])
+                self.assertEqual(ogds.gallery_update(clear=True), [])
+            finally:
+                ogds.HERE = old
+
+
 class OwnerIdeasTests(unittest.TestCase):
     def test_hint_and_idea_go_into_the_prompt(self):
         import tempfile

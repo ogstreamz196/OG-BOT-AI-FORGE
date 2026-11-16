@@ -11,11 +11,17 @@ import {
   Settings2,
   Trash2,
   Film,
+  CheckCircle2,
+  CircleAlert,
+  LayoutTemplate,
 } from "lucide-react";
 import { Panel, Btn, Bar, inputCls } from "./ui";
 import { cn } from "@/lib/utils";
 import { usage } from "@/lib/usage";
-import { gallery, useGallery } from "@/lib/gallery";
+import { creationUrl, gallery, useGallery } from "@/lib/gallery";
+import { useDriveLink } from "@/lib/drive-link";
+import { workspace } from "@/lib/workspace";
+import { wrapBlock } from "@/lib/web-blocks";
 import { connectors } from "@/lib/connectors";
 import { models } from "@/lib/models";
 import { quickChat } from "@/lib/local-ai";
@@ -34,12 +40,15 @@ import {
   waitForImages,
   fetchCheckpoints,
   fetchFluxComponents,
+  fetchInventory,
+  modelReadiness,
   enhanceInstruction,
   cleanEnhanced,
   type GenOpts,
   type Arch,
   type FluxComponents,
   type FluxDiscovery,
+  type FamilyCheck,
 } from "@/lib/image-gen";
 import type { Creation } from "@/lib/gallery";
 import {
@@ -61,6 +70,9 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
   const [flux, setFlux] = useState<FluxComponents | null>(null);
   const [fluxDisco, setFluxDisco] = useState<FluxDiscovery | null>(null);
   const [videoCap, setVideoCap] = useState<VideoCapability | null>(null);
+  const [families, setFamilies] = useState<FamilyCheck[] | null>(null);
+  const [siteNote, setSiteNote] = useState<string | null>(null);
+  const drive = useDriveLink();
   const [steps, setSteps] = useState(32);
   const [cfg, setCfg] = useState(6.5);
   const [sampler, setSampler] = useState("dpmpp_2m");
@@ -81,17 +93,30 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
   const abortRef = useRef<AbortController | null>(null);
 
   const comfyUrl = connectors.configOf("comfyui")["baseUrl"] ?? "http://127.0.0.1:8188";
-  const ollamaUrl = connectors.isEnabled("ollama") ? connectors.configOf("ollama")["baseUrl"] : null;
+  const ollamaUrl = connectors.isEnabled("ollama")
+    ? connectors.configOf("ollama")["baseUrl"]
+    : null;
 
   const connect = useCallback(async () => {
     const ok = await pingComfy(comfyUrl);
     setComfyOk(ok);
     if (ok) {
-      const [list, disco, vcap] = await Promise.all([
+      const [list, disco, vcap, inv] = await Promise.all([
         fetchCheckpoints(comfyUrl),
         fetchFluxComponents(comfyUrl),
         fetchVideoCapability(comfyUrl),
+        fetchInventory(comfyUrl),
       ]);
+      const fam = modelReadiness(inv);
+      setFamilies(fam);
+      // Start on an engine that can actually render.
+      setArch((a) =>
+        fam.find((f) => f.id === a)?.ready
+          ? a
+          : fam.find((f) => f.supported && f.ready)?.id === "flux"
+            ? "flux"
+            : a,
+      );
       setCheckpoints(list);
       setCheckpoint((c) => c || list[0] || "");
       setFluxDisco(disco);
@@ -103,6 +128,34 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
   useEffect(() => {
     void connect();
   }, [connect]);
+  // Images made on any device live on the drive too.
+  useEffect(() => {
+    void gallery.syncFromDrive();
+  }, [drive.mode, drive.base]);
+
+  /** Put an image into the site being built (embedded, so it works anywhere). */
+  const useInSite = async (shot: Creation) => {
+    setSiteNote("Adding to your site…");
+    try {
+      const blob = await (await fetch(creationUrl(shot))).blob();
+      const dataUrl = await new Promise<string>((ok, bad) => {
+        const r = new FileReader();
+        r.onload = () => ok(String(r.result));
+        r.onerror = () => bad(r.error);
+        r.readAsDataURL(blob);
+      });
+      const alt = shot.prompt.replace(/"/g, "&quot;").slice(0, 120);
+      const html = workspace.get().files["index.html"] ?? "";
+      const block = wrapBlock(
+        "image",
+        `<section class="og-sec"><img src="${dataUrl}" alt="${alt}" style="width:100%;height:auto;border-radius:16px;display:block"></section>`,
+      );
+      workspace.writeFile("index.html", `${html}\n${block}`);
+      setSiteNote("Added to the end of your site. Open Build to move it (Layout tab).");
+    } catch {
+      setSiteNote("Couldn't load that image (is the image engine on?).");
+    }
+  };
 
   // Picking a style loads its tuned cfg/steps defaults.
   const applyStyle = (id: string) => {
@@ -190,6 +243,7 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
         images.map((img) => ({
           kind: "image" as const,
           url: viewUrl(comfyUrl, img),
+          img,
           prompt: opts.prompt,
           seed: opts.seed,
           opts,
@@ -247,12 +301,16 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
       const q = await queueComfy(comfyUrl, graph);
       if (!q.ok || !q.promptId) throw new Error(q.message || "ComfyUI rejected the job");
       setStatus("Rendering clip on your GPU…");
-      const outs = await waitForImages(comfyUrl, q.promptId, { signal: ac.signal, timeoutMs: 300_000 });
+      const outs = await waitForImages(comfyUrl, q.promptId, {
+        signal: ac.signal,
+        timeoutMs: 300_000,
+      });
       if (!outs.length) throw new Error("Timed out waiting for the clip");
       gallery.add(
         outs.map((img) => ({
           kind: "video" as const,
           url: viewUrl(comfyUrl, img),
+          img,
           prompt: shot.prompt,
           seed: shot.seed,
         })),
@@ -289,7 +347,11 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
           <span
             className={cn(
               "font-mono text-[10px]",
-              comfyOk ? "text-primary" : comfyOk === false ? "text-destructive" : "text-muted-foreground",
+              comfyOk
+                ? "text-primary"
+                : comfyOk === false
+                  ? "text-destructive"
+                  : "text-muted-foreground",
             )}
           >
             {comfyOk ? "ComfyUI ready" : comfyOk === false ? "offline" : "checking…"}
@@ -327,45 +389,100 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
               Engine
             </label>
             <div className="flex gap-1.5">
-              {(["sdxl", "flux"] as const).map((a) => (
-                <button
-                  key={a}
-                  onClick={() => applyArch(a)}
-                  className={cn(
-                    "flex-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition",
-                    arch === a
-                      ? "border-primary bg-primary/15 text-primary"
-                      : "border-border bg-card text-muted-foreground hover:border-primary",
-                  )}
-                >
-                  {a === "sdxl" ? "SDXL / SD" : "Flux"}
-                </button>
-              ))}
+              {(["sdxl", "flux"] as const).map((a) => {
+                const fam = families?.find((f) => f.id === a);
+                return (
+                  <button
+                    key={a}
+                    onClick={() => applyArch(a)}
+                    title={
+                      fam && !fam.ready
+                        ? `Missing: ${fam.missing.map((x) => x.file).join(", ")}`
+                        : undefined
+                    }
+                    className={cn(
+                      "flex flex-1 items-center justify-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition",
+                      arch === a
+                        ? "border-primary bg-primary/15 text-primary"
+                        : "border-border bg-card text-muted-foreground hover:border-primary",
+                      fam && !fam.ready && "opacity-60",
+                    )}
+                  >
+                    {fam &&
+                      (fam.ready ? (
+                        <CheckCircle2 className="h-3 w-3 text-success" />
+                      ) : (
+                        <CircleAlert className="h-3 w-3 text-warning" />
+                      ))}
+                    {a === "sdxl" ? "SDXL / SD" : "Flux"}
+                  </button>
+                );
+              })}
             </div>
             {arch === "flux" && (
               <p className="mt-1 text-[10px] text-muted-foreground">
                 Flux: highest fidelity + best text rendering. CFG acts as guidance (~3.5).
-                {fluxDisco && !fluxDisco.suggested && (
-                  <span className="text-destructive">
-                    {" "}
-                    No Flux files found — install a UNET, t5xxl + clip_l, and a VAE in ComfyUI.
-                  </span>
-                )}
               </p>
             )}
           </div>
+
+          {families && (
+            <details
+              className="rounded-lg border border-border bg-card p-2 text-xs"
+              open={!families.find((f) => f.id === arch)?.ready}
+            >
+              <summary className="cursor-pointer text-muted-foreground">
+                Image models on your drive
+              </summary>
+              <ul className="mt-2 space-y-2">
+                {families.map((f) => (
+                  <li key={f.id}>
+                    <div className="flex items-center gap-1.5 font-semibold">
+                      {f.ready ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+                      ) : (
+                        <CircleAlert className="h-3.5 w-3.5 text-warning" />
+                      )}
+                      {f.label}
+                      <span className="font-normal text-muted-foreground">
+                        {f.ready
+                          ? f.supported
+                            ? "ready"
+                            : "installed · rendering it here is coming; use SDXL or Flux for now"
+                          : "missing files"}
+                      </span>
+                    </div>
+                    {!f.ready && (
+                      <ul className="mt-1 space-y-0.5 pl-5 text-[11px] text-muted-foreground">
+                        {f.missing.map((x) => (
+                          <li key={x.file}>
+                            <span className="font-mono text-foreground">{x.file}</span> →{" "}
+                            <span className="font-mono">ComfyUI\models\{x.folder}\</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Put files in those folders inside ComfyUI_windows_portable on the drive, then press
+                Retry below.
+              </p>
+            </details>
+          )}
 
           <div>
             <label className="mb-1 block text-[10px] uppercase tracking-widest text-muted-foreground">
               Style
             </label>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
               {STYLE_PRESETS.map((s) => (
                 <button
                   key={s.id}
                   onClick={() => applyStyle(s.id)}
                   className={cn(
-                    "rounded-full border px-2.5 py-1 text-[11px] transition",
+                    "truncate rounded-lg border px-2 py-1.5 text-left text-[11px] transition",
                     styleId === s.id
                       ? "border-primary bg-primary/15 text-primary"
                       : "border-border bg-card text-muted-foreground hover:border-primary",
@@ -381,21 +498,32 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
             <label className="mb-1 block text-[10px] uppercase tracking-widest text-muted-foreground">
               Aspect ratio
             </label>
-            <div className="flex flex-wrap gap-1.5">
-              {ASPECTS.map((a) => (
-                <button
-                  key={a.id}
-                  onClick={() => setAspectId(a.id)}
-                  className={cn(
-                    "rounded-full border px-2.5 py-1 font-mono text-[11px] transition",
-                    aspectId === a.id
-                      ? "border-primary bg-primary/15 text-primary"
-                      : "border-border bg-card text-muted-foreground hover:border-primary",
-                  )}
-                >
-                  {a.id}
-                </button>
-              ))}
+            <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-7">
+              {ASPECTS.map((a) => {
+                const r = a.width / a.height;
+                return (
+                  <button
+                    key={a.id}
+                    onClick={() => setAspectId(a.id)}
+                    title={`${a.label} · ${a.width}×${a.height}`}
+                    aria-label={`${a.id} ${a.label}`}
+                    className={cn(
+                      "flex flex-col items-center gap-1 rounded-lg border px-1 py-1.5 font-mono text-[10px] transition",
+                      aspectId === a.id
+                        ? "border-primary bg-primary/15 text-primary"
+                        : "border-border bg-card text-muted-foreground hover:border-primary",
+                    )}
+                  >
+                    <span className="flex h-5 items-center" aria-hidden>
+                      <span
+                        className="block rounded-[2px] border border-current"
+                        style={{ width: r >= 1 ? 20 : 20 * r, height: r >= 1 ? 20 / r : 20 }}
+                      />
+                    </span>
+                    {a.id}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -582,10 +710,10 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
             )
           ) : (
             <div className="space-y-2 rounded-lg border border-border bg-card p-3 text-xs text-muted-foreground">
+              <p className="text-foreground">The image engine is off.</p>
               <p>
-                ComfyUI isn't reachable at <span className="font-mono">{comfyUrl}</span>. Start it
-                with <span className="font-mono">--enable-cors-header</span>, or copy the workflow
-                and run it in ComfyUI directly.
+                It starts with the drive when the laptop is docked to the RTX 5080. Already docked?
+                Press Retry. You can also copy the workflow and run it in ComfyUI yourself.
               </p>
               <div className="flex gap-2">
                 <Btn variant="ghost" onClick={() => void connect()}>
@@ -597,9 +725,7 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
               </div>
             </div>
           )}
-          {status && !busy && (
-            <div className="font-mono text-[11px] text-primary">{status}</div>
-          )}
+          {status && !busy && <div className="font-mono text-[11px] text-primary">{status}</div>}
           {err && <div className="font-mono text-[11px] text-destructive">{err}</div>}
         </div>
       </Panel>
@@ -620,6 +746,11 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
           )
         }
       >
+        {siteNote && (
+          <p className="mb-2 text-[11px] text-primary" role="status">
+            {siteNote}
+          </p>
+        )}
         {shots.length === 0 ? (
           <div className="flex h-full min-h-[240px] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
             <ImageOff className="h-8 w-8 opacity-40" />
@@ -637,7 +768,7 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
                 className="group relative overflow-hidden rounded-xl border border-border bg-card"
               >
                 <img
-                  src={shot.url}
+                  src={creationUrl(shot)}
                   alt={shot.prompt}
                   loading="lazy"
                   className="aspect-square w-full object-cover"
@@ -647,11 +778,11 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
                     <Film className="h-3 w-3" /> clip
                   </span>
                 )}
-                <figcaption className="absolute inset-x-0 bottom-0 flex flex-col gap-1 bg-gradient-to-t from-black/85 to-transparent p-2 opacity-0 transition group-hover:opacity-100">
+                <figcaption className="absolute inset-x-0 bottom-0 flex flex-col gap-1 bg-gradient-to-t from-black/85 to-transparent p-2 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
                   <p className="line-clamp-2 text-[10px] text-white/90">{shot.prompt}</p>
                   <div className="flex items-center gap-1">
                     <a
-                      href={shot.url}
+                      href={creationUrl(shot)}
                       target="_blank"
                       rel="noreferrer"
                       download
@@ -677,6 +808,15 @@ export function ImageGen({ initialPrompt }: { initialPrompt?: string } = {}) {
                         className="rounded bg-white/15 p-1.5 text-white hover:bg-white/30 disabled:opacity-40"
                       >
                         <Film className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {shot.kind === "image" && (
+                      <button
+                        onClick={() => void useInSite(shot)}
+                        title="Use in my site"
+                        className="rounded bg-white/15 p-1.5 text-white hover:bg-white/30"
+                      >
+                        <LayoutTemplate className="h-3.5 w-3.5" />
                       </button>
                     )}
                     <button

@@ -16,7 +16,7 @@ import { buildHandoff } from "@/lib/build-handoff";
 import { quickChat, pingOllama } from "@/lib/local-ai";
 import { pingComfy } from "@/lib/image-gen";
 import { models } from "@/lib/models";
-import { useGallery } from "@/lib/gallery";
+import { creationUrl, useGallery } from "@/lib/gallery";
 import {
   classifyCreation,
   creationRouterPrompt,
@@ -380,7 +380,7 @@ export function Create() {
                   title={c.prompt}
                 >
                   <img
-                    src={c.url}
+                    src={creationUrl(c)}
                     alt={c.prompt}
                     loading="lazy"
                     className="aspect-square w-full object-cover transition group-hover:scale-105"

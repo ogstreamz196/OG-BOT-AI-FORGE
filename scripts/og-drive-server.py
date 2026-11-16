@@ -253,6 +253,40 @@ def drive_identity(path: str = ROOT) -> dict:
     return {"serial": serial, "label": label, "total_gb": total, "free_gb": free, "kit": VERSION}
 
 
+GALLERY_MAX = 500
+
+
+def gallery_path() -> str:
+    os.makedirs(os.path.join(HERE, "logs"), exist_ok=True)
+    return os.path.join(HERE, "logs", "gallery.json")
+
+
+def gallery_load() -> list:
+    try:
+        with open(gallery_path(), encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except (OSError, ValueError):
+        return []
+
+
+def gallery_update(add: list | None = None, remove: list | None = None, clear: bool = False) -> list:
+    """Shared creations gallery kept on the drive, so every device sees the same images."""
+    items = [] if clear else gallery_load()
+    if remove:
+        gone = {str(r) for r in remove}
+        items = [i for i in items if str(i.get("id")) not in gone]
+    for it in add or []:
+        if isinstance(it, dict) and it.get("id") and not any(i.get("id") == it["id"] for i in items):
+            items.insert(0, {k: it[k] for k in ("id", "kind", "prompt", "url", "img", "seed", "createdAt", "opts") if k in it})
+    items = items[:GALLERY_MAX]
+    tmp = gallery_path() + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(items, f)
+    os.replace(tmp, gallery_path())
+    return items
+
+
 def live_stats() -> dict:
     """Real load right now, for the Hardware screen's gauges."""
     gpu = None
@@ -418,6 +452,14 @@ def make_handler(cfg: dict):
 
         def route(self):
             path = urlsplit(self.path).path
+            if path == "/og/gallery":
+                if self.allowed():
+                    if self.command == "POST":
+                        b = self.body_json()
+                        self.reply(200, {"items": gallery_update(b.get("add"), b.get("remove"), bool(b.get("clear")))})
+                    else:
+                        self.reply(200, {"items": gallery_load()})
+                return
             if path == "/og/identity":
                 if self.allowed():
                     self.reply(200, drive_identity())
