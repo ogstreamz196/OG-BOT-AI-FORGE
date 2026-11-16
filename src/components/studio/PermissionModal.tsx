@@ -24,7 +24,7 @@ export function PermissionModal() {
         <p className="text-sm font-semibold text-foreground">{def.title}</p>
         <p className="mt-1 text-sm text-muted-foreground">{def.description}</p>
         <p className="mt-3 text-[11px] text-muted-foreground">
-          You can revoke this later in Tools → Self-Improve.
+          You can turn this off later in Dashboard → OG BOT repairs → OG BOT's powers.
         </p>
         <div className="mt-5 flex justify-end gap-2">
           <button

@@ -16,6 +16,7 @@ import { connectors } from "@/lib/connectors";
 import { models } from "@/lib/models";
 import { quickChat } from "@/lib/local-ai";
 import { githubListRepos, openImprovementPR } from "@/lib/git-actions";
+import { ideaQueue } from "@/lib/idea-queue";
 
 function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (
@@ -42,6 +43,8 @@ export function SelfImprove() {
   const granted = usePermissions();
   const b = useBrain();
   const [draft, setDraft] = useState(b.systemPrompt);
+  const [editing, setEditing] = useState(false);
+  const [sent, setSent] = useState(false);
   const [proposal, setProposal] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [prMsg, setPrMsg] = useState<string | null>(null);
@@ -85,20 +88,21 @@ export function SelfImprove() {
     const ollama = connectors.isEnabled("ollama") ? connectors.configOf("ollama")["baseUrl"] : null;
     if (!ollama) {
       setProposal(
-        "Connect your local AI (Tools → Connectors → Ollama) so the AI can draft improvements.",
+        "OG BOT needs the AI engine on your drive to draft improvements. Plug in the drive and try again.",
       );
       return;
     }
     setBusy(true);
     setProposal(null);
     try {
-      const model = models.activeTag() ?? "llama3.2:1b";
+      const model = models.activeTag() ?? "qwen2.5-coder:14b";
       const text = await quickChat(
         ollama,
         model,
         "You are improving your OWN front-end: an offline, React + TypeScript AI web-app builder with a chat, live preview, section library, theme panel and connectors. Propose ONE small, concrete UI/feature improvement. Reply with: a one-line title, 2-3 sentences why, and a short code sketch. Keep it under 180 words.",
       );
       setProposal(text || "No proposal returned.");
+      setSent(false);
     } catch (e) {
       setProposal(`Could not reach the local model (${e instanceof Error ? e.message : "error"}).`);
     } finally {
@@ -108,7 +112,7 @@ export function SelfImprove() {
 
   return (
     <div className="space-y-3">
-      <Panel title="Permissions">
+      <Panel title="OG BOT's powers">
         <p className="mb-3 text-xs text-muted-foreground">
           <Shield className="mr-1 inline h-3 w-3 text-primary" />
           Every intelligent capability is off until you allow it, and you can revoke any of them
@@ -139,16 +143,17 @@ export function SelfImprove() {
       </Panel>
 
       <Panel
-        title="Its Logic"
+        title="How OG BOT builds"
         right={
           <Btn
             variant="ghost"
             onClick={() => {
               brain.reset();
               setDraft(brain.get().systemPrompt);
+              setEditing(false);
             }}
           >
-            Reset
+            Reset to default
           </Btn>
         }
       >
@@ -214,24 +219,60 @@ export function SelfImprove() {
             }}
           />
         </label>
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          disabled={!isOn("self-tune")}
-          rows={7}
-          className="w-full resize-y rounded border border-input bg-background p-2 font-mono text-[11px] leading-relaxed text-foreground outline-none focus:border-primary disabled:opacity-60"
-        />
+        <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+          Its instructions (system prompt)
+        </div>
+        {editing ? (
+          <textarea
+            aria-label="OG BOT's instructions"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={9}
+            className="w-full resize-y rounded border border-input bg-background p-2 font-mono text-[11px] leading-relaxed text-foreground outline-none focus:border-primary"
+          />
+        ) : (
+          <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded border border-border bg-background/60 p-2 font-mono text-[11px] leading-relaxed text-muted-foreground">
+            {b.systemPrompt}
+          </pre>
+        )}
         <div className="mt-2 flex gap-2">
-          {isOn("self-tune") ? (
-            <Btn onClick={() => brain.set({ systemPrompt: draft })}>Save logic</Btn>
+          {editing ? (
+            <>
+              <Btn
+                onClick={() => {
+                  brain.set({ systemPrompt: draft });
+                  setEditing(false);
+                }}
+              >
+                Save
+              </Btn>
+              <Btn
+                variant="ghost"
+                onClick={() => {
+                  setDraft(b.systemPrompt);
+                  setEditing(false);
+                }}
+              >
+                Cancel
+              </Btn>
+            </>
           ) : (
-            <Btn onClick={() => void permissions.request("self-tune")}>Allow tuning</Btn>
+            <Btn
+              variant="ghost"
+              onClick={async () => {
+                if (!isOn("self-tune") && !(await permissions.request("self-tune"))) return;
+                setDraft(b.systemPrompt);
+                setEditing(true);
+              }}
+            >
+              Edit instructions
+            </Btn>
           )}
         </div>
       </Panel>
 
       <Panel
-        title="Propose Front-End Improvements"
+        title="Ask OG BOT for an improvement"
         right={
           <Btn onClick={() => void propose()} disabled={busy}>
             {busy ? (
@@ -244,9 +285,9 @@ export function SelfImprove() {
         }
       >
         <p className="text-xs text-muted-foreground">
-          The AI reads what it is and drafts an improvement. The only way it changes its own code is
-          by <span className="text-foreground">opening a merge request on your GitHub</span> that
-          you review and merge — never a direct write to the live site.
+          OG BOT looks at this studio and suggests one improvement. You decide: hand it to OG BOT as
+          a task (it builds it on the drive, checked and undoable above), or open a merge request on
+          GitHub to review first.
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <Btn variant="ghost" onClick={() => void listRepos()}>
@@ -263,7 +304,17 @@ export function SelfImprove() {
               {proposal}
             </pre>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Btn onClick={() => void openPR()}>
+              <Btn
+                disabled={sent}
+                onClick={() => {
+                  ideaQueue.add(proposal.slice(0, 2000));
+                  setSent(true);
+                }}
+              >
+                <Lightbulb className="mr-1 inline h-3 w-3" />
+                {sent ? "Sent to OG BOT" : "Build it (send to OG BOT)"}
+              </Btn>
+              <Btn variant="ghost" onClick={() => void openPR()}>
                 <GitPullRequest className="mr-1 inline h-3 w-3" />
                 Open merge request
               </Btn>

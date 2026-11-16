@@ -50,7 +50,6 @@ import { Workbench } from "@/components/studio/Workbench";
 import { Connectors } from "@/components/studio/Connectors";
 import { Brand } from "@/components/studio/Brand";
 import { OllamaTester } from "@/components/studio/OllamaTester";
-import { SelfImprove } from "@/components/studio/SelfImprove";
 import { PermissionModal } from "@/components/studio/PermissionModal";
 import { MusicVideo } from "@/components/studio/MusicVideo";
 import { SetupGuide } from "@/components/studio/SetupGuide";
@@ -90,7 +89,6 @@ type ToolId =
   | "connectors"
   | "brand"
   | "ollama"
-  | "selfimprove"
   | "musicvideo"
   | "setup"
   | "forge"
@@ -221,15 +219,7 @@ const TOOLS: {
     C: Workbench,
     dev: true,
   },
-  {
-    id: "selfimprove",
-    label: "Self-Improve",
-    hint: "OG BOT's permissions and brain",
-    group: "Advanced",
-    icon: Brain,
-    C: SelfImprove,
-    dev: true,
-  },
+
   {
     id: "database",
     label: "Database",
@@ -307,7 +297,8 @@ function Studio() {
   useEffect(() => {
     const onOpen = (e: Event) => {
       const id = (e as CustomEvent<string>).detail;
-      if (TOOLS.some((t) => t.id === id) || id === "settings" || id === "dash") setOverlayRaw(id as Overlay);
+      if (TOOLS.some((t) => t.id === id) || id === "settings" || id === "dash")
+        setOverlayRaw(id as Overlay);
     };
     window.addEventListener(OPEN_TOOL_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_TOOL_EVENT, onOpen);

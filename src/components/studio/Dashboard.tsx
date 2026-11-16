@@ -40,6 +40,7 @@ import { getSubmissions, type Submission } from "@/lib/submissions-actions";
 import { cn } from "@/lib/utils";
 import { useDriveLink } from "@/lib/drive-link";
 import { SelfRepairPanel } from "./SelfRepair";
+import { SelfImprove } from "./SelfImprove";
 import { useEngineStatus } from "@/lib/engine-status";
 import { useErrorLog } from "@/lib/error-log";
 
@@ -135,7 +136,12 @@ export function Dashboard({ onOpen }: { onOpen?: (tool: string) => void } = {}) 
           <RemoteAccessPanel />
         </>
       )}
-      {tab === "repair" && <SelfRepairPanel />}
+      {tab === "repair" && (
+        <>
+          <SelfRepairPanel />
+          <SelfImprove />
+        </>
+      )}
 
       {tab === "licence" && (
         <>

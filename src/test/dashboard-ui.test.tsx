@@ -100,3 +100,16 @@ describe("Hardware with the drive", () => {
     expect(screen.queryByText("Detected Device")).not.toBeInTheDocument();
   });
 });
+
+describe("OG BOT's powers in the repairs tab", () => {
+  it("shows powers and read-only instructions with an Edit button", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("offline"));
+    render(<Dashboard />);
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("tab", { name: "OG BOT repairs" }));
+    expect(screen.getByText("OG BOT's powers")).toBeInTheDocument();
+    expect(screen.getByText("How OG BOT builds")).toBeInTheDocument();
+    expect(screen.queryByLabelText("OG BOT's instructions")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit instructions" })).toBeInTheDocument();
+  });
+});

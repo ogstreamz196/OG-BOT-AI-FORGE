@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
  * Permission gate. Every new "intelligent" capability is OFF by default and must
  * be explicitly granted by the user through an approval modal. requestPermission
  * resolves true only after the user clicks Allow; grants persist so the user
- * isn't re-asked, but they can revoke any time in the Self-Improve panel.
+ * isn't re-asked, but they can revoke any time in Dashboard → OG BOT repairs → OG BOT's powers.
  *
  * This is the guardrail behind orchestration and self-improvement: nothing acts
  * without a grant the user gave.
@@ -42,7 +42,7 @@ export const PERMISSIONS: PermissionDef[] = [
     id: "apply-code",
     title: "Open a merge request on your GitHub",
     description:
-      "The only way the AI changes its own code: it opens a pull request (merge request) on your connected GitHub for you to review and merge — never a direct write to the live site. Requires the GitHub connector.",
+      "Lets OG BOT open a pull request (merge request) on your connected GitHub for you to review before anything changes. Separate from self-repair on the drive, which publishes only checked fixes and can be undone. Requires the GitHub connector.",
     danger: true,
   },
 ];
