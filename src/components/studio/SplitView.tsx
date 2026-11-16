@@ -162,6 +162,7 @@ export function SplitView({
             <button
               key={m}
               role="tab"
+              aria-label={`Show ${label}`}
               aria-selected={shown === m}
               onClick={() => choose(m)}
               className={cn(

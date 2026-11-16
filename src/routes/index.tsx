@@ -23,6 +23,8 @@ import {
   Download,
   LifeBuoy,
   WifiOff,
+  Wifi,
+  HardDrive,
   Sparkles,
   Terminal,
 } from "lucide-react";
@@ -54,7 +56,9 @@ import { PermissionModal } from "@/components/studio/PermissionModal";
 import { MusicVideo } from "@/components/studio/MusicVideo";
 import { SetupGuide } from "@/components/studio/SetupGuide";
 import { DevSignIn } from "@/components/studio/DevSignIn";
-import { DEV_ROLE, useDevAuth } from "@/lib/dev-auth";
+import { useDevAuth } from "@/lib/dev-auth";
+import { useOnline } from "@/lib/online";
+import { useDriveLink } from "@/lib/drive-link";
 import { connectors } from "@/lib/connectors";
 import { hydrateCloudSections, syncCloudSections } from "@/lib/cloud";
 import { crumb } from "@/lib/error-log";
@@ -370,14 +374,20 @@ function Studio() {
             <BrandMark />
           </div>
           {effectiveDev && (
-            <span className="ml-1 hidden rounded border border-primary/60 bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold tracking-widest text-primary sm:inline">
-              {DEV_ROLE}
+            <span
+              title={dev.email ? `Signed in as D.EV (${dev.email})` : "D.EV mode (local code)"}
+              className="ml-1 hidden items-center gap-1 rounded-full border border-primary/60 bg-primary/10 py-0.5 pl-0.5 pr-2 text-[9px] font-bold tracking-widest text-primary sm:flex"
+            >
+              <span
+                className="og-gradient flex h-4 w-4 items-center justify-center rounded-full text-[8px] text-primary-foreground"
+                aria-hidden
+              >
+                {(dev.email?.[0] ?? "D").toUpperCase()}
+              </span>
+              D.EV
             </span>
           )}
-          <span className="ml-1 hidden items-center gap-1 rounded border border-secondary/60 px-1.5 py-0.5 text-[9px] font-semibold tracking-widest text-secondary sm:flex">
-            <WifiOff className="h-2.5 w-2.5" />
-            OFFLINE
-          </span>
+          <NetBadge />
           <EngineBadge />
         </div>
 
@@ -392,8 +402,13 @@ function Studio() {
           ).map(([v, label, Icon]) => (
             <button
               key={v}
-              onClick={() => setView(v)}
-              aria-label={label}
+              onClick={() => {
+                setView(v);
+                setOverlayRaw(null);
+                setBack(null);
+              }}
+              aria-label={v === "dev" ? "Dev workbench" : label}
+              aria-current={view === v && !overlay ? "page" : undefined}
               title={label}
               className={cn(
                 "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition",
@@ -427,61 +442,97 @@ function Studio() {
           )}
           {effectiveDev && (
             <>
-              <IconBtn label="Tools" onClick={() => setOverlay("tools")}>
+              <IconBtn
+                label="Tools"
+                text="Tools"
+                active={overlay === "tools" || !!tool}
+                onClick={() => setOverlay("tools")}
+              >
                 <Grid3x3 className="h-5 w-5" />
               </IconBtn>
-              <IconBtn label="Developer Dashboard" onClick={() => setOverlay("dash")}>
+              <IconBtn
+                label="Developer Dashboard"
+                text="Dashboard"
+                active={overlay === "dash"}
+                onClick={() => setOverlay("dash")}
+              >
                 <LayoutDashboard className="h-5 w-5" />
               </IconBtn>
             </>
           )}
           {!effectiveDev && (
-            <IconBtn label="Tools" onClick={() => setOverlay("tools")}>
+            <IconBtn
+              label="Tools"
+              text="Tools"
+              active={overlay === "tools" || !!tool}
+              onClick={() => setOverlay("tools")}
+            >
               <Grid3x3 className="h-5 w-5" />
             </IconBtn>
           )}
-          <IconBtn label="Settings" onClick={() => setOverlay("settings")}>
+          <IconBtn
+            label="Settings"
+            active={overlay === "settings"}
+            onClick={() => setOverlay("settings")}
+          >
             <Cog className="h-5 w-5" />
           </IconBtn>
         </div>
       </header>
 
-      {/* Create: the AIO gateway, full-width on every size */}
-      {view === "create" && (
-        <div className="min-h-0 flex-1 overflow-hidden p-3">
-          <Create />
-        </div>
-      )}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        {/* Create: the AIO gateway, full-width on every size */}
+        {view === "create" && (
+          <div className="min-h-0 flex-1 overflow-hidden p-3">
+            <Create />
+          </div>
+        )}
 
-      {/* Build: chat + live preview. Pick Chat, Split or Preview; fits any screen. */}
-      {view === "build" && (
-        <SplitView
-          id="build"
-          left={<Chat />}
-          right={<Preview onPublish={() => setOverlay("forge")} />}
-        />
-      )}
+        {/* Build: chat + live preview. Pick Chat, Split or Preview; fits any screen. */}
+        {view === "build" && (
+          <SplitView
+            id="build"
+            left={<Chat />}
+            right={<Preview onPublish={() => setOverlay("forge")} />}
+          />
+        )}
 
-      {/* Dev Workbench: zero-compromise local coding (qwen2.5-coder:14b by default). */}
-      {view === "dev" && effectiveDev && <DevWorkbench />}
+        {/* Dev Workbench: zero-compromise local coding (qwen2.5-coder:14b by default). */}
+        {view === "dev" && effectiveDev && <DevWorkbench />}
 
-      {/* Full-screen overlay */}
-      {overlay && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-background">
-          <header className="flex items-center justify-between border-b border-border px-4 py-3">
-            <h2 className="font-display text-lg uppercase">{overlayTitle}</h2>
-            <button
-              onClick={closeOverlay}
-              aria-label={back ? `Back to ${OVERLAY_TITLE[back] ?? "previous"}` : "Close"}
-              title={back ? `Back to ${OVERLAY_TITLE[back] ?? "previous"} (Esc)` : "Close (Esc)"}
-              className="rounded p-1.5 text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </header>
-          <div className="flex-1 overflow-y-auto p-4">{OverlayBody}</div>
-        </div>
-      )}
+        {/* Screen overlay: covers the work area; the main header stays so you can jump anywhere */}
+        {overlay && (
+          <div className="absolute inset-0 z-40 flex flex-col bg-background">
+            <header className="flex items-center justify-between border-b border-border px-4 py-3">
+              <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2">
+                {back && (
+                  <>
+                    <button
+                      onClick={closeOverlay}
+                      className="shrink-0 font-display text-lg uppercase text-muted-foreground hover:text-foreground"
+                    >
+                      {OVERLAY_TITLE[back] ?? "Back"}
+                    </button>
+                    <span className="text-muted-foreground" aria-hidden>
+                      ›
+                    </span>
+                  </>
+                )}
+                <h2 className="truncate font-display text-lg uppercase">{overlayTitle}</h2>
+              </nav>
+              <button
+                onClick={closeOverlay}
+                aria-label={back ? `Back to ${OVERLAY_TITLE[back] ?? "previous"}` : "Close"}
+                title={back ? `Back to ${OVERLAY_TITLE[back] ?? "previous"} (Esc)` : "Close (Esc)"}
+                className="rounded p-1.5 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </header>
+            <div className="flex-1 overflow-y-auto p-4">{OverlayBody}</div>
+          </div>
+        )}
+      </div>
 
       {/* Returning to dev while previewing the customer UI (dev only) */}
       {dev.isDev && customerPreview && (
@@ -489,7 +540,7 @@ function Studio() {
           onClick={() => setCustomerPreview(false)}
           className="fixed bottom-3 left-3 z-50 flex items-center gap-1 rounded-full border border-primary/60 bg-black/70 px-3 py-1.5 text-xs font-bold text-primary backdrop-blur"
         >
-          <Eye className="h-3.5 w-3.5" /> Exit customer view ({DEV_ROLE})
+          <Eye className="h-3.5 w-3.5" /> Exit customer view (D.EV)
         </button>
       )}
 
@@ -501,10 +552,15 @@ function Studio() {
 
 function IconBtn({
   label,
+  text,
+  active,
   onClick,
   children,
 }: {
   label: string;
+  /** Short word shown next to the icon on wide screens. */
+  text?: string;
+  active?: boolean;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -512,11 +568,41 @@ function IconBtn({
     <button
       onClick={onClick}
       aria-label={label}
+      aria-pressed={active}
       title={label}
-      className="rounded-lg p-2 text-muted-foreground transition hover:bg-accent hover:text-foreground"
+      className={cn(
+        "flex items-center gap-1.5 rounded-lg p-2 text-muted-foreground transition hover:bg-accent hover:text-foreground",
+        active && "bg-accent text-foreground",
+      )}
     >
       {children}
+      {text && <span className="hidden text-xs font-semibold lg:inline">{text}</span>}
     </button>
+  );
+}
+
+/** Online / offline and where the drive is, in one chip. */
+function NetBadge() {
+  const online = useOnline();
+  const drive = useDriveLink();
+  const [label, Icon, tone] = !online
+    ? (["Offline", WifiOff, "border-secondary/60 text-secondary"] as const)
+    : drive.mode === "local"
+      ? (["Drive here", HardDrive, "border-success/60 text-success"] as const)
+      : drive.mode === "remote"
+        ? (["Drive remote", HardDrive, "border-success/60 text-success"] as const)
+        : (["Online", Wifi, "border-border text-muted-foreground"] as const);
+  return (
+    <span
+      title={online ? drive.message : "No internet: everything on the drive still works"}
+      className={cn(
+        "ml-1 hidden items-center gap-1 rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest sm:flex",
+        tone,
+      )}
+    >
+      <Icon className="h-2.5 w-2.5" />
+      {label}
+    </span>
   );
 }
 

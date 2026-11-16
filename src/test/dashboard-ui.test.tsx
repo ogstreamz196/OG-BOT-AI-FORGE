@@ -113,3 +113,18 @@ describe("OG BOT's powers in the repairs tab", () => {
     expect(screen.getByRole("button", { name: "Edit instructions" })).toBeInTheDocument();
   });
 });
+
+describe("header engine badge", () => {
+  it("says the engine is off in plain words and opens Engine Test", async () => {
+    const { EngineBadge } = await import("@/components/studio/EngineBadge");
+    const { engineStatus } = await import("@/lib/engine-status");
+    const { OPEN_TOOL_EVENT } = await import("@/lib/open-tool");
+    vi.spyOn(engineStatus, "get").mockReturnValue({ online: false, host: "x", model: "qwen2.5-coder:14b", facts: {} });
+    const opened = vi.fn();
+    window.addEventListener(OPEN_TOOL_EVENT, (e) => opened((e as CustomEvent).detail));
+    render(<EngineBadge />);
+    const b = screen.getByRole("button", { name: /Engine off · tap to fix/ });
+    fireEvent.click(b);
+    expect(opened).toHaveBeenCalledWith("ollama");
+  });
+});
