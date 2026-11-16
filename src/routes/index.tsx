@@ -662,7 +662,7 @@ function ToolsGrid({ onPick, dev }: { onPick: (o: Overlay) => void; dev: boolean
               "absolute right-2 top-2",
               driveOn ? "text-success" : "text-muted-foreground",
             )}
-            aria-label={driveOn ? "uses the drive" : "needs the drive"}
+            aria-hidden
           >
             <Plug className="h-3.5 w-3.5" />
           </span>
@@ -670,6 +670,9 @@ function ToolsGrid({ onPick, dev }: { onPick: (o: Overlay) => void; dev: boolean
         <Icon className="h-7 w-7" />
         <span className="text-xs font-semibold">{label}</span>
         <span className="text-[10px] leading-tight text-muted-foreground">{hint}</span>
+        {needsDrive && (
+          <span className="sr-only">{driveOn ? "(uses the drive)" : "(needs the drive)"}</span>
+        )}
       </button>
     );
   };

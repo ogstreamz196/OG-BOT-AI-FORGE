@@ -13,7 +13,7 @@ P1 = next, P2 = soon, P3 = polish.
 Claude: when the owner says the drive is connected, walk them through this list before anything else.
 
 - [ ] **[you] Update the drive kit** — Setup Guide → *Drive kit* → *Download all* → replace the files in
-      `<drive>:\OFFLINE AI\OG-BOT\` (new: `og_self_repair.py`; updated: `og-drive-server.py` 1.1.0).
+      `<drive>:\OFFLINE AI\OG-BOT\` (new: `og_self_repair.py`; updated: `og-drive-server.py` 1.2.0 — Setup Guide shows if your kit is out of date).
       Then restart the drive server (replug the drive, or close and reopen the launcher).
 - [ ] **[you] Give OG BOT its self-repair key** — make a GitHub fine-grained token for
       `ogstreamz196/OG-BOT-AI-FORGE` only, permission *Contents: read and write*. Setup Guide →
