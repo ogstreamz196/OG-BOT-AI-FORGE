@@ -55,6 +55,60 @@ export function parseModelEdit(text: string): ModelEdit | null {
   return { files, message: typeof obj.message === "string" ? obj.message : "Applied changes." };
 }
 
+/** Read Ollama's streamed /api/chat answer (ndjson), or a plain JSON answer, into text. */
+export async function readChatStream(
+  res: Response,
+  onProgress?: (p: { chars: number; tokPerSec: number | null }) => void,
+): Promise<string> {
+  if (!res.body) {
+    const data = (await res.json()) as { message?: { content?: string } };
+    return data.message?.content ?? "";
+  }
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  let text = "";
+  let tokens = 0;
+  let firstAt = 0;
+  const take = (line: string) => {
+    const t = line.trim();
+    if (!t) return;
+    try {
+      const j = JSON.parse(t) as {
+        message?: { content?: string };
+        done?: boolean;
+        eval_count?: number;
+        eval_duration?: number;
+      };
+      const piece = j.message?.content ?? "";
+      if (piece) {
+        if (!firstAt) firstAt = Date.now();
+        text += piece;
+        tokens++;
+      }
+      const tps =
+        j.done && j.eval_count && j.eval_duration
+          ? Math.round((j.eval_count / j.eval_duration) * 1e9)
+          : firstAt && Date.now() - firstAt > 300
+            ? Math.round((tokens * 1000) / (Date.now() - firstAt))
+            : null;
+      onProgress?.({ chars: text.length, tokPerSec: tps });
+    } catch {
+      /* partial line */
+    }
+  };
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split("\n");
+    buf = lines.pop() ?? "";
+    lines.forEach(take);
+  }
+  take(buf);
+  return text;
+}
+
 /** A quick non-streaming completion — used for the orchestrator's reasoning step. */
 export async function quickChat(
   baseUrl: string,
@@ -96,16 +150,23 @@ export async function generateEdit(
   model: string,
   request: string,
   files: Files,
-  opts?: { context?: string; system?: string; signal?: AbortSignal },
+  opts?: {
+    context?: string;
+    system?: string;
+    signal?: AbortSignal;
+    /** Called as the answer streams in (characters so far, tokens per second once known). */
+    onProgress?: (p: { chars: number; tokPerSec: number | null }) => void;
+  },
 ): Promise<ModelEdit> {
   const context = opts?.context ? `Approach to follow:\n${opts.context}\n\n` : "";
-  const prompt = `${context}Current files:\n${JSON.stringify(files, null, 2)}\n\nRequested change: ${request}`;
+  // Compact JSON: the same files in fewer tokens, so the model reads them faster.
+  const prompt = `${context}Current files:\n${JSON.stringify(files)}\n\nRequested change: ${request}`;
   const res = await fetch(`${baseUrl.replace(/\/$/, "")}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model,
-      stream: false,
+      stream: true, // stream so the chat can show progress while it writes
       keep_alive: "24h", // keep the model warm in VRAM between edits
       options: { temperature: 0.2, num_predict: 2048 },
       messages: [
@@ -116,15 +177,19 @@ export async function generateEdit(
     ...(opts?.signal ? { signal: opts.signal } : {}),
   });
   if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
-  const data = (await res.json()) as { message?: { content?: string } };
-  const content = data.message?.content ?? "";
+  const content = await readChatStream(res, opts?.onProgress);
   const edit = parseModelEdit(content);
   if (!edit) throw new Error("Model returned an unparseable response");
   return edit;
 }
 
 /** Ask a vision model (e.g. llama3.2-vision:11b) to describe a screenshot as a design brief. */
-export async function describeImage(baseUrl: string, model: string, base64: string, signal?: AbortSignal): Promise<string> {
+export async function describeImage(
+  baseUrl: string,
+  model: string,
+  base64: string,
+  signal?: AbortSignal,
+): Promise<string> {
   const res = await fetch(`${baseUrl.replace(/\/$/, "")}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -136,7 +201,8 @@ export async function describeImage(baseUrl: string, model: string, base64: stri
       messages: [
         {
           role: "user",
-          content: "Describe this web page screenshot as a design brief for a developer: layout (top to bottom), colours (hex if you can), fonts, sections and their content. Under 150 words, plain bullet points.",
+          content:
+            "Describe this web page screenshot as a design brief for a developer: layout (top to bottom), colours (hex if you can), fonts, sections and their content. Under 150 words, plain bullet points.",
           images: [base64],
         },
       ],

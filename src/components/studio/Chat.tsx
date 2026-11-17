@@ -162,6 +162,9 @@ export function Chat() {
   const [msgs, setMsgs] = usePersistentState<Msg[]>(`og-chat-v2:${ws.project}`, CHAT_GREETING);
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<{ chars: number; tokPerSec: number | null } | null>(
+    null,
+  );
   const [image, setImage] = useState<{ name: string; b64: string; url: string } | null>(null);
   const [newProject, setNewProject] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -363,15 +366,19 @@ export function Chat() {
       }
 
       push({ role: "ai", text: `Writing it with ${model}…` });
-      const opts: { context?: string; system?: string; signal?: AbortSignal } = {
+      setProgress(null);
+      const opts: NonNullable<Parameters<typeof generateEdit>[4]> = {
         system: b.systemPrompt,
         signal: ctl.signal,
+        onProgress: setProgress,
       };
       if (context) opts.context = context;
       const edit = await generateEdit(ollama, model, text, workspace.get().files, opts);
+      setProgress(null);
       apply(edit.files, edit.message);
       setBusy(false);
     } catch (e) {
+      setProgress(null);
       if (ctl.signal.aborted) {
         push({ role: "sys", text: "Stopped. Nothing was changed." });
         setBusy(false);
@@ -414,7 +421,7 @@ export function Chat() {
               aria-hidden
             />
             <img
-              src="/og-bot-logo.png"
+              src="/og-bot-logo-128.webp"
               alt=""
               className="relative h-9 w-9 rounded-full border border-background bg-background object-cover"
             />
@@ -535,7 +542,7 @@ export function Chat() {
                 aria-hidden
               />
               <img
-                src="/og-bot-logo.png"
+                src="/og-bot-logo-128.webp"
                 alt=""
                 className="relative h-16 w-16 rounded-full border border-border object-cover"
               />
@@ -590,7 +597,7 @@ export function Chat() {
                     <span className="w-7 shrink-0" aria-hidden />
                   ) : (
                     <img
-                      src="/og-bot-logo.png"
+                      src="/og-bot-logo-128.webp"
                       alt=""
                       className="mt-0.5 h-7 w-7 shrink-0 rounded-full border border-border object-cover"
                     />
@@ -612,7 +619,7 @@ export function Chat() {
             {busy && (
               <div className="og-fade flex items-start gap-2.5">
                 <img
-                  src="/og-bot-logo.png"
+                  src="/og-bot-logo-128.webp"
                   alt=""
                   className="mt-0.5 h-7 w-7 shrink-0 rounded-full border border-border object-cover"
                 />
@@ -622,6 +629,19 @@ export function Chat() {
                     <i />
                     <i />
                   </span>
+                  {progress && progress.chars > 0 && (
+                    <span
+                      className="ml-2 font-mono text-[11px] text-muted-foreground"
+                      aria-live="polite"
+                    >
+                      writing ·{" "}
+                      {progress.chars < 1000
+                        ? progress.chars
+                        : `${(progress.chars / 1000).toFixed(1)}k`}{" "}
+                      chars
+                      {progress.tokPerSec ? ` · ${progress.tokPerSec} tok/s` : ""}
+                    </span>
+                  )}
                 </div>
               </div>
             )}

@@ -35,7 +35,7 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 HERE = os.path.dirname(os.path.abspath(__file__))          # ...\OFFLINE AI\OG-BOT
 ROOT = os.path.dirname(HERE)                               # ...\OFFLINE AI
 PORT = 11500
@@ -406,6 +406,43 @@ def start_engines(tier: str) -> None:
         log("Started ComfyUI")
 
 
+WARM_MODEL = "qwen2.5-coder:14b"
+
+
+def pick_warm_model(installed: list[str], preferred: str = WARM_MODEL) -> str | None:
+    """The model to load into memory at start: the default coder if installed, else the best coder."""
+    norm = lambda t: t if ":" in t else f"{t}:latest"  # noqa: E731
+    have = {norm(i) for i in installed}
+    for cand in (preferred, "qwen2.5-coder:7b", "qwen2.5-coder:latest"):
+        if norm(cand) in have:
+            return cand
+    return next((i for i in installed if "coder" in i and not model_too_big(i)), None)
+
+
+def warm_up(wait_s: int = 90) -> None:
+    """Load the default coder into VRAM as soon as Ollama is up, so the first message doesn't wait for a load."""
+    deadline = time.time() + wait_s
+    while not port_open(OLLAMA_PORT):
+        if time.time() > deadline:
+            return
+        time.sleep(2)
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{OLLAMA_PORT}/api/tags", timeout=10) as r:
+            installed = [m["name"] for m in json.load(r).get("models", [])]
+        model = pick_warm_model(installed)
+        if not model:
+            return
+        req = urllib.request.Request(f"http://127.0.0.1:{OLLAMA_PORT}/api/generate", method="POST",
+                                     data=json.dumps({"model": model, "keep_alive": "24h"}).encode(),
+                                     headers={"Content-Type": "application/json"})
+        t0 = time.time()
+        with urllib.request.urlopen(req, timeout=300) as r:
+            r.read()
+        log(f"Warmed up {model} in {time.time() - t0:.1f}s (stays loaded 24h)")
+    except Exception as e:  # noqa: BLE001
+        log(f"Warm-up skipped: {e}")
+
+
 # ── 3. HTTP front door ─────────────────────────────────────────────────────────
 def origin_allowed(origin: str | None) -> bool:
     return bool(origin and ALLOWED_ORIGINS.match(origin))
@@ -770,6 +807,7 @@ def main() -> None:
     state["hardware"] = scan_hardware()
     state["tier"] = state["hardware"]["tier"]
     start_engines(state["tier"])
+    threading.Thread(target=warm_up, daemon=True).start()
     threading.Thread(target=online_loop, args=(cfg,), daemon=True).start()
     try:
         server = ThreadingHTTPServer(("127.0.0.1", PORT), make_handler(cfg))

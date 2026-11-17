@@ -88,3 +88,9 @@ For each file you change, the whole new file:
 
 Then one line: `SUMMARY: <what you changed and why>`.
 Or, when code can't fix it, only: `NO_CODE_CHANGE: <what the owner should do>`.
+
+## Keep it fast
+- Screens load on demand: a new screen is added to `src/components/studio/screens.ts`, never
+  imported directly in `src/routes/index.tsx` (that would put it in the first download).
+- Heavy libraries (CodeMirror, jszip) only inside screens that need them.
+- Small images: use `/og-bot-logo-128.webp`, not the big PNG.

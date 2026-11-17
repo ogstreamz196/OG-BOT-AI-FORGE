@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import {
   Settings as Cog,
   LayoutDashboard,
@@ -29,31 +29,37 @@ import {
   Terminal,
 } from "lucide-react";
 import { SplitView } from "@/components/studio/SplitView";
-import { DevWorkbench } from "@/components/studio/DevWorkbench";
 import { EngineBadge } from "@/components/studio/EngineBadge";
 import { BrandMark } from "@/components/studio/BrandMark";
 import { buildHandoff } from "@/lib/build-handoff";
 import { cn } from "@/lib/utils";
 // Brand mark served locally by the Worker (the Lovable CDN path does not resolve on Cloudflare).
-const LOGO_SRC = "/og-bot-logo.png";
-import { Chat } from "@/components/studio/Chat";
+const LOGO_SRC = "/og-bot-logo-128.webp";
 import { Create } from "@/components/studio/Create";
-import { Preview } from "@/components/studio/Preview";
-import { Settings } from "@/components/studio/Settings";
-import { Dashboard } from "@/components/studio/Dashboard";
-import { Forge } from "@/components/studio/Forge";
-import { ImageGen } from "@/components/studio/ImageGen";
-import { Music } from "@/components/studio/Music";
-import { Hardware } from "@/components/studio/Hardware";
-import { Sentinel } from "@/components/studio/Sentinel";
-import { Database } from "@/components/studio/Database";
-import { GitSync } from "@/components/studio/GitSync";
-import { Connectors } from "@/components/studio/Connectors";
-import { Brand } from "@/components/studio/Brand";
-import { OllamaTester } from "@/components/studio/OllamaTester";
 import { PermissionModal } from "@/components/studio/PermissionModal";
-import { MusicVideo } from "@/components/studio/MusicVideo";
-import { SetupGuide } from "@/components/studio/SetupGuide";
+import { screens, prefetchScreens } from "@/components/studio/screens";
+
+// Every screen except Create loads when first opened (and is prefetched while idle),
+// so the first visit downloads far less.
+const {
+  Chat,
+  Preview,
+  DevWorkbench,
+  Settings,
+  Dashboard,
+  Forge,
+  ImageGen,
+  Music,
+  Hardware,
+  Sentinel,
+  Database,
+  GitSync,
+  Connectors,
+  Brand,
+  OllamaTester,
+  MusicVideo,
+  SetupGuide,
+} = screens;
 import { DevSignIn } from "@/components/studio/DevSignIn";
 import { useDevAuth } from "@/lib/dev-auth";
 import { useOnline } from "@/lib/online";
@@ -286,6 +292,10 @@ function Studio() {
     return () => window.removeEventListener("beforeinstallprompt", onPrompt);
   }, []);
 
+  // Once the page is idle, fetch the other screens in the background (Build first), so they
+  // open instantly and the service worker caches them for offline use.
+  useEffect(() => prefetchScreens(), []);
+
   // Any screen can ask to open a tool (e.g. Music sketchpad → Music Video Studio).
   useEffect(() => {
     const onOpen = (e: Event) => {
@@ -340,7 +350,7 @@ function Studio() {
     overlay === "settings" ? (
       <Settings />
     ) : overlay === "dash" ? (
-      <Dashboard onOpen={(id) => TOOLS.some((t) => t.id === id) && setOverlay(id as ToolId)} />
+      <Dashboard onOpen={(id: string) => TOOLS.some((t) => t.id === id) && setOverlay(id as ToolId)} />
     ) : overlay === "tools" ? (
       <ToolsGrid onPick={setOverlay} dev={effectiveDev} />
     ) : tool ? (
@@ -481,13 +491,25 @@ function Studio() {
         {view === "build" && (
           <SplitView
             id="build"
-            left={<Chat />}
-            right={<Preview onPublish={() => setOverlay("forge")} />}
+            left={
+              <Suspense fallback={<ScreenLoading />}>
+                <Chat />
+              </Suspense>
+            }
+            right={
+              <Suspense fallback={<ScreenLoading />}>
+                <Preview onPublish={() => setOverlay("forge")} />
+              </Suspense>
+            }
           />
         )}
 
         {/* Dev Workbench: zero-compromise local coding (qwen2.5-coder:14b by default). */}
-        {view === "dev" && effectiveDev && <DevWorkbench />}
+        {view === "dev" && effectiveDev && (
+          <Suspense fallback={<ScreenLoading />}>
+            <DevWorkbench />
+          </Suspense>
+        )}
 
         {/* Screen overlay: covers the work area; the main header stays so you can jump anywhere */}
         {overlay && (
@@ -518,7 +540,9 @@ function Studio() {
                 <X className="h-5 w-5" />
               </button>
             </header>
-            <div className="flex-1 overflow-y-auto p-4">{OverlayBody}</div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <Suspense fallback={<ScreenLoading />}>{OverlayBody}</Suspense>
+            </div>
           </div>
         )}
       </div>
@@ -535,6 +559,20 @@ function Studio() {
 
       {devOpen && <DevSignIn onClose={() => setDevOpen(false)} />}
       <PermissionModal />
+    </div>
+  );
+}
+
+function ScreenLoading() {
+  return (
+    <div
+      className="flex h-full min-h-[200px] items-center justify-center"
+      role="status"
+      aria-label="Loading"
+    >
+      <span className="og-typing" aria-hidden>
+        <i className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary" />
+      </span>
     </div>
   );
 }

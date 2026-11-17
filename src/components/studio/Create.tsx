@@ -23,9 +23,10 @@ import {
   parseCreation,
   type CreationKind,
 } from "@/lib/creation";
-import { ImageGen } from "./ImageGen";
-import { Music } from "./Music";
-import { MusicVideo } from "./MusicVideo";
+import { Suspense } from "react";
+import { screens } from "./screens";
+
+const { ImageGen, Music, MusicVideo } = screens;
 
 type Mode = "auto" | CreationKind;
 
@@ -275,13 +276,19 @@ export function Create() {
               New creation
             </button>
           </div>
-          {routed.kind === "image" && (
-            <ImageGen key={routed.prompt} initialPrompt={routed.prompt} />
-          )}
-          {routed.kind === "song" && <Music key={routed.prompt} initialPrompt={routed.prompt} />}
-          {routed.kind === "video" && (
-            <MusicVideo key={routed.prompt} initialPrompt={routed.prompt} />
-          )}
+          <Suspense
+            fallback={
+              <p className="p-6 text-center text-xs text-muted-foreground">Opening the studio…</p>
+            }
+          >
+            {routed.kind === "image" && (
+              <ImageGen key={routed.prompt} initialPrompt={routed.prompt} />
+            )}
+            {routed.kind === "song" && <Music key={routed.prompt} initialPrompt={routed.prompt} />}
+            {routed.kind === "video" && (
+              <MusicVideo key={routed.prompt} initialPrompt={routed.prompt} />
+            )}
+          </Suspense>
         </div>
       </div>
     );

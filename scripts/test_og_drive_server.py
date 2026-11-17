@@ -175,6 +175,14 @@ class SaveProjectTests(unittest.TestCase):
             self.assertFalse(ogds.save_project("", [{"name": "a", "content": "b"}], root=d)["ok"])
 
 
+class WarmUpTests(unittest.TestCase):
+    def test_pick_warm_model(self):
+        self.assertEqual(ogds.pick_warm_model(["llama3.2:3b", "qwen2.5-coder:14b"]), "qwen2.5-coder:14b")
+        self.assertEqual(ogds.pick_warm_model(["qwen2.5-coder:7b"]), "qwen2.5-coder:7b")
+        self.assertEqual(ogds.pick_warm_model(["deepseek-coder-v2:16b", "my-coder:7b"]), "my-coder:7b")
+        self.assertIsNone(ogds.pick_warm_model(["llama3.2:3b"]))
+
+
 class OwnerIdeasTests(unittest.TestCase):
     def test_hint_and_idea_go_into_the_prompt(self):
         import tempfile
