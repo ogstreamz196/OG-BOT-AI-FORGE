@@ -34,6 +34,7 @@ import {
   undoPatch,
   type EditRecord,
 } from "@/lib/chat-edits";
+import { checkSite, fixRequest } from "@/lib/site-check";
 
 export type Msg = {
   role: "you" | "ai" | "sys";
@@ -162,6 +163,7 @@ export function Chat() {
   const [msgs, setMsgs] = usePersistentState<Msg[]>(`og-chat-v2:${ws.project}`, CHAT_GREETING);
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [progress, setProgress] = useState<{ chars: number; tokPerSec: number | null } | null>(
     null,
   );
@@ -376,9 +378,41 @@ export function Chat() {
       const edit = await generateEdit(ollama, model, text, workspace.get().files, opts);
       setProgress(null);
       apply(edit.files, edit.message);
+
+      // Check the result like a developer would; if something's broken, OG BOT fixes it (up to 2 tries).
+      setChecking(true);
+      let issues = await checkSite(workspace.get().files);
+      for (let attempt = 1; issues.length && attempt <= 2 && !ctl.signal.aborted; attempt++) {
+        push({
+          role: "ai",
+          text: `Checked the site: found ${issues.length} problem${issues.length > 1 ? "s" : ""}. Fixing (try ${attempt} of 2)…`,
+          log: issues.map((i) => i.text),
+        });
+        const fix = await generateEdit(
+          ollama,
+          model,
+          fixRequest(issues, text),
+          workspace.get().files,
+          opts,
+        );
+        setProgress(null);
+        apply(fix.files, fix.message);
+        issues = await checkSite(workspace.get().files);
+      }
+      setChecking(false);
+      push(
+        issues.length
+          ? {
+              role: "ai",
+              text: `Still ${issues.length} problem${issues.length > 1 ? "s" : ""} I couldn't fix. Tell me more, or undo the last edit.`,
+              log: issues.map((i) => i.text),
+            }
+          : { role: "sys", text: "✓ Checked: the site runs with no errors." },
+      );
       setBusy(false);
     } catch (e) {
       setProgress(null);
+      setChecking(false);
       if (ctl.signal.aborted) {
         push({ role: "sys", text: "Stopped. Nothing was changed." });
         setBusy(false);
@@ -629,6 +663,14 @@ export function Chat() {
                     <i />
                     <i />
                   </span>
+                  {checking && !progress && (
+                    <span
+                      className="ml-2 font-mono text-[11px] text-muted-foreground"
+                      aria-live="polite"
+                    >
+                      checking the site…
+                    </span>
+                  )}
                   {progress && progress.chars > 0 && (
                     <span
                       className="ml-2 font-mono text-[11px] text-muted-foreground"
