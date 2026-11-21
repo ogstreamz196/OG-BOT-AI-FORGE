@@ -30,6 +30,9 @@ export function Database() {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<Row[] | string | null>(null);
   const [newTable, setNewTable] = useState("");
+  /** Table names you opened by hand when the key can't list them. */
+  const [known, setKnown] = usePersistentState<string[]>("og-db-remote-tables", []);
+  const [listBlocked, setListBlocked] = useState(false);
 
   const loadTables = useCallback(async () => {
     setError(null);
@@ -42,16 +45,25 @@ export function Database() {
     setLoading(true);
     try {
       const names = await remoteDb.tables(remote!);
+      setListBlocked(false);
       setTables(names);
       setTable((t) => (names.includes(t) ? t : (names[0] ?? "")));
     } catch (e) {
-      setTables([]);
-      setError(e instanceof Error ? e.message : String(e));
+      // Newer publishable keys can't list tables: open them by name instead.
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/secret api key|row-level|not allowed|401|403/i.test(msg)) {
+        setListBlocked(true);
+        setTables(known);
+        setTable((t) => (known.includes(t) ? t : (known[0] ?? "")));
+      } else {
+        setTables([]);
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [useRemote, remote?.url, remote?.key, Object.keys(local).join(",")]);
+  }, [useRemote, remote?.url, remote?.key, Object.keys(local).join(","), known.join(",")]);
 
   const loadRows = useCallback(async () => {
     if (!table) return setRows([]);
@@ -214,20 +226,26 @@ export function Database() {
             ))}
             {tables.length === 0 && !loading && <li className="text-xs text-muted-foreground">No tables.</li>}
           </ul>
-          {!useRemote && (
+          {useRemote && listBlocked && (
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Your database doesn't list its tables to the publishable key. Type a table name to open it.
+            </p>
+          )}
+          {(!useRemote || listBlocked) && (
             <div className="mt-3 flex gap-1">
               <input
-                aria-label="New table name"
-                placeholder="new_table"
+                aria-label={useRemote ? "Table name to open" : "New table name"}
+                placeholder={useRemote ? "table_name" : "new_table"}
                 className={cn(inputCls, "min-w-0")}
                 value={newTable}
                 onChange={(e) => setNewTable(e.target.value.replace(/[^\w]/g, "_").toLowerCase())}
               />
               <button
                 aria-label="Add table"
-                disabled={!newTable || newTable in local}
+                disabled={!newTable || (useRemote ? known.includes(newTable) : newTable in local)}
                 onClick={() => {
-                  setLocal({ ...local, [newTable]: [] });
+                  if (useRemote) setKnown([...known, newTable]);
+                  else setLocal({ ...local, [newTable]: [] });
                   setTable(newTable);
                   setNewTable("");
                 }}

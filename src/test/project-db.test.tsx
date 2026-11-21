@@ -48,3 +48,25 @@ describe("Database screen", () => {
     expect(localStorage.getItem("og-local-db-v1")).toContain("buy milk");
   });
 });
+
+describe("Database with a publishable key that can't list tables", () => {
+  it("lets you open a table by name and remembers it", async () => {
+    vi.spyOn(connectors, "isEnabled").mockReturnValue(true);
+    vi.spyOn(connectors, "configOf").mockReturnValue({ url: "https://p.supabase.co", anonKey: "sb_publishable_x" });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (u) =>
+      String(u).endsWith("/rest/v1/")
+        ? new Response(JSON.stringify({ message: "Secret API key required" }), { status: 401 })
+        : new Response(JSON.stringify([{ id: 1, title: "hello" }])),
+    );
+    render(<Database />);
+    await act(async () => {});
+    expect(screen.getByText(/doesn't list its tables to the publishable key/)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Table name to open"), { target: { value: "notes" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Add table" }));
+    });
+    expect(await screen.findByText("hello")).toBeInTheDocument();
+    expect(localStorage.getItem("og-db-remote-tables")).toContain("notes");
+  });
+});

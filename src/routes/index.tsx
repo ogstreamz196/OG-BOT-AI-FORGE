@@ -350,7 +350,9 @@ function Studio() {
     overlay === "settings" ? (
       <Settings />
     ) : overlay === "dash" ? (
-      <Dashboard onOpen={(id: string) => TOOLS.some((t) => t.id === id) && setOverlay(id as ToolId)} />
+      <Dashboard
+        onOpen={(id: string) => TOOLS.some((t) => t.id === id) && setOverlay(id as ToolId)}
+      />
     ) : overlay === "tools" ? (
       <ToolsGrid onPick={setOverlay} dev={effectiveDev} />
     ) : tool ? (
@@ -361,21 +363,21 @@ function Studio() {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
       {/* Top bar */}
-      <header className="flex items-center justify-between gap-2 border-b border-border px-2 py-2 sm:px-3">
-        <div className="flex items-center gap-2">
+      <header className="og-glass relative z-30 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-b border-border/60 px-2 py-2 sm:px-3">
+        <div className="flex min-w-0 items-center gap-2">
           <img
             src={logo}
             alt="OG BOT, the assistant powering OFFLINE FORGE"
             onClick={tapLogo}
             className="h-8 w-8 cursor-pointer object-contain select-none"
           />
-          <div className="hidden sm:block">
+          <div className="hidden shrink-0 whitespace-nowrap lg:block">
             <BrandMark />
           </div>
           {effectiveDev && (
             <span
               title={dev.email ? `Signed in as D.EV (${dev.email})` : "D.EV mode (local code)"}
-              className="ml-1 hidden items-center gap-1 rounded-full border border-primary/60 bg-primary/10 py-0.5 pl-0.5 pr-2 text-[9px] font-bold tracking-widest text-primary sm:flex"
+              className="ml-1 hidden shrink-0 items-center gap-1 rounded-full border border-primary/60 bg-primary/10 py-0.5 pl-0.5 pr-2 text-[9px] font-bold tracking-widest text-primary md:flex"
             >
               <span
                 className="og-gradient flex h-4 w-4 items-center justify-center rounded-full text-[8px] text-primary-foreground"
@@ -391,7 +393,12 @@ function Studio() {
         </div>
 
         {/* Primary view switch */}
-        <div className="flex items-center rounded-full border border-border bg-card/60 p-0.5">
+        <div
+          className={cn(
+            "og-hairline flex items-center rounded-full bg-card/60 p-0.5 transition",
+            overlay && "opacity-80",
+          )}
+        >
           {(
             [
               ["create", "Create", Sparkles],
@@ -411,9 +418,11 @@ function Studio() {
               title={label}
               className={cn(
                 "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition",
-                view === v
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground",
+                view === v && !overlay
+                  ? "og-gradient text-primary-foreground shadow-md shadow-primary/30"
+                  : view === v
+                    ? "bg-primary/20 text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
               )}
             >
               <Icon className="h-3.5 w-3.5" />
@@ -422,7 +431,7 @@ function Studio() {
           ))}
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center justify-self-end gap-1">
           {installEvt && (
             <button
               onClick={() => void installApp()}
@@ -434,9 +443,11 @@ function Studio() {
           {effectiveDev && (
             <button
               onClick={() => setCustomerPreview(true)}
-              className="hidden items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold text-foreground transition hover:border-primary sm:flex"
+              aria-label="Customer view"
+              title="See the studio as a customer does"
+              className="hidden shrink-0 items-center gap-1.5 rounded-lg border border-border px-2 py-1.5 text-xs font-semibold text-foreground transition hover:border-primary sm:flex xl:px-2.5"
             >
-              <Eye className="h-4 w-4" /> Customer view
+              <Eye className="h-4 w-4" /> <span className="hidden xl:inline">Customer view</span>
             </button>
           )}
           {effectiveDev && (
@@ -541,7 +552,9 @@ function Studio() {
               </button>
             </header>
             <div className="flex-1 overflow-y-auto p-4">
-              <Suspense fallback={<ScreenLoading />}>{OverlayBody}</Suspense>
+              <div className="mx-auto w-full max-w-7xl">
+                <Suspense fallback={<ScreenLoading />}>{OverlayBody}</Suspense>
+              </div>
             </div>
           </div>
         )}
@@ -623,7 +636,7 @@ function NetBadge() {
     <span
       title={online ? drive.message : "No internet: everything on the drive still works"}
       className={cn(
-        "ml-1 hidden items-center gap-1 rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest sm:flex",
+        "ml-1 hidden shrink-0 items-center gap-1 whitespace-nowrap rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest lg:flex",
         tone,
       )}
     >

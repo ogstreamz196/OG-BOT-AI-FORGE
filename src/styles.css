@@ -67,6 +67,14 @@
 
 @layer base {
   * { border-color: var(--color-border); }
+  /* Keyboard focus is always visible (mouse clicks don't show it). */
+  :where(button, a, [role="tab"], [role="radio"], summary, input[type="checkbox"]):focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+  /* Slim scrollbars that match the dark theme. */
+  * { scrollbar-width: thin; scrollbar-color: color-mix(in oklab, var(--muted-foreground) 35%, transparent) transparent; }
+  ::selection { background: color-mix(in oklab, var(--primary) 45%, transparent); }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);

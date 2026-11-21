@@ -100,7 +100,7 @@ export function Settings() {
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5 text-sm text-foreground">
                               {installed && <Check className="h-3.5 w-3.5 shrink-0 text-primary" aria-label="installed" />}
-                              <span className="truncate">{mod.name}</span>
+                              <span className="min-w-0 break-words">{mod.name}</span>
                               {isDefault && <span className="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-semibold text-primary">default</span>}
                             </div>
                             <div className="font-mono text-[11px] text-muted-foreground">

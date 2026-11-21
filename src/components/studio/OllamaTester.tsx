@@ -316,7 +316,7 @@ export function OllamaTester() {
               void send(input);
             }
           }}
-          placeholder="Message the model…  (Enter to send, Shift+Enter for newline)"
+          placeholder="Message the model… (Enter to send)"
         />
         {streaming ? (
           <button className="oll-btn oll-stop" onClick={stop}>
@@ -337,38 +337,38 @@ export function OllamaTester() {
 }
 
 const CSS = `
-.oll-root{display:flex;flex-direction:column;gap:10px;height:100%;min-height:520px;color:#e6e9f5;font-family:Inter,system-ui,sans-serif}
+.oll-root{display:flex;flex-direction:column;gap:10px;height:100%;min-height:520px;color:var(--foreground);font-family:var(--font-sans)}
 .oll-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .oll-status{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600}
 .oll-dot{width:10px;height:10px;border-radius:50%;box-shadow:0 0 8px currentColor}
-.oll-url{flex:1;min-width:160px;background:#0c1020;border:1px solid #273150;border-radius:8px;padding:7px 10px;color:#e6e9f5;font:12px ui-monospace,monospace}
-.oll-select{background:#0c1020;border:1px solid #273150;border-radius:8px;padding:7px 10px;color:#e6e9f5;font:12px ui-monospace,monospace;max-width:220px}
-.oll-btn{background:#3d5afe;color:#fff;border:0;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer}
+.oll-url{flex:1;min-width:160px;background:color-mix(in oklab,var(--background) 60%,transparent);border:1px solid var(--input);border-radius:10px;padding:8px 12px;color:var(--foreground);font:12px var(--font-mono)}
+.oll-select{background:color-mix(in oklab,var(--background) 60%,transparent);border:1px solid var(--input);border-radius:10px;padding:8px 10px;color:var(--foreground);font:12px var(--font-mono);max-width:240px;min-width:0}
+.oll-btn{background-image:linear-gradient(135deg,var(--primary),color-mix(in oklab,var(--secondary) 85%,var(--primary)));color:var(--primary-foreground);border:0;border-radius:12px;padding:8px 14px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;cursor:pointer}
 .oll-btn:disabled{opacity:.4;cursor:default}
 .oll-stop{background:#ef4444}
-.oll-ghost{background:transparent;border:1px solid #3d5afe;color:#9ab0ff}
-.oll-table{display:flex;flex-direction:column;gap:4px;background:#080b16;border:1px solid #1b2440;border-radius:12px;padding:10px}
+.oll-ghost{background:transparent;background-image:none;border:1px solid var(--border);color:var(--foreground)}
+.oll-table{display:flex;flex-direction:column;gap:4px;background:color-mix(in oklab,var(--panel) 85%,transparent);border:1px solid var(--border);border-radius:14px;padding:10px}
 .oll-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1.2fr) auto auto;gap:10px;font-size:12px;align-items:center}
-.oll-mono{font:12px ui-monospace,monospace;color:#9aa4c4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.oll-mono{font:12px var(--font-mono);color:var(--muted-foreground);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .oll-ok{color:#4ade80}.oll-failed{color:#f87171}.oll-testing{color:#facc15}.oll-waiting{color:#7f8aad}
-.oll-speed{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:#9aa4c4}
-.oll-speed b{color:#e6e9f5}
-.oll-error{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);color:#fecaca;border-radius:10px;padding:10px 12px;font-size:13px}
-.oll-chat{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;background:#080b16;border:1px solid #1b2440;border-radius:12px;padding:14px}
-.oll-empty{color:#7f8aad;font-size:13px;text-align:center;margin:auto}
+.oll-speed{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted-foreground)}
+.oll-speed b{color:var(--foreground)}
+.oll-error{background:color-mix(in oklab,var(--destructive) 12%,transparent);border:1px solid color-mix(in oklab,var(--destructive) 45%,transparent);color:var(--foreground);border-radius:12px;padding:10px 12px;font-size:13px}
+.oll-chat{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;background:color-mix(in oklab,var(--panel) 85%,transparent);border:1px solid var(--border);border-radius:16px;padding:16px}
+.oll-empty{color:var(--muted-foreground);font-size:13px;text-align:center;margin:auto}
 .oll-msg{display:flex;flex-direction:column;gap:4px;max-width:92%}
 .oll-user{align-self:flex-end;align-items:flex-end}
-.oll-role{font:11px ui-monospace,monospace;color:#7f8aad;text-transform:lowercase}
-.oll-body{background:#111831;border:1px solid #223056;border-radius:12px;padding:10px 12px;font-size:14px;line-height:1.5}
-.oll-user .oll-body{background:#1d2b63;border-color:#2c3f86}
-.oll-code{background:#05070f;border:1px solid #223056;border-radius:8px;padding:10px;overflow-x:auto;margin:8px 0;font:12.5px ui-monospace,SFMono-Regular,monospace;color:#9ad5ff}
-.oll-caret{display:inline-block;width:7px;height:14px;background:#00f59b;margin-left:2px;vertical-align:text-bottom;animation:oll-blink 1s steps(2) infinite}
+.oll-role{font:11px var(--font-mono);color:var(--muted-foreground);text-transform:lowercase}
+.oll-body{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:10px 14px;font-size:14px;line-height:1.55}
+.oll-user .oll-body{background-image:linear-gradient(135deg,var(--primary),color-mix(in oklab,var(--secondary) 85%,var(--primary)));border-color:transparent;color:var(--primary-foreground)}
+.oll-code{background:color-mix(in oklab,var(--background) 80%,black);border:1px solid var(--border);border-radius:10px;padding:10px;overflow-x:auto;margin:8px 0;font:12.5px var(--font-mono);color:var(--foreground)}
+.oll-caret{display:inline-block;width:7px;height:14px;background:var(--primary);margin-left:2px;vertical-align:text-bottom;animation:oll-blink 1s steps(2) infinite}
 @keyframes oll-blink{50%{opacity:0}}
 .oll-quick{display:flex;flex-wrap:wrap;gap:6px}
-.oll-chip{background:transparent;border:1px solid #273150;color:#9aa4c4;border-radius:999px;padding:5px 12px;font-size:12px;cursor:pointer}
-.oll-chip:hover:not(:disabled){border-color:#3d5afe;color:#9ab0ff}
+.oll-chip{background:transparent;border:1px solid var(--border);color:var(--muted-foreground);border-radius:999px;padding:5px 12px;font-size:12px;cursor:pointer}
+.oll-chip:hover:not(:disabled){border-color:var(--primary);color:var(--foreground)}
 .oll-chip:disabled{opacity:.4;cursor:default}
 .oll-input{display:flex;gap:8px;align-items:flex-end}
-.oll-input textarea{flex:1;resize:none;max-height:140px;background:#0c1020;border:1px solid #273150;border-radius:10px;padding:10px 12px;color:#e6e9f5;font:14px Inter,system-ui,sans-serif;outline:none}
-.oll-input textarea:focus{border-color:#3d5afe}
+.oll-input textarea{flex:1;resize:none;max-height:140px;background:color-mix(in oklab,var(--background) 60%,transparent);border:1px solid var(--input);border-radius:14px;padding:10px 14px;color:var(--foreground);font:14px var(--font-sans);outline:none}
+.oll-input textarea:focus{border-color:var(--primary)}
 `;
